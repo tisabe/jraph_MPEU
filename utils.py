@@ -40,10 +40,14 @@ def dist_matrix(position_matrix):
     distance_matrix = jnp.abs(distance_matrix)  # to avoid negative numbers before sqrt
     return jnp.sqrt(distance_matrix)
 
+def set_diag_high(mat, value=9999.9):
+    return np.fill_diagonal(mat, value)
+
 
 def get_cutoff_adj_from_dist(distance_matrix, cutoff):
     '''Return the adjacency matrix in the form of senders and receivers from a distance matrix and a cutoff.'''
 
+    distance_matrix = set_diag_high(distance_matrix) # set diagonal to delete self-edges
     #print(distance_matrix)
     assert(len(np.shape(distance_matrix)) == 2) # distance matrix cannot be batched
 
@@ -55,8 +59,11 @@ def get_cutoff_adj_from_dist(distance_matrix, cutoff):
 
 def get_knn_adj_from_dist(distance_matrix, k):
     '''Return the adjacency matrix with k-nearest neighbours in form of senders and receivers from a distance matrix'''
+
+    distance_matrix = set_diag_high(distance_matrix)  # set diagonal to delete self-edges
+
     n_pos = len(distance_matrix)
-    tops, nn = jax.lax.top_k(distance_matrix, k)
+    tops, nn = jax.lax.top_k(-1*distance_matrix, k)
 
     rows = jnp.linspace(0, n_pos, num=k * n_pos, endpoint=False)
     rows = jnp.int16(jnp.floor(rows))
