@@ -40,8 +40,17 @@ def dist_matrix(position_matrix):
     distance_matrix = jnp.abs(distance_matrix)  # to avoid negative numbers before sqrt
     return jnp.sqrt(distance_matrix)
 
+
+def fill_diagonal(a, val):
+    '''Jax numpy version of fill_diagonal in numpy. See:
+    https://github.com/google/jax/issues/2680#issuecomment-804269672'''
+    assert a.ndim >= 2
+    i, j = jnp.diag_indices(min(a.shape[-2:]))
+    return a.at[..., i, j].set(val)
+
+
 def set_diag_high(mat, value=9999.9):
-    return np.fill_diagonal(mat, value)
+    return fill_diagonal(mat, value)
 
 
 def get_cutoff_adj_from_dist(distance_matrix, cutoff):
@@ -63,6 +72,8 @@ def get_knn_adj_from_dist(distance_matrix, k):
     distance_matrix = set_diag_high(distance_matrix)  # set diagonal to delete self-edges
 
     n_pos = len(distance_matrix)
+    k = min([n_pos-1, k]) # function should return all neighbours if k >= number of neighbours-1 in graph
+    # so the number of neighbours is always smaller than number of positions, since self edges are not included
     tops, nn = jax.lax.top_k(-1*distance_matrix, k)
 
     rows = jnp.linspace(0, n_pos, num=k * n_pos, endpoint=False)
@@ -82,14 +93,41 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
     globals = [graph_s.y[2]]
 
     # construct adjacency matrix from positions in node features
-    distances = dist_matrix_batch(nodes[:, 5:8])
-    senders, receivers = get_adj_from_dist(distances, cutoff=cutoff)
+    distances = dist_matrix(nodes[:, 5:8])
+    senders, receivers = get_cutoff_adj_from_dist(distances, cutoff=cutoff)
+    print(senders)
+    print(receivers)
 
 
     graph_j = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
-        n_edge=np.asarray([len(edges)]),
-        nodes=nodes, edges=edges,
+        n_edge=np.asarray([len(senders)]),
+        nodes=nodes, edges=None,
+        globals=None,
+        senders=senders, receivers=receivers)
+
+    return graph_j, globals
+
+
+def spektral_to_jraph_(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.GraphsTuple:
+    '''Return graph in jraph format and separate label (globals) from graph'''
+    nodes = graph_s.x
+    edges = graph_s.e
+    #globals = graph_s.y
+    globals = [graph_s.y[2]]
+
+    adj = graph_s.a
+    adj = adj.tocoo()
+    senders = adj.row
+    receivers = adj.col
+
+    print(senders)
+    print(receivers)
+
+    graph_j = jraph.GraphsTuple(
+        n_node=np.asarray([len(nodes)]),
+        n_edge=np.asarray([len(senders)]),
+        nodes=nodes, edges=None,
         globals=None,
         senders=senders, receivers=receivers)
 

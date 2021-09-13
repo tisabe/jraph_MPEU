@@ -18,17 +18,9 @@ class TestHelperFunctions(unittest.TestCase):
 
         print(euclidian_distance)
 
-        n_pos = len(euclidian_distance)
-        k = 3 # cutoff number of neighbours
-        tops, nn = jax.lax.top_k(euclidian_distance, k)
-        print(nn)
-
-        rows = jnp.linspace(0, n_pos, num=k*n_pos, endpoint=False)
-        print(rows)
-        rows = jnp.int16(jnp.floor(rows))
-        print(rows)
-        nn = nn.flatten()
-        print(nn)
+        senders, receivers = get_knn_adj_from_dist(euclidian_distance, 5)
+        print(senders)
+        print(receivers)
 
 
     def test_dist_matrix_random(self):
@@ -61,9 +53,10 @@ class TestHelperFunctions(unittest.TestCase):
 
         for sender in range(num_nodes):
             for receiver in range(num_nodes):
-                if distances[sender, receiver] < cutoff:
-                    expected_senders.append(sender)
-                    expected_receivers.append(receiver)
+                if not (sender == receiver):
+                    if distances[sender, receiver] < cutoff:
+                        expected_senders.append(sender)
+                        expected_receivers.append(receiver)
 
         '''print(np.array(senders))
         print(receivers)
@@ -72,6 +65,17 @@ class TestHelperFunctions(unittest.TestCase):
 
         np.testing.assert_array_equal(np.array(expected_senders), senders)
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
+
+
+    def test_spektral_to_jraph(self):
+        dataset = QM9(amount=1)
+        graph, label = spektral_to_jraph(dataset[0])
+        label_size = len(label)
+
+        print(graph)
+        print(label)
+
+
 
 
 if __name__ == '__main__':

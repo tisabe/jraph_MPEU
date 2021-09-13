@@ -19,7 +19,7 @@ from graph_net_fn import *
 from utils import *
 
 # Download the dataset.
-dataset = QM9(amount=8 * 1024)  # Set amount=None to train on whole dataset
+dataset = QM9(amount=1 * 1024)  # Set amount=None to train on whole dataset
 
 graph_j, label = spektral_to_jraph(dataset[2])
 # print(graph_j)

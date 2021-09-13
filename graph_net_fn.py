@@ -46,7 +46,7 @@ def edge_embedding_fn(edges, sent_attributes, received_attributes,
 def node_embedding_fn(nodes, sent_attributes,
                       received_attributes, global_attributes) -> jnp.ndarray:
     """Node embedding function for QM9 data."""
-    # look up how it is implemented in MPEU
+    # TODO: look up how it is implemented in MPEU
     return nodes
 
 
@@ -147,4 +147,9 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
         update_edge_fn=None,
         update_global_fn=readout_global_fn)
     # return net(embedder(graph))
-    return net_readout(net_3(net_2(net(embedder(graph)))))
+    graph = embedder(graph)
+    graph = net(graph)
+    graph = net_2(graph)
+    graph = net_3(graph)
+    graph = net_readout(graph)
+    return graph
