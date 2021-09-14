@@ -72,9 +72,16 @@ class TestHelperFunctions(unittest.TestCase):
         graph, label = spektral_to_jraph(dataset[0])
         label_size = len(label)
 
-        print(graph)
-        print(label)
+        #print(graph)
+        #print(label)
+        print(graph.senders)
+        print(type(graph.senders))
 
+        graph, label = spektral_to_jraph_old(dataset[0])
+        #print(graph)
+        #print(label)
+        print(graph.senders)
+        print(type(graph.senders))
 
 
 

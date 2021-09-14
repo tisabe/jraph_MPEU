@@ -94,22 +94,21 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
 
     # construct adjacency matrix from positions in node features
     distances = dist_matrix(nodes[:, 5:8])
-    senders, receivers = get_cutoff_adj_from_dist(distances, cutoff=cutoff)
-    print(senders)
-    print(receivers)
-
+    # TODO: Make accessible choice between cutoff and knn
+    #senders, receivers = get_cutoff_adj_from_dist(distances, cutoff=cutoff)
+    senders, receivers = get_knn_adj_from_dist(distances, k=12)
 
     graph_j = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
         n_edge=np.asarray([len(senders)]),
         nodes=nodes, edges=None,
         globals=None,
-        senders=senders, receivers=receivers)
+        senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph_j, globals
 
 
-def spektral_to_jraph_(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.GraphsTuple:
+def spektral_to_jraph_old(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.GraphsTuple:
     '''Return graph in jraph format and separate label (globals) from graph'''
     nodes = graph_s.x
     edges = graph_s.e
@@ -120,9 +119,6 @@ def spektral_to_jraph_(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.G
     adj = adj.tocoo()
     senders = adj.row
     receivers = adj.col
-
-    print(senders)
-    print(receivers)
 
     graph_j = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
