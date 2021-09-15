@@ -35,7 +35,6 @@ def dist_matrix(position_matrix):
     row_norm_squared = jnp.reshape(row_norm_squared, [-1, 1])
     # 2*pos*potT
     distance_matrix = 2 * jnp.matmul(position_matrix, jnp.transpose(position_matrix))
-    # Stick this equation into our overleaf.
     distance_matrix = row_norm_squared + jnp.transpose(row_norm_squared) - distance_matrix
     distance_matrix = jnp.abs(distance_matrix)  # to avoid negative numbers before sqrt
     return jnp.sqrt(distance_matrix)
@@ -89,7 +88,6 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
     '''Return graph in jraph format and separate label (globals) from graph'''
     nodes = graph_s.x
     edges = graph_s.e
-    #globals = graph_s.y
     globals = [graph_s.y[2]]
 
     # construct adjacency matrix from positions in node features
@@ -104,28 +102,6 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
         nodes=nodes, edges=None,
         globals=None,
         senders=np.asarray(senders), receivers=np.asarray(receivers))
-
-    return graph_j, globals
-
-
-def spektral_to_jraph_old(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.GraphsTuple:
-    '''Return graph in jraph format and separate label (globals) from graph'''
-    nodes = graph_s.x
-    edges = graph_s.e
-    #globals = graph_s.y
-    globals = [graph_s.y[2]]
-
-    adj = graph_s.a
-    adj = adj.tocoo()
-    senders = adj.row
-    receivers = adj.col
-
-    graph_j = jraph.GraphsTuple(
-        n_node=np.asarray([len(nodes)]),
-        n_edge=np.asarray([len(senders)]),
-        nodes=nodes, edges=None,
-        globals=None,
-        senders=senders, receivers=receivers)
 
     return graph_j, globals
 

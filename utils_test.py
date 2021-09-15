@@ -58,11 +58,6 @@ class TestHelperFunctions(unittest.TestCase):
                         expected_senders.append(sender)
                         expected_receivers.append(receiver)
 
-        '''print(np.array(senders))
-        print(receivers)
-        print(np.array(expected_senders))
-        print(np.array(expected_receivers))'''
-
         np.testing.assert_array_equal(np.array(expected_senders), senders)
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
