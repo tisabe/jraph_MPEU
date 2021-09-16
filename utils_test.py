@@ -12,7 +12,7 @@ from utils import *
 
 
 class TestHelperFunctions(unittest.TestCase):
-    def test_k_nn(self):
+    def test_k_nn_print(self):
         position_matrix = np.array([[0, 0], [1, 1], [2, 2], [2, 3]])*1.0
         euclidian_distance = dist_matrix(position_matrix)
 
@@ -21,6 +21,47 @@ class TestHelperFunctions(unittest.TestCase):
         senders, receivers = get_knn_adj_from_dist(euclidian_distance, 5)
         print(senders)
         print(receivers)
+
+
+    def test_k_nn_random(self):
+        num_nodes = 5
+        dimensions = 3
+        k = 3
+        position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
+        distances = dist_matrix(position_matrix)
+        print(distances)
+        senders, receivers = get_knn_adj_from_dist(distances, k)
+
+        expected_senders = []
+        expected_receivers = []
+
+        for row in range(num_nodes):
+            idx_list = []
+            last_idx = 0
+            for ik in range(k):
+                min_val_last = 9999.9  # temporary last saved minimum value, initialized to high value
+                for col in range(num_nodes):
+                    if col == row or (col in idx_list):
+                        continue    # do nothing on the diagonal, or if column has already been included
+                    else:
+                        val = distances[row, col]
+                        if val < min_val_last:
+                            min_val_last = val
+                            last_idx = col
+                idx_list.append(last_idx)
+                expected_senders.append(last_idx)
+                expected_receivers.append(row)
+
+
+
+
+        print(senders)
+        print(np.array(expected_senders))
+        print(receivers)
+        print(np.array(expected_receivers))
+
+        np.testing.assert_array_equal(np.array(expected_senders), senders)
+        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
 
     def test_dist_matrix_random(self):
@@ -72,11 +113,6 @@ class TestHelperFunctions(unittest.TestCase):
         print(graph.senders)
         print(type(graph.senders))
 
-        graph, label = spektral_to_jraph_old(dataset[0])
-        #print(graph)
-        #print(label)
-        print(graph.senders)
-        print(type(graph.senders))
 
 
 
