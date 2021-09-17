@@ -8,6 +8,7 @@ import haiku as hk
 from utils import *
 
 # define some hidden layer dimensions
+# TODO: Capitalize global parameter
 n_hidden_C = 32  # C from MPEU paper for hidden layers
 
 # to get label size, we need an example dataset
@@ -47,7 +48,8 @@ def node_embedding_fn(nodes, sent_attributes,
                       received_attributes, global_attributes) -> jnp.ndarray:
     """Node embedding function for QM9 data."""
     # TODO: look up how it is implemented in MPEU
-    return nodes
+    net = hk.Linear(n_hidden_C, with_bias=False)
+    return net(nodes)
 
 
 def net_embedding():
@@ -63,6 +65,7 @@ log2 = jnp.log(2)
 
 
 def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
+    # continuous version of relu activation function
     return jnp.logaddexp(x, 0) - log2
 
 
@@ -95,14 +98,13 @@ def node_update_fn(nodes, sent_attributes,
                    received_attributes, global_attributes) -> jnp.ndarray:
     """Node update function for graph net."""
     net = hk.Sequential(
-        [hk.Linear(2 * n_hidden_C, with_bias=False),
+        [hk.Linear(n_hidden_C, with_bias=False),
          shifted_softplus,
          hk.Linear(n_hidden_C, with_bias=False)])
 
     messages_propagated = net(received_attributes['messages'])
 
-    net_n = hk.Linear(n_hidden_C, with_bias=False)
-    return net_n(nodes) + messages_propagated
+    return nodes + messages_propagated
 
 
 def readout_global_fn(node_attributes, edge_attributes, globals_) -> jnp.ndarray:

@@ -43,6 +43,7 @@ def dist_matrix(position_matrix):
 def fill_diagonal(a, val):
     '''Jax numpy version of fill_diagonal in numpy. See:
     https://github.com/google/jax/issues/2680#issuecomment-804269672'''
+    # TODO: more docstring
     assert a.ndim >= 2
     i, j = jnp.diag_indices(min(a.shape[-2:]))
     return a.at[..., i, j].set(val)
@@ -88,7 +89,7 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
     '''Return graph in jraph format and separate label (globals) from graph'''
     nodes = graph_s.x
     edges = graph_s.e
-    globals = [graph_s.y[2]]
+    globals = [graph_s.y[7]]
 
     # construct adjacency matrix from positions in node features
     distances = dist_matrix(nodes[:, 5:8])

@@ -19,7 +19,7 @@ from graph_net_fn import *
 from utils import *
 
 # Download the dataset.
-dataset = QM9(amount=1 * 1024)  # Set amount=None to train on whole dataset
+dataset = QM9(amount=8 * 1024)  # Set amount=None to train on whole dataset
 
 graph_j, label = spektral_to_jraph(dataset[2])
 # print(graph_j)
@@ -42,7 +42,7 @@ def compute_loss(params, graph, label, net):
     label_padded = jnp.pad(label, ((0, 1), (0, 0)))
 
     loss = jnp.sum(jnp.abs(preds - label_padded))
-    accuracy = 1 / (1 + loss)
+    accuracy = 1 / (1 + loss) # TODO: change name
     return loss, accuracy
 
 
@@ -87,21 +87,21 @@ def evaluate(dataset_in, net, params, batch_size):
     return average_loss, average_MAE
 
 
-epochs = 10
+epochs = 50
 batch_size = 32
 
 reader = DataReader(dataset, batch_size)
 
 reader.repeat()
-net = hk.without_apply_rng(hk.transform(net_fn))
+net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
 graph, _ = reader.get_graph_by_idx(0)
 # Initialize the network.
 logging.info('Initializing network.')
 params = net.init(jax.random.PRNGKey(42), graph)
 # Initialize the optimizer.
 lr_schedule = optax.exponential_decay(1e-3, 1000, 0.9)
-opt_init, opt_update = optax.adam(1e-4)
-#opt_init, opt_update = optax.adam(lr_schedule)
+#opt_init, opt_update = optax.adam(1e-4)
+opt_init, opt_update = optax.adam(lr_schedule)
 opt_state = opt_init(params)
 
 compute_loss_fn = functools.partial(compute_loss, net=net)
