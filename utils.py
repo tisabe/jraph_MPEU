@@ -41,7 +41,10 @@ def dist_matrix(position_matrix):
 
 
 def fill_diagonal(a, val):
-    '''Jax numpy version of fill_diagonal in numpy. See:
+    '''Set all elements of the main diagonal in matrix a to val.
+    a can have batch dimensions.
+
+    Jax numpy version of fill_diagonal in numpy. See:
     https://github.com/google/jax/issues/2680#issuecomment-804269672'''
     # TODO: more docstring
     assert a.ndim >= 2
@@ -50,6 +53,7 @@ def fill_diagonal(a, val):
 
 
 def set_diag_high(mat, value=9999.9):
+    '''Set the values on diagonal of matrix mat to a high value (default 9999.9). '''
     return fill_diagonal(mat, value)
 
 
@@ -57,7 +61,6 @@ def get_cutoff_adj_from_dist(distance_matrix, cutoff):
     '''Return the adjacency matrix in the form of senders and receivers from a distance matrix and a cutoff.'''
 
     distance_matrix = set_diag_high(distance_matrix) # set diagonal to delete self-edges
-    #print(distance_matrix)
     assert(len(np.shape(distance_matrix)) == 2) # distance matrix cannot be batched
 
     bool_dist = distance_matrix < cutoff
