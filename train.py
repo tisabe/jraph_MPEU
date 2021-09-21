@@ -87,7 +87,7 @@ def evaluate(dataset_in, net, params, batch_size):
     return average_loss, average_MAE
 
 
-epochs = 50
+epochs = 10
 batch_size = 32
 
 reader = DataReader(dataset, batch_size)
@@ -127,3 +127,4 @@ for idx_epoch in range(epochs):
 
 res_post = evaluate(dataset, net, params, batch_size)
 print(res_post)
+print(params)
