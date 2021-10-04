@@ -42,8 +42,7 @@ def compute_loss(params, graph, label, net):
     label_padded = jnp.pad(label, ((0, 1), (0, 0)))
 
     loss = jnp.sum(jnp.abs(preds - label_padded))
-    accuracy = 1 / (1 + loss) # TODO: change name
-    return loss, accuracy
+    return loss
 
 
 @jax.jit
@@ -54,7 +53,7 @@ def update(
         label: jnp.ndarray,
 ) -> Tuple[hk.Params, optax.OptState]:
     """Learning rule (stochastic gradient descent)."""
-    (loss, acc), grad = compute_loss_fn(params, graph, label)
+    loss, grad = compute_loss_fn(params, graph, label)
     updates, opt_state = opt_update(grad, opt_state, params)
     new_params = optax.apply_updates(params, updates)
     return new_params, opt_state, loss
@@ -75,7 +74,7 @@ def evaluate(dataset_in, net, params, batch_size):
         pred_graph = net.apply(params, graph)
         preds = pred_graph.globals
 
-        (loss, acc), grad = compute_loss_fn(params, graph, label)
+        loss, grad = compute_loss_fn(params, graph, label)
 
         label_padded = jnp.pad(label, ((0, 1), (0, 0)))
         accumulated_loss += loss
@@ -106,7 +105,7 @@ opt_state = opt_init(params)
 
 compute_loss_fn = functools.partial(compute_loss, net=net)
 compute_loss_fn = jax.jit(jax.value_and_grad(
-    compute_loss_fn, has_aux=True))
+    compute_loss_fn))
 
 # res_pre = evaluate(dataset, net, params, batch_size)
 # print(res_pre)
