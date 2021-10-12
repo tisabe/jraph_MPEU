@@ -60,7 +60,7 @@ def update(
 
 
 def evaluate(dataset_in, net, params, batch_size):
-    reader = DataReader(dataset_in, batch_size)
+    reader = DataReader_Spektral(dataset_in, batch_size)
     num_graphs = reader.total_num_graphs
 
     accumulated_loss = 0
@@ -89,7 +89,7 @@ def evaluate(dataset_in, net, params, batch_size):
 epochs = 10
 batch_size = 32
 
-reader = DataReader(dataset, batch_size)
+reader = DataReader_Spektral(dataset, batch_size)
 
 reader.repeat()
 net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers

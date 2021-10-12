@@ -110,7 +110,7 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
     return graph_j, globals
 
 
-class DataReader:
+class DataReader_Spektral:
     """Data Reader for QM9 dataset from Spektral library. Inspired by ogb_example in Jraph."""
 
     def __init__(self, dataset_in, batch_size=1):
