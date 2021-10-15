@@ -11,6 +11,7 @@ import pandas
 # import custom functions
 from graph_net_fn import *
 from utils import *
+import config
 
 
 
@@ -61,6 +62,7 @@ class Model:
         inputs, outputs = self.get_data_df_csv(file_str)
         graph_example = inputs[0]
         label_example = outputs[0]
+        config.LABEL_SIZE = label_example.shape()
         self.net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
         params = self.net.init(jax.random.PRNGKey(42), graph_example)
         opt_init, self.opt_update = optax.adam(self.learning_rate)

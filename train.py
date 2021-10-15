@@ -98,7 +98,7 @@ batch_size = 32
 reader = DataReader_Spektral(dataset, batch_size)
 
 reader.repeat()
-net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
+net = hk.without_apply_rng(hk.transform(net_fn_QM9)) # initializing haiku MLP layers
 graph, _ = reader.get_graph_by_idx(0)
 # Initialize the network.
 logging.info('Initializing network.')
