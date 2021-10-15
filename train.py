@@ -17,6 +17,7 @@ from spektral.datasets import QM9
 # import custom functions
 from graph_net_fn import *
 from utils import *
+import config
 
 # Download the dataset.
 dataset = QM9(amount=8 * 1024)  # Set amount=None to train on whole dataset
@@ -25,6 +26,11 @@ graph_j, label = spektral_to_jraph(dataset[2])
 # print(graph_j)
 # print(label)
 label_size = len(label)
+config.LABEL_SIZE = label_size
+
+# define some hidden layer dimensions
+config.N_HIDDEN_C = 32  # C from MPEU paper for hidden layers
+
 
 
 # print(label_size)
@@ -64,7 +70,7 @@ def evaluate(dataset_in, net, params, batch_size):
     num_graphs = reader.total_num_graphs
 
     accumulated_loss = 0
-    accumulated_label_MAE = jnp.zeros(label_size)
+    accumulated_label_MAE = jnp.zeros(config.LABEL_SIZE)
 
     for _ in np.arange(num_graphs // batch_size):
         graph, label = next(reader)

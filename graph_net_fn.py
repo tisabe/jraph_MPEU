@@ -4,16 +4,17 @@ import spektral
 import jraph
 import numpy as np
 import haiku as hk
+import config
 
 from utils import *
 
 # define some hidden layer dimensions
-N_HIDDEN_C = 32  # C from MPEU paper for hidden layers
+config.N_HIDDEN_C = 32  # C from MPEU paper for hidden layers
 
 # to get label size, we need an example dataset
 dataset = QM9(amount=1)
 graph_j, label = spektral_to_jraph(dataset[0])
-LABEL_SIZE = len(label)
+config.LABEL_SIZE = len(label)
 
 
 def edge_embedding_fn(edges, sent_attributes, received_attributes,
@@ -39,7 +40,7 @@ def edge_embedding_fn(edges, sent_attributes, received_attributes,
     edges = jnp.exp(exponents)
 
     # now we define a structured vector, to combine edge and message features
-    edge_message = {'edges': edges, 'messages': jnp.zeros((edges.shape[0], N_HIDDEN_C))}
+    edge_message = {'edges': edges, 'messages': jnp.zeros((edges.shape[0], config.N_HIDDEN_C))}
     return edge_message
 
 
@@ -47,7 +48,7 @@ def node_embedding_fn(nodes, sent_attributes,
                       received_attributes, global_attributes) -> jnp.ndarray:
     """Node embedding function for QM9 data."""
     # TODO: look up how it is implemented in MPEU
-    net = hk.Linear(N_HIDDEN_C, with_bias=False)
+    net = hk.Linear(config.N_HIDDEN_C, with_bias=False)
     return net(nodes)
 
 
@@ -74,19 +75,19 @@ def edge_update_fn(edge_message, sent_attributes, received_attributes,
     # first, compute edge update
     edge_node_concat = jnp.concatenate([edge_message['edges'], sent_attributes, received_attributes], axis=-1)
     net_e = hk.Sequential(
-        [hk.Linear(2 * N_HIDDEN_C, with_bias=False),
+        [hk.Linear(2 * config.N_HIDDEN_C, with_bias=False),
          shifted_softplus,
-         hk.Linear(N_HIDDEN_C, with_bias=False)])
+         hk.Linear(config.N_HIDDEN_C, with_bias=False)])
     edge_message['edges'] = net_e(edge_node_concat)
 
     # then, compute edge-wise messages
     net_m_e = hk.Sequential(
-        [hk.Linear(N_HIDDEN_C, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C, with_bias=False),
          shifted_softplus,
-         hk.Linear(N_HIDDEN_C, with_bias=False),
+         hk.Linear(config.N_HIDDEN_C, with_bias=False),
          shifted_softplus])
 
-    net_m_n = hk.Linear(N_HIDDEN_C, with_bias=False)
+    net_m_n = hk.Linear(config.N_HIDDEN_C, with_bias=False)
 
     edge_message['messages'] = jnp.multiply(net_m_e(edge_message['edges']),
                                             net_m_n(received_attributes))
@@ -97,9 +98,9 @@ def node_update_fn(nodes, sent_attributes,
                    received_attributes, global_attributes) -> jnp.ndarray:
     """Node update function for graph net."""
     net = hk.Sequential(
-        [hk.Linear(N_HIDDEN_C, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C, with_bias=False),
          shifted_softplus,
-         hk.Linear(N_HIDDEN_C, with_bias=False)])
+         hk.Linear(config.N_HIDDEN_C, with_bias=False)])
 
     messages_propagated = net(received_attributes['messages'])
 
@@ -116,16 +117,16 @@ def readout_node_update_fn(nodes, sent_attributes,
                            received_attributes, global_attributes) -> jnp.ndarray:
     """Node readout function for graph net."""
     net = hk.Sequential(
-        [hk.Linear(N_HIDDEN_C // 2, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C // 2, with_bias=False),
          shifted_softplus,
-         hk.Linear(LABEL_SIZE, with_bias=False)])
+         hk.Linear(config.LABEL_SIZE, with_bias=False)])
 
     return net(nodes)
 
 
 def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     # Add a global paramater for graph classification. It has shape (len(n_node, LABEL_SIZE))
-    graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], LABEL_SIZE], dtype=np.float32))
+    graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], config.LABEL_SIZE], dtype=np.float32))
 
     embedder = net_embedding()
     net = jraph.GraphNetwork(

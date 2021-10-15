@@ -56,10 +56,13 @@ class Model:
         loss = jnp.sum(jnp.abs(preds - label_padded))
         return loss
 
-    def build(self, input, output):
+    def build(self, file_str):
         '''Initialize optimiser and model parameters'''
+        inputs, outputs = self.get_data_df_csv(file_str)
+        graph_example = inputs[0]
+        label_example = outputs[0]
         self.net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
-        params = self.net.init(jax.random.PRNGKey(42), graph)
+        params = self.net.init(jax.random.PRNGKey(42), graph_example)
         opt_init, self.opt_update = optax.adam(self.learning_rate)
         self.opt_state = opt_init(params)
 
