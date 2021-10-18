@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
 from numpy.lib import type_check
-import spektral
 import jraph
 import numpy as np
 import haiku as hk
@@ -16,6 +15,38 @@ from utils import *
 import config
 
 
+def get_data_df_csv(file_str, include_no_edge_graphs=False):
+    '''Import data from a pandas.DataFrame saved as csv. 
+    Return as inputs, outputs (e.g. train_inputs, train_outputs)'''
+    df = pandas.read_csv(file_str)
+    inputs = []
+    outputs = []
+    for index, row in df.iterrows():
+        #print(index)
+        nodes = str_to_array_replace(row['nodes'])
+        nodes = np.reshape(nodes, (-1,1)).astype(np.float32)
+        #print(nodes)
+        #print(type(nodes))
+        #print(row['senders'])
+        senders = str_to_array_replace(row['senders'])
+        #senders = row['senders']
+        receivers = str_to_array_replace(row['receivers'])
+        #receivers = row['receivers']
+        #print(index)
+        #print(row['edges'])
+        edges = str_to_array_float(row['edges'])
+
+        if (not len(edges)==0) or include_no_edge_graphs:
+            graph = jraph.GraphsTuple(
+                n_node=np.asarray([len(nodes)]),
+                n_edge=np.asarray([len(senders)]),
+                nodes=nodes, edges=edges,
+                globals=None,
+                senders=np.asarray(senders), receivers=np.asarray(receivers))
+            inputs.append(graph)
+            outputs.append(row['label'])
+
+    return inputs, outputs
 
 
 class Model:
@@ -29,30 +60,6 @@ class Model:
         self.data_in = None
         self.data_out = None
 
-    def get_data_df_csv(self, file_str):
-        '''Import data from a pandas.DataFrame saved as csv. 
-        Return as inputs, outputs (e.g. train_inputs, train_outputs)'''
-        df = pandas.read_csv(file_str)
-        inputs = []
-        outputs = []
-        for index, row in df.iterrows():
-            nodes = str_to_array(row['nodes'])
-            #nodes = row['nodes']
-            print(nodes)
-            #senders = str_to_array(row['senders'])
-            senders = row['senders']
-            #receivers = str_to_array(row['receivers'])
-            receivers = row['receivers']
-            graph = jraph.GraphsTuple(
-                n_node=np.asarray([len(nodes)]),
-                n_edge=np.asarray([len(senders)]),
-                nodes=nodes, edges=None,
-                globals=None,
-                senders=np.asarray(senders), receivers=np.asarray(receivers))
-            inputs.append(graph)
-            outputs.append(row['label'])
-        return inputs, outputs
-
     def compute_loss(self, params, graph, label, net):
         """Computes loss."""
         pred_graph = net.apply(params, graph)
@@ -65,11 +72,8 @@ class Model:
         loss = jnp.sum(jnp.abs(preds - label_padded))
         return loss
 
-    def build(self, file_str):
+    def build(self, inputs, outputs):
         '''Initialize optimiser and model parameters'''
-        inputs, outputs = self.get_data_df_csv(file_str)
-        self.data_in = inputs
-        self.data_out = outputs
         graph_example = inputs[0]
         print(graph_example)
         label_example = outputs[0]
@@ -89,7 +93,7 @@ class Model:
 
         self.built = True
 
-    @jax.jit
+    #@jax.jit
     def update(self,
             params: hk.Params,
             opt_state: optax.OptState,
@@ -102,9 +106,7 @@ class Model:
         new_params = optax.apply_updates(params, updates)
         return new_params, opt_state, loss
 
-    def fit(self):
-        train_inputs = self.data_in
-        train_outputs = self.data_out
+    def fit(self, train_inputs, train_outputs):
         '''Fit the model to training data.'''
         print("starting training \n")
         total_num_graphs = len(train_inputs)
@@ -119,7 +121,7 @@ class Model:
                     graph = train_inputs[idx_epoch*self.batch_size+idx_batch]
                     label = train_outputs[idx_epoch*self.batch_size+idx_batch]
                     graphs.append(graph)
-                    labels.append(label)
+                    labels.append([label])
                 # return jraph.batch(graphs), np.concatenate(labels, axis=0)
                 graph, label = jraph.batch(graphs), np.stack(labels)
                 graph = pad_graph_to_nearest_power_of_two(graph)
@@ -139,8 +141,10 @@ class Model:
 
 def main():
     model = Model(1e-3, 32, 10)
-    model.build('aflow/graphs_test_cutoff3A.csv')
-    model.fit()
+    file_str = 'aflow/graphs_test_cutoff3A.csv'
+    inputs, outputs = get_data_df_csv(file_str)
+    model.build(inputs, outputs)
+    model.fit(inputs, outputs)
 
     
 

@@ -17,8 +17,27 @@ def str_to_array(str_array):
     return np.array(literal_eval(str_array))
 
 
+def str_to_array_replace(str_array):
+    '''Return a numpy array converted from a single string, representing an array,
+    while replacing spaces with commas.'''
+    str_array = str_array.replace('  ', ' ')
+    str_array = str_array.replace('[ ', '[')
+    str_array = str_array.replace(' ', ',')
+    return np.array(literal_eval(str_array))
+
+
+def str_to_array_float(str_array):
+    '''Return a numpy array converted from a single string, representing an array,
+    while replacing spaces with commas.'''
+    for _ in range(10):
+        str_array = str_array.replace('  ', ' ')
+    str_array = str_array.replace('[ ', '[')
+    str_array = str_array.replace(' ', ',')
+    return np.array(literal_eval(str_array))
+
+
 def dist_matrix(position_matrix):
-    """Return the pairwise distance matrix of positions in euclidian space.
+    '''Return the pairwise distance matrix of positions in euclidian space.
 
     See this link:
     https://stackoverflow.com/questions/37009647/compute-pairwise-distance-in-a-batch-without-replicating-tensor-in-tensorflow
@@ -33,7 +52,7 @@ def dist_matrix(position_matrix):
     Returns:
       Euclidian distances between nodes as a jnp array.
         Size: (number of positions, number of positions)
-    """
+    '''
 
     row_norm_squared = jnp.sum(position_matrix * position_matrix, axis=-1)
     # Turn r into column vector

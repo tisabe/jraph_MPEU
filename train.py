@@ -102,6 +102,7 @@ net = hk.without_apply_rng(hk.transform(net_fn_QM9)) # initializing haiku MLP la
 graph, _ = reader.get_graph_by_idx(0)
 # Initialize the network.
 logging.info('Initializing network.')
+print(graph)
 params = net.init(jax.random.PRNGKey(42), graph)
 # Initialize the optimizer.
 lr_schedule = optax.exponential_decay(1e-3, 1000, 0.9)

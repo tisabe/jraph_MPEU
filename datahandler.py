@@ -3,6 +3,7 @@ import pandas
 from ase import Atoms
 #from ase.visualize import view
 from ase.neighborlist import NeighborList
+import sys
 
 from ast import literal_eval
 import warnings
@@ -79,20 +80,24 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
 
 def make_graph_df(aflow_df: pandas.DataFrame):
     graph_df = []
+    max_atoms = 64 # limit unitcell size to 64 atoms
 
     for index, row in aflow_df.iterrows():
         atoms = dict_to_ase(row)
-        label = row['Egap'] # change this for different target properties/labels
-        nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, 3.0)
-        graph = {
-            'nodes' : nodes,
-            'atom_positions' : atom_positions,
-            'edges' : edges,
-            'senders' : senders,
-            'receivers' : receivers,
-            'label' : label
-        }
-        graph_df.append(graph)
+        num_atoms = len(atoms)
+        if num_atoms < max_atoms:
+            label = row['Egap'] # change this for different target properties/labels
+            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, 3.0)
+            graph = {
+                'nodes' : nodes,
+                'atom_positions' : atom_positions,
+                'edges' : edges,
+                'senders' : senders,
+                'receivers' : receivers,
+                'label' : label
+            }
+            graph_df.append(graph)
+            
         if index%1000 == 0:
             print(index)
     
@@ -105,6 +110,7 @@ def main():
     print('Starting datahandler')
     print('Starting aflow data to graphs conversion')
     # source file:
+    np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
     df_csv_file = 'aflow/aflow_binary_egap_above_zero_below_ten_mill.csv'
     df = pandas.read_csv(df_csv_file)
     graph_df = make_graph_df(df)
