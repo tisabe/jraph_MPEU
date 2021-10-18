@@ -8,6 +8,7 @@ import functools
 import optax
 import pandas
 from tqdm import trange
+import sklearn
 
 # import custom functions
 from graph_net_fn import *
@@ -24,7 +25,7 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
     for index, row in df.iterrows():
         #print(index)
         nodes = str_to_array_replace(row['nodes'])
-        nodes = np.reshape(nodes, (-1,1)).astype(np.float32)
+        #nodes = np.reshape(nodes, (-1,1)).astype(np.float32)
         #print(nodes)
         #print(type(nodes))
         #print(row['senders'])
@@ -47,6 +48,17 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
             outputs.append(row['label'])
 
     return inputs, outputs
+
+def get_highest_atomic_number(input_graphs):
+    '''Return the highest atomic number in the node features of any graph in input_graphs.'''
+    max_num = 0
+    for i in range(len(input_graphs)):
+        graph = input_graphs[i]
+        nodes = graph.nodes
+        max_local = max(nodes)
+        if max_local > max_num:
+            max_num = max_local
+    return int(max_num)
 
 
 class Model:
@@ -82,6 +94,10 @@ class Model:
             config.LABEL_SIZE = 1
         else:
             config.LABEL_SIZE = label_example.shape()
+
+        config.MAX_ATOMIC_NUMBER = get_highest_atomic_number(inputs)
+        print(config.MAX_ATOMIC_NUMBER)
+
         self.net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
         self.params = self.net.init(jax.random.PRNGKey(42), graph_example)
         opt_init, self.opt_update = optax.adam(self.learning_rate)
@@ -92,6 +108,8 @@ class Model:
                                     self.compute_loss_fn))
 
         self.built = True
+        
+
 
     #@jax.jit
     def update(self,
@@ -106,8 +124,8 @@ class Model:
         new_params = optax.apply_updates(params, updates)
         return new_params, opt_state, loss
 
-    def fit(self, train_inputs, train_outputs):
-        '''Fit the model to training data.'''
+    def train(self, train_inputs, train_outputs):
+        '''train the model with training data.'''
         print("starting training \n")
         total_num_graphs = len(train_inputs)
         num_training_steps_per_epoch = total_num_graphs // self.batch_size
@@ -127,24 +145,25 @@ class Model:
                 graph = pad_graph_to_nearest_power_of_two(graph)
                 self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
                 loss_sum += loss
+            train_inputs, train_outputs = sklearn.utils.shuffle(train_inputs, train_outputs, random_state=0)
             print(loss_sum / (num_training_steps_per_epoch * self.batch_size))  # print the average loss per graph
-        
-    def train_and_validate(self, train_inputs, train_outputs):
-        '''Train and validate the model using training data and cross validation.'''
 
     def predict(self, inputs):
         '''Predict outputs based on inputs.'''
+
+    def train_and_validate(self, train_inputs, train_outputs):
+        '''Train and validate the model using training data and cross validation.'''
 
     def set_train_logging(self, logging=True):
         self.logging = logging
 
 
 def main():
-    model = Model(1e-3, 32, 10)
+    model = Model(1e-6, 16, 10)
     file_str = 'aflow/graphs_test_cutoff3A.csv'
     inputs, outputs = get_data_df_csv(file_str)
     model.build(inputs, outputs)
-    model.fit(inputs, outputs)
+    model.train(inputs, outputs)
 
     
 

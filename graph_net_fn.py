@@ -57,9 +57,10 @@ def edge_embedding_fn(edges, sent_attributes, received_attributes,
 
 def node_embedding_fn(nodes, sent_attributes,
                       received_attributes, global_attributes) -> jnp.ndarray:
-    """Node embedding function for QM9 data."""
+    """Node embedding function for aflow data."""
     # TODO: look up how it is implemented in MPEU
     net = hk.Linear(config.N_HIDDEN_C, with_bias=False)
+    nodes = jax.nn.one_hot(nodes, config.MAX_ATOMIC_NUMBER)
     return net(nodes)
 
 
