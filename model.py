@@ -150,20 +150,49 @@ class Model:
 
     def predict(self, inputs):
         '''Predict outputs based on inputs.'''
+        outputs = []
+        for i in range(len(inputs)):
+            pred_graph = self.net.apply(self.params, inputs[i])
+            preds = pred_graph.globals
+            outputs.append(preds)
+        return outputs
 
-    def train_and_validate(self, train_inputs, train_outputs):
+    def train_and_test(self, inputs, outputs):
         '''Train and validate the model using training data and cross validation.'''
+        train_in, test_in, train_out, test_out = sklearn.model_selection.train_test_split(
+            inputs, outputs, test_size=0.1, random_state=0
+        )
+        self.train(train_in, train_out)
+
+        total_loss = 0.0
+        n_test = len(test_in)
+        for i in range(n_test // self.batch_size):
+            graphs = []
+            labels = []
+            for idx_batch in range(self.batch_size):
+                graph = test_in[i*self.batch_size+idx_batch]
+                label = test_out[i*self.batch_size+idx_batch]
+                graphs.append(graph)
+                labels.append([label])
+            # return jraph.batch(graphs), np.concatenate(labels, axis=0)
+            graph, label = jraph.batch(graphs), np.stack(labels)
+            graph = pad_graph_to_nearest_power_of_two(graph)
+            loss, grad = self.compute_loss_fn(self.params, graph, label)
+            total_loss += loss
+        return total_loss / (n_test // self.batch_size * self.batch_size)
+
 
     def set_train_logging(self, logging=True):
         self.logging = logging
 
 
 def main():
-    model = Model(1e-6, 16, 10)
-    file_str = 'aflow/graphs_test_cutoff3A.csv'
+    model = Model(1e-4, 32, 100)
+    file_str = 'aflow/graphs_test_cutoff4A.csv'
     inputs, outputs = get_data_df_csv(file_str)
     model.build(inputs, outputs)
-    model.train(inputs, outputs)
+    loss_MAE = model.train_and_test(inputs, outputs)
+    print(loss_MAE)
 
     
 

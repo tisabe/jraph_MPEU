@@ -78,7 +78,97 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
         np.array(receivers)
     )
 
-def make_graph_df(aflow_df: pandas.DataFrame):
+def get_graph_knearest(
+    atoms: Atoms, num_neighbors, initial_radius=3.0
+):
+    '''Return the graph features, with knearest adjacency.
+    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
+
+    atoms.wrap() # put atoms inside unit cell by wrapping their positions
+    atom_numbers = atoms.get_atomic_numbers()
+    unitcell = atoms.get_cell()
+
+    # We want to calculate k nearest neighbors, so we start within a sphere with radius R.
+    # In this sphere we are calculating the number of neighbors, if there are not enough,
+    # i.e. the number of neighbors within the sphere is smaller than k, R is increased 
+    # until we found enough neighbors. After that we discard all neighbors except the k nearest. 
+    for multiplier in range(1, 11):
+        if multiplier == 10:
+            raise RuntimeError("Reached maximum radius")
+        radii = [initial_radius * multiplier] * len(atoms)
+        neighborhood = NeighborList(
+            radii, skin=0.0, self_interaction=False, bothways=True
+        )
+        neighborhood.update(atoms)
+
+        nodes = []
+        connections = []
+        connections_offset = []
+        edges = []
+        senders = []
+        receivers = []
+        if np.any(atoms.get_pbc()):
+            atom_positions = atoms.get_positions(wrap=True)
+        else:
+            atom_positions = atoms.get_positions(wrap=False)
+        keep_connections = []
+        keep_connections_offset = []
+        keep_edges = []
+        keep_senders = []
+        keep_receivers = []
+
+        for ii in range(len(atoms)):
+            nodes.append(atom_numbers[ii])
+
+        early_exit = False
+        for ii in range(len(atoms)):
+            this_edges = []
+            this_connections = []
+            this_connections_offset = []
+            this_senders = []
+            this_receivers = []
+            neighbor_indices, offset = neighborhood.get_neighbors(ii)
+            if len(neighbor_indices) < num_neighbors:
+                # Not enough neigbors, so exit and increase radius
+                early_exit = True
+                break
+            for jj, offs in zip(neighbor_indices, offset):
+                ii_pos = atom_positions[ii]
+                jj_pos = atom_positions[jj] + np.dot(offs, unitcell)
+                dist_vec = ii_pos - jj_pos
+                dist = np.sqrt(np.dot(dist_vec, dist_vec))
+
+                this_connections.append([jj, ii])  # from, to
+                this_connections_offset.append(
+                    np.vstack((offs, np.zeros(3, float)))
+                )
+                this_edges.append([dist])
+                this_senders.append(jj)
+                this_receivers.append(ii)
+            edges.append(np.array(this_edges))
+            connections.append(np.array(this_connections))
+            connections_offset.append(np.stack(this_connections_offset, axis=0))
+            receivers.append(np.array(this_receivers))
+            senders.append(np.array(this_senders))
+        if early_exit:
+            continue
+        else:
+            for e, c, o in zip(edges, connections, connections_offset):
+                # Keep only num_neighbors closest indices
+                keep_ind = np.argsort(e[:, 0])[0:num_neighbors]
+                keep_edges.append(e[keep_ind])
+                keep_connections.append(c[keep_ind])
+                keep_connections_offset.append(o[keep_ind])
+        break
+    return (
+        np.array(nodes),
+        atom_positions,
+        np.concatenate(keep_edges),
+        np.concatenate(keep_connections),
+        np.concatenate(keep_connections_offset),
+    )
+
+def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
     graph_df = []
     max_atoms = 64 # limit unitcell size to 64 atoms
 
@@ -87,7 +177,7 @@ def make_graph_df(aflow_df: pandas.DataFrame):
         num_atoms = len(atoms)
         if num_atoms < max_atoms:
             label = row['Egap'] # change this for different target properties/labels
-            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, 3.0)
+            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
             graph = {
                 'nodes' : nodes,
                 'atom_positions' : atom_positions,
@@ -113,10 +203,10 @@ def main():
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
     df_csv_file = 'aflow/aflow_binary_egap_above_zero_below_ten_mill.csv'
     df = pandas.read_csv(df_csv_file)
-    graph_df = make_graph_df(df)
+    graph_df = make_graph_df(df, cutoff=4.0)
     print(graph_df.head())
     # target file:
-    graph_df.to_csv(('aflow/graphs_test_cutoff3A.csv'))
+    graph_df.to_csv(('aflow/graphs_test_cutoff4A.csv'))
     
 
 if __name__ == "__main__":
