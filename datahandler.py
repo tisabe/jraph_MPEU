@@ -176,7 +176,7 @@ def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
         atoms = dict_to_ase(row)
         num_atoms = len(atoms)
         if num_atoms < max_atoms:
-            label = row['Egap'] # change this for different target properties/labels
+            label = row['enthalpy_atom'] # change this for different target properties/labels
             nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
             graph = {
                 'nodes' : nodes,
@@ -201,12 +201,12 @@ def main():
     print('Starting aflow data to graphs conversion')
     # source file:
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
-    df_csv_file = 'aflow/aflow_binary_egap_above_zero_below_ten_mill.csv'
+    df_csv_file = 'aflow/aflow_binary_enthalpy_atom.csv'
     df = pandas.read_csv(df_csv_file)
     graph_df = make_graph_df(df, cutoff=4.0)
     print(graph_df.head())
     # target file:
-    graph_df.to_csv(('aflow/graphs_test_cutoff4A.csv'))
+    graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
     
 
 if __name__ == "__main__":

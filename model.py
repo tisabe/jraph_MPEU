@@ -124,6 +124,28 @@ class Model:
         new_params = optax.apply_updates(params, updates)
         return new_params, opt_state, loss
 
+    def train_epoch(self, inputs, outputs, idx_epoch):
+        '''Train the model for a single epoch.'''
+        total_num_graphs = len(inputs)
+        num_training_steps_per_epoch = total_num_graphs // self.batch_size
+
+        loss_sum = 0
+        for i in trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps"):
+            graphs = []
+            labels = []
+            for idx_batch in range(self.batch_size):
+                graph = inputs[idx_epoch*self.batch_size+idx_batch]
+                label = outputs[idx_epoch*self.batch_size+idx_batch]
+                graphs.append(graph)
+                labels.append([label])
+            # return jraph.batch(graphs), np.concatenate(labels, axis=0)
+            graph, label = jraph.batch(graphs), np.stack(labels)
+            graph = pad_graph_to_nearest_power_of_two(graph)
+            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
+            loss_sum += loss
+        #train_inputs, train_outputs = sklearn.utils.shuffle(train_inputs, train_outputs, random_state=0)
+        return loss_sum
+
     def train(self, train_inputs, train_outputs):
         '''train the model with training data.'''
         print("starting training \n")
@@ -131,21 +153,9 @@ class Model:
         num_training_steps_per_epoch = total_num_graphs // self.batch_size
 
         for idx_epoch in range(self.epochs):
-            loss_sum = 0
-            for i in trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps"):
-                graphs = []
-                labels = []
-                for idx_batch in range(self.batch_size):
-                    graph = train_inputs[idx_epoch*self.batch_size+idx_batch]
-                    label = train_outputs[idx_epoch*self.batch_size+idx_batch]
-                    graphs.append(graph)
-                    labels.append([label])
-                # return jraph.batch(graphs), np.concatenate(labels, axis=0)
-                graph, label = jraph.batch(graphs), np.stack(labels)
-                graph = pad_graph_to_nearest_power_of_two(graph)
-                self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
-                loss_sum += loss
+            loss_sum = self.train_epoch(train_inputs, train_outputs, idx_epoch)
             train_inputs, train_outputs = sklearn.utils.shuffle(train_inputs, train_outputs, random_state=0)
+            
             print(loss_sum / (num_training_steps_per_epoch * self.batch_size))  # print the average loss per graph
 
     def predict(self, inputs):
@@ -157,21 +167,17 @@ class Model:
             outputs.append(preds)
         return outputs
 
-    def train_and_test(self, inputs, outputs):
-        '''Train and validate the model using training data and cross validation.'''
-        train_in, test_in, train_out, test_out = sklearn.model_selection.train_test_split(
-            inputs, outputs, test_size=0.1, random_state=0
-        )
-        self.train(train_in, train_out)
-
+    def test(self, inputs, outputs):
+        '''Test the model by evaluating the loss for inputs and outputs. Return MAE.'''
+        
         total_loss = 0.0
-        n_test = len(test_in)
+        n_test = len(inputs)
         for i in range(n_test // self.batch_size):
             graphs = []
             labels = []
             for idx_batch in range(self.batch_size):
-                graph = test_in[i*self.batch_size+idx_batch]
-                label = test_out[i*self.batch_size+idx_batch]
+                graph = inputs[i*self.batch_size+idx_batch]
+                label = outputs[i*self.batch_size+idx_batch]
                 graphs.append(graph)
                 labels.append([label])
             # return jraph.batch(graphs), np.concatenate(labels, axis=0)
@@ -181,18 +187,31 @@ class Model:
             total_loss += loss
         return total_loss / (n_test // self.batch_size * self.batch_size)
 
+    def train_and_test(self, inputs, outputs):
+        '''Train and validate the model using training data and cross validation.'''
+        train_in, test_in, train_out, test_out = sklearn.model_selection.train_test_split(
+            inputs, outputs, test_size=0.1, random_state=0
+        )
+        self.train(train_in, train_out)
+        test_loss = self.test(test_in, test_out)
+        print("Test MAE: {}".format(test_loss))
 
     def set_train_logging(self, logging=True):
         self.logging = logging
 
 
 def main():
-    model = Model(1e-4, 32, 100)
-    file_str = 'aflow/graphs_test_cutoff4A.csv'
+    model = Model(1e-5, 32, 1)
+    file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     inputs, outputs = get_data_df_csv(file_str)
     model.build(inputs, outputs)
-    loss_MAE = model.train_and_test(inputs, outputs)
-    print(loss_MAE)
+    predictions = np.array(model.predict(inputs[0:10]))
+    print(predictions)
+    model.train_and_test(inputs, outputs)
+    predictions = np.array(model.predict(inputs[0:10]))
+    print(predictions)
+    print(outputs[0:10])
+    
 
     
 
