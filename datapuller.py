@@ -8,7 +8,7 @@ SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
     #'nspecies(2),Egap(0*,*1000000),'
-    'nspecies(),enthalpy_atom,'
+    'nspecies(2),enthalpy_atom,enthalpy_formation_atom,'
     'geometry_orig,positions_cartesian,compound,' # geometry parameters needed for unit cell
     'dft_type,kpoints,lattice_system_orig,natoms,'
     'prototype,species,volume_atom')
