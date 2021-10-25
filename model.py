@@ -142,15 +142,19 @@ class Model:
             graphs = []
             labels = []
             for idx_batch in range(self.batch_size):
-                graph = inputs[idx_epoch*self.batch_size+idx_batch]
-                label = outputs[idx_epoch*self.batch_size+idx_batch]
+                # loop over the batch size to create a jraph batch from inputs and outputs
+                graph = inputs[i*self.batch_size+idx_batch]
+                label = outputs[i*self.batch_size+idx_batch]
                 graphs.append(graph)
                 labels.append([label])
             # return jraph.batch(graphs), np.concatenate(labels, axis=0)
+            #graphs = inputs[i*self.batch_size:i*self.batch_size+self.batch_size]
+            #labels = outputs[i*self.batch_size:i*self.batch_size+self.batch_size]
             graph, label = jraph.batch(graphs), np.stack(labels)
             graph = pad_graph_to_nearest_power_of_two(graph)
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
             loss_sum += loss
+        # if number of graphs is not divisible by batch_size, create a batch with leftover graphs
         if total_num_graphs%self.batch_size != 0:
             idx_start = num_training_steps_per_epoch * self.batch_size
             idx_end = total_num_graphs
@@ -273,7 +277,7 @@ def main():
     make_result_csv(train_out, preds_train_pre, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 1000)
+    model.train_and_test(inputs, outputs, 50)
     
     # post training evaluation
     preds_train_post = model.predict(train_in)
