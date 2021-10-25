@@ -138,6 +138,7 @@ class Model:
         num_training_steps_per_epoch = total_num_graphs // self.batch_size
 
         loss_sum = 0
+        check_sum = 0 # check if all graphs have been used in epoch
         for i in trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps"):
             graphs = []
             labels = []
@@ -147,6 +148,7 @@ class Model:
                 label = outputs[i*self.batch_size+idx_batch]
                 graphs.append(graph)
                 labels.append([label])
+                check_sum += 1
             # return jraph.batch(graphs), np.concatenate(labels, axis=0)
             #graphs = inputs[i*self.batch_size:i*self.batch_size+self.batch_size]
             #labels = outputs[i*self.batch_size:i*self.batch_size+self.batch_size]
@@ -165,12 +167,14 @@ class Model:
                 label = outputs[i]
                 graphs.append(graph)
                 labels.append([label])
+                check_sum += 1
             graph, label = jraph.batch(graphs), np.stack(labels)
             graph = pad_graph_to_nearest_power_of_two(graph)
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
             loss_sum += loss
             
-        #train_inputs, train_outputs = sklearn.utils.shuffle(train_inputs, train_outputs, random_state=0)
+        if check_sum != total_num_graphs:
+            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
         return loss_sum # return the summed loss
 
     def train(self, train_inputs, train_outputs, epochs):
@@ -204,6 +208,7 @@ class Model:
         
         loss_sum = 0.0
         n_test = len(inputs)
+        check_sum = 0 # check if all graphs have been used in epoch
         for i in range(n_test // self.batch_size):
             graphs = []
             labels = []
@@ -212,6 +217,7 @@ class Model:
                 label = outputs[i*self.batch_size+idx_batch]
                 graphs.append(graph)
                 labels.append([label])
+                check_sum += 1
             # return jraph.batch(graphs), np.concatenate(labels, axis=0)
             graph, label = jraph.batch(graphs), np.stack(labels)
             graph = pad_graph_to_nearest_power_of_two(graph)
@@ -227,10 +233,14 @@ class Model:
                 label = outputs[i]
                 graphs.append(graph)
                 labels.append([label])
+                check_sum += 1
             graph, label = jraph.batch(graphs), np.stack(labels)
             graph = pad_graph_to_nearest_power_of_two(graph)
             loss, grad = self.compute_loss_fn(self.params, graph, label)
             loss_sum += loss
+
+        if check_sum != n_test:
+            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
         return loss_sum / n_test
 
     def train_and_test(self, inputs, outputs, epochs):
@@ -277,7 +287,7 @@ def main():
     make_result_csv(train_out, preds_train_pre, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 50)
+    model.train_and_test(inputs, outputs, 500)
     
     # post training evaluation
     preds_train_post = model.predict(train_in)
