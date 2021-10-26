@@ -176,6 +176,7 @@ def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
         atoms = dict_to_ase(row)
         num_atoms = len(atoms)
         if num_atoms < max_atoms:
+            auid = row['auid']
             label = row['enthalpy_atom'] # change this for different target properties/labels
             nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
             graph = {
@@ -184,7 +185,8 @@ def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
                 'edges' : edges,
                 'senders' : senders,
                 'receivers' : receivers,
-                'label' : label
+                'label' : label,
+                'auid' : auid
             }
             graph_df.append(graph)
             

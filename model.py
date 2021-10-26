@@ -9,6 +9,7 @@ import optax
 import pandas
 from tqdm import trange
 import sklearn
+import pickle
 
 # import custom functions
 from graph_net_fn import *
@@ -22,9 +23,11 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
     df = pandas.read_csv(file_str)
     inputs = []
     outputs = []
+    auids = []
     for index, row in df.iterrows():
         #print(index)
         nodes = str_to_array_replace(row['nodes'])
+        auid = row['auid']
         #nodes = np.reshape(nodes, (-1,1)).astype(np.float32)
         #print(nodes)
         #print(type(nodes))
@@ -46,12 +49,13 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
                 senders=np.asarray(senders), receivers=np.asarray(receivers))
             inputs.append(graph)
             outputs.append(row['label'])
+            auids.append(auid)
 
-    return inputs, outputs
+    return inputs, outputs, auids
 
-def make_result_csv(x, y, path):
+def make_result_csv(x, y, auids, path):
     '''Print predictions x versus labels y in a csv at path.'''
-    dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
+    dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten(), 'auid': auids}
     df = pandas.DataFrame(data=dict_res)
     df.to_csv(path)
 
@@ -259,8 +263,8 @@ class Model:
             self.train_loss_arr.append([idx_epoch, loss_sum/total_num_graphs])
             print(loss_sum / total_num_graphs)  # print the average loss per graph
 
-            # every 10 epochs, evaluate test loss
-            if idx_epoch%10 == 0:
+            # every 5 epochs, evaluate test loss
+            if idx_epoch%5 == 0:
                 test_loss = self.test(test_in, test_out)
                 self.test_loss_arr.append([idx_epoch, test_loss])
                 print("Test MAE: {}".format(test_loss))
@@ -274,28 +278,38 @@ def main():
     lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
     model = Model(lr, 32, 5)
     file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
-    inputs, outputs = get_data_df_csv(file_str)
-    train_in, test_in, train_out, test_out = sklearn.model_selection.train_test_split(
-        inputs, outputs, test_size=0.1, random_state=0
+    inputs, outputs, auids = get_data_df_csv(file_str)
+    train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
+        inputs, outputs, auids, test_size=0.1, random_state=0
     )
     model.build(inputs, outputs)
+
     # pre training evaluation
     
     preds_train_pre = model.predict(train_in)
     preds_test_pre = model.predict(test_in)
     
-    make_result_csv(train_out, preds_train_pre, 'results_test/train_pre.csv')
-    make_result_csv(test_out, preds_test_pre, 'results_test/test_pre.csv')
+    make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
+    make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 50)
+    model.train_and_test(inputs, outputs, 500)
     
+    params = model.params
+    with open('results_test/params.pickle', 'wb') as handle:
+        pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    '''
+    with open('params.pickle', 'rb') as handle:
+        params = pickle.load(handle)
+    model.params = params
+    '''
     # post training evaluation
     preds_train_post = model.predict(train_in)
     preds_test_post = model.predict(test_in)
 
     
-    make_result_csv(train_out, preds_train_post, 'results_test/train_post.csv')
-    make_result_csv(test_out, preds_test_post, 'results_test/test_post.csv')
+    make_result_csv(train_out, preds_train_post, train_auids, 'results_test/train_post.csv')
+    make_result_csv(test_out, preds_test_post, test_auids, 'results_test/test_post.csv')
 
     print(model.train_loss_arr)
     print(model.test_loss_arr)

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 from scipy.stats import gaussian_kde
 
-folder = 'results_test/res_50ep_avg_binaries_enthalpy/'
+folder = 'results_test/'
 df_test_pre = pandas.read_csv(folder+'test_pre.csv')
 df_train_pre = pandas.read_csv(folder+'train_pre.csv')
 
