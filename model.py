@@ -271,7 +271,7 @@ class Model:
 
 
 def main():
-    lr = optax.exponential_decay(1e-4, 1000, 0.9)
+    lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
     model = Model(lr, 32, 5)
     file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     inputs, outputs = get_data_df_csv(file_str)
@@ -287,7 +287,7 @@ def main():
     make_result_csv(train_out, preds_train_pre, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 500)
+    model.train_and_test(inputs, outputs, 50)
     
     # post training evaluation
     preds_train_post = model.predict(train_in)

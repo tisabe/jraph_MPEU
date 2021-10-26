@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import matplotlib
 from scipy.stats import gaussian_kde
 
-df_test_pre = pandas.read_csv('results_test/test_pre.csv')
-df_train_pre = pandas.read_csv('results_test/train_pre.csv')
+folder = 'results_test/res_50ep_avg_binaries_enthalpy/'
+df_test_pre = pandas.read_csv(folder+'test_pre.csv')
+df_train_pre = pandas.read_csv(folder+'train_pre.csv')
 
-df_test_post = pandas.read_csv('results_test/test_post.csv')
-df_train_post = pandas.read_csv('results_test/train_post.csv')
+df_test_post = pandas.read_csv(folder+'test_post.csv')
+df_train_post = pandas.read_csv(folder+'train_post.csv')
 
 #print(df_test_post['x'].to_numpy())
 #print(df_test_post['y'])

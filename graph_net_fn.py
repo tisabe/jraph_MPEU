@@ -176,23 +176,37 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     # Add a global paramater for graph classification. It has shape (len(n_node, LABEL_SIZE))
     graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], config.LABEL_SIZE], dtype=np.float32))
 
+    if config.AVG_MESSAGE:
+        aggregate_edges_for_nodes_fn = jraph.segment_mean
+    else:
+        aggregate_edges_for_nodes_fn = jraph.segment_mean
+
+    if config.AVG_READOUT:
+        aggregate_nodes_for_globals_fn = jraph.segment_mean
+    else:
+        aggregate_nodes_for_globals_fn = jraph.segment_mean
+
     embedder = net_embedding()
     net = jraph.GraphNetwork(
         update_node_fn=node_update_fn,
         update_edge_fn=edge_update_fn,
-        update_global_fn=None)
+        update_global_fn=None,
+        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
     net_2 = jraph.GraphNetwork(
         update_node_fn=node_update_fn,
         update_edge_fn=edge_update_fn,
-        update_global_fn=None)
+        update_global_fn=None,
+        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
     net_3 = jraph.GraphNetwork(
         update_node_fn=node_update_fn,
         update_edge_fn=edge_update_fn,
-        update_global_fn=None)
+        update_global_fn=None,
+        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
     net_readout = jraph.GraphNetwork(
         update_node_fn=readout_node_update_fn,
         update_edge_fn=None,
-        update_global_fn=readout_global_fn)
+        update_global_fn=readout_global_fn,
+        aggregate_nodes_for_globals_fn=aggregate_nodes_for_globals_fn)
     # return net(embedder(graph))
     graph = embedder(graph)
     graph = net(graph)
