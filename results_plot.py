@@ -59,5 +59,17 @@ fig, ax = plt.subplots()
 ax.hist2d(x, y, bins=100, range=((-40,10),(-40,10)))
 plt.show()
 '''
+### plot learning curves
+from numpy import genfromtxt
+test_loss = genfromtxt(folder+'test_loss_arr.csv', delimiter=',')
+train_loss = genfromtxt(folder+'train_loss_arr.csv', delimiter=',')
 
+fig, ax = plt.subplots()
+ax.plot(test_loss[:,0], test_loss[:,1], label='test data')
+ax.plot(train_loss[:,0], train_loss[:,1], label='train data')
+ax.legend()
+ax.set_xlabel('epoch')
+ax.set_ylabel('loss')
+plt.yscale('log')
+plt.show()
 
