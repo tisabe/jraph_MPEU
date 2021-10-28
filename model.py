@@ -286,14 +286,14 @@ def main():
     model.build(inputs, outputs)
 
     # pre training evaluation
-    '''
+    
     preds_train_pre = model.predict(train_in)
     preds_test_pre = model.predict(test_in)
     
     make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
-    '''
-    model.train_and_test(inputs, outputs, 10)
+    
+    model.train_and_test(inputs, outputs, 300)
     
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:

@@ -10,8 +10,6 @@ from ast import literal_eval
 
 from typing import Generator, Mapping, Tuple
 
-from spektral.datasets import QM9
-
 def str_to_array(str_array):
     '''Return a numpy array converted from a single string, representing an array.'''
     return np.array(literal_eval(str_array))
