@@ -275,10 +275,10 @@ class Model:
 
 
 def main():
-    config.N_HIDDEN_C = 256
+    config.N_HIDDEN_C = 64
     lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
     model = Model(lr, 32, 5)
-    file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
+    file_str = 'QM9/graphs_U0K.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=0.1, random_state=0
@@ -293,7 +293,7 @@ def main():
     make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 300)
+    model.train_and_test(inputs, outputs, 500)
     
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:
