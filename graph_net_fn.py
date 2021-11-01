@@ -1,38 +1,13 @@
 import jax
 import jax.numpy as jnp
 import jraph
+from jraph._src import utils
 import numpy as np
 import haiku as hk
 import config
 
 from utils import *
 
-
-def edge_embedding_fn_QM9(edges, sent_attributes, received_attributes,
-                      global_edge_attributes) -> jnp.ndarray:
-    """Edge embedding function for QM9 data."""
-
-    # we extract the coordinates from the node attributes
-    sender_xyz = sent_attributes[:, 5:8]
-    receiver_xyz = received_attributes[:, 5:8]
-
-    distances_vec = sender_xyz - receiver_xyz
-    distances = jnp.linalg.norm(distances_vec, ord=2, axis=-1)
-
-    k_max = 150  # TODO: make parameters accessible
-    delta = 0.1
-    mu_min = 0.0
-
-    k_vals = jnp.arange(0, k_max)
-    # create tiled matrices with distances and k values
-    k_mesh, d_mesh = jnp.meshgrid(k_vals, distances)
-
-    exponents = -1 * jnp.square(d_mesh + mu_min - k_mesh * delta) / delta
-    edges = jnp.exp(exponents)
-
-    # now we define a structured vector, to combine edge and message features
-    edge_message = {'edges': edges, 'messages': jnp.zeros((edges.shape[0], config.N_HIDDEN_C))}
-    return edge_message
 
 def edge_embedding_fn(edges, sent_attributes, received_attributes,
                       global_edge_attributes) -> jnp.ndarray:
@@ -63,13 +38,6 @@ def node_embedding_fn(nodes, sent_attributes,
     nodes = jax.nn.one_hot(nodes, config.MAX_ATOMIC_NUMBER)
     return net(nodes)
 
-
-def net_embedding_QM9():
-    net = jraph.GraphNetwork(
-        update_node_fn=node_embedding_fn,
-        update_edge_fn=edge_embedding_fn_QM9,
-        update_global_fn=None)
-    return net
 
 def net_embedding():
     net = jraph.GraphNetwork(
@@ -143,35 +111,6 @@ def readout_node_update_fn(nodes, sent_attributes,
     return net(nodes)
 
 
-def net_fn_QM9(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
-    # Add a global paramater for graph classification. It has shape (len(n_node, LABEL_SIZE))
-    graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], config.LABEL_SIZE], dtype=np.float32))
-
-    embedder = net_embedding_QM9()
-    net = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None)
-    net_2 = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None)
-    net_3 = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None)
-    net_readout = jraph.GraphNetwork(
-        update_node_fn=readout_node_update_fn,
-        update_edge_fn=None,
-        update_global_fn=readout_global_fn)
-    # return net(embedder(graph))
-    graph = embedder(graph)
-    graph = net(graph)
-    graph = net_2(graph)
-    graph = net_3(graph)
-    graph = net_readout(graph)
-    return graph
-
 def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     # Add a global paramater for graph classification. It has shape (len(n_node, LABEL_SIZE))
     graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], config.LABEL_SIZE], dtype=np.float32))
@@ -179,12 +118,12 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     if config.AVG_MESSAGE:
         aggregate_edges_for_nodes_fn = jraph.segment_mean
     else:
-        aggregate_edges_for_nodes_fn = jraph.segment_mean
+        aggregate_edges_for_nodes_fn = utils.segment_sum
 
     if config.AVG_READOUT:
         aggregate_nodes_for_globals_fn = jraph.segment_mean
     else:
-        aggregate_nodes_for_globals_fn = jraph.segment_mean
+        aggregate_nodes_for_globals_fn = utils.segment_sum
 
     embedder = net_embedding()
     net = jraph.GraphNetwork(

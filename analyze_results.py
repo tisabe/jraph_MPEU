@@ -7,8 +7,8 @@ from ase.data import atomic_numbers
 from ast import literal_eval
 from utils import *
 
-folder_res = 'results_test/res_500ep_avg_5lr_binaries_enthalpy/'
-#folder_res = 'results_test/'
+#folder_res = 'results_test/res_500ep_avg_5lr_binaries_enthalpy/'
+folder_res = 'results_test/'
 folder_data = 'aflow/'
 file_data = 'aflow_binary_enthalpy_atom.csv'
 file_graphs = 'graphs_enthalpy_cutoff4A.csv'
@@ -25,9 +25,9 @@ df_train_post = pandas.read_csv(folder_res+'train_post.csv')
 #print(df_data.head())
 #print(df_graphs.head())
 
-labels = df_train_post['x']
-preds = df_train_post['y']
-auids = df_train_post['auid'].to_numpy()
+labels = df_test_post['x']
+preds = df_test_post['y']
+auids = df_test_post['auid'].to_numpy()
 
 errors = np.abs(labels - preds).to_numpy()
 print(errors)
@@ -44,6 +44,7 @@ for i in range(k):
     auid = auids_topk[i]
     row = df_data[df_data['auid']==auid] # get the row from original data with auid
     print(row[['compound', 'enthalpy_atom', 'kpoints']])
+    print(idx[i], df_test_post['x'][idx[i]], df_test_post['y'][idx[i]])
 '''
 fig, ax = plt.subplots()
 marker_size = 2
@@ -78,10 +79,10 @@ print(errors_mean)
 
 fig, (ax1, ax2) = plt.subplots(2, 1)
 #ax1.scatter(counts, errors_mean)
-ax1.scatter(np.arange(1,101), errors_mean)
+ax1.scatter(np.arange(0,100), errors_mean)
 ax1.set_xlabel('count')
 ax1.set_ylabel('mean error')
-ax2.bar(np.arange(1,101),counts)
+ax2.bar(np.arange(0,100),counts)
 ax2.set_yscale('log')
 ax2.set_xlabel('atomic number')
 ax2.set_ylabel('count')

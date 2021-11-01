@@ -6,6 +6,7 @@ from scipy.stats import gaussian_kde
 from sklearn.metrics import r2_score
 
 #folder = 'results_test/res_500ep_avg_5lr_binaries_enthalpy/'
+#folder = 'results_norm/'
 folder = 'results_test/'
 df_test_pre = pandas.read_csv(folder+'test_pre.csv')
 df_train_pre = pandas.read_csv(folder+'train_pre.csv')
@@ -43,28 +44,29 @@ min_x = -20
 max_x = 10
 min_y = min_x
 max_y = max_x
-ax[0,0].scatter(df_train_pre['x'].to_numpy(), df_train_pre['y'].to_numpy(), s=marker_size)
-ax[0,0].axline((0,0), slope=1, color='red')
-ax[0,0].set_xlim([min_x,max_x])
-ax[0,0].set_ylim([min_y,max_y])
+ax[0,0].scatter(df_train_pre['x'].to_numpy(), df_train_pre['y'].to_numpy(), s=marker_size, label='prediction')
+ax[0,0].axline((0,0), slope=1, color='red', label='x=y')
+#ax[0,0].set_xlim([min_x,max_x])
+#ax[0,0].set_ylim([min_y,max_y])
 ax[0,0].set_title('train pre')
+ax[0,0].legend()
 
 ax[0,1].scatter(df_train_post['x'].to_numpy(), df_train_post['y'].to_numpy(), s=marker_size)
 ax[0,1].axline((0,0), slope=1, color='red')
-ax[0,1].set_xlim([min_x,max_x])
-ax[0,1].set_ylim([min_y,max_y])
+#ax[0,1].set_xlim([min_x,max_x])
+#ax[0,1].set_ylim([min_y,max_y])
 ax[0,1].set_title('train post')
 
 ax[1,0].scatter(df_test_pre['x'].to_numpy(), df_test_pre['y'].to_numpy(), s=marker_size)
 ax[1,0].axline((0,0), slope=1, color='red')
-ax[1,0].set_xlim([min_x,max_x])
-ax[1,0].set_ylim([min_y,max_y])
+#ax[1,0].set_xlim([min_x,max_x])
+#ax[1,0].set_ylim([min_y,max_y])
 ax[1,0].set_title('test pre')
 
 ax[1,1].scatter(df_test_post['x'].to_numpy(), df_test_post['y'].to_numpy(), s=marker_size)
 ax[1,1].axline((0,0), slope=1, color='red')
-ax[1,1].set_xlim([min_x,max_x])
-ax[1,1].set_ylim([min_y,max_y])
+#ax[1,1].set_xlim([min_x,max_x])
+#ax[1,1].set_ylim([min_y,max_y])
 ax[1,1].set_title('test post')
 
 plt.show()
@@ -86,6 +88,15 @@ fig, ax = plt.subplots()
 ax.hist2d(x, y, bins=100, range=((-40,10),(-40,10)))
 plt.show()
 '''
+fig, ax = plt.subplots()
+ax.scatter(df_test_post['x'].to_numpy(), df_test_post['y'].to_numpy(), s=2)
+ax.axline((0,0), slope=1, color='red')
+#ax[1,1].set_xlim([min_x,max_x])
+#ax[1,1].set_ylim([min_y,max_y])
+ax.set_title('test post')
+
+plt.show()
+
 ### plot learning curves
 from numpy import genfromtxt
 test_loss = genfromtxt(folder+'test_loss_arr.csv', delimiter=',')

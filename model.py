@@ -99,16 +99,19 @@ class Model:
     def build(self, inputs, outputs):
         '''Initialize optimiser and model parameters'''
         graph_example = inputs[0]
-        print(graph_example)
+        #print(graph_example)
         label_example = outputs[0]
         print(label_example)
+        print(type(label_example))
         if type(label_example) is float:
+            config.LABEL_SIZE = 1
+        elif type(label_example) is np.float64:
             config.LABEL_SIZE = 1
         else:
             config.LABEL_SIZE = label_example.shape()
 
         config.MAX_ATOMIC_NUMBER = get_highest_atomic_number(inputs)
-        print(config.MAX_ATOMIC_NUMBER)
+        print('Highest atomic number: {}'.format(config.MAX_ATOMIC_NUMBER))
 
         self.net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
         self.params = self.net.init(jax.random.PRNGKey(42), graph_example)
@@ -275,16 +278,26 @@ class Model:
 
 
 def main():
-    config.N_HIDDEN_C = 64
+    config.N_HIDDEN_C = 256
+    config.AVG_MESSAGE = True
+    config.AVG_READOUT = True
     lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
     model = Model(lr, 32, 5)
-    file_str = 'QM9/graphs_U0K.csv'
+    #file_str = 'QM9/graphs_U0K.csv'
+    file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=0.1, random_state=0
     )
+    train_out, mean_train, std_train = normalize_targets(train_in, train_out)
+    test_out, mean_test, std_test = normalize_targets(test_in, test_out)
+    outputs, mean_test, std_test = normalize_targets(inputs, outputs)
     model.build(inputs, outputs)
-
+    print('Example of labels:')
+    print(outputs)
+    print('Mean of labels: {}'.format(np.mean(outputs)))
+    print('Std of labels: {}'.format(np.std(outputs)))
+    
     # pre training evaluation
     
     preds_train_pre = model.predict(train_in)
@@ -293,7 +306,7 @@ def main():
     make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     
-    model.train_and_test(inputs, outputs, 500)
+    model.train_and_test(inputs, outputs, 501)
     
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:

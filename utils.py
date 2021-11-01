@@ -8,6 +8,7 @@ import functools
 import optax
 from ast import literal_eval
 
+import config
 from typing import Generator, Mapping, Tuple
 
 def str_to_array(str_array):
@@ -130,6 +131,27 @@ def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.Gr
         senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph_j, globals
+
+def normalize_targets(inputs, outputs):
+    '''return normalized outputs, based on which aggregation function is saved in config.
+    Also return mean and standard deviation for later rescaling.
+    Inputs, i.e. graphs, are used to get number of atoms, for atom-wise scaling.'''
+    n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
+    for i in range(len(outputs)):
+        n_atoms[i] = inputs[i].n_node
+    
+    if config.AVG_READOUT:
+        scaled_targets = outputs
+    else:
+        scaled_targets = np.array(outputs)/n_atoms
+    
+    mean = np.mean(scaled_targets)
+    std = np.std(scaled_targets)
+
+    if config.AVG_READOUT:
+        return (scaled_targets - mean)/std, mean, std
+    else:
+        return (scaled_targets - mean*n_atoms)/std, mean*n_atoms, std
 
 
 class DataReader_Spektral:
