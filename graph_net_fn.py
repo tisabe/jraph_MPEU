@@ -61,6 +61,7 @@ def edge_update_fn(edge_message, sent_attributes, received_attributes,
     """Edge update and message function for graph net."""
     # first, compute edge update
     edge_node_concat = jnp.concatenate([edge_message['edges'], sent_attributes, received_attributes], axis=-1)
+    #print(jnp.shape(edge_node_concat))
     net_e = hk.Sequential(
         [hk.Linear(2 * config.N_HIDDEN_C, with_bias=False),
          shifted_softplus,

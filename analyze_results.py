@@ -9,6 +9,7 @@ from utils import *
 
 #folder_res = 'results_test/res_500ep_avg_5lr_binaries_enthalpy/'
 folder_res = 'results_test/'
+#folder_res = 'results_norm/res_500ep_256c_binaries_enthalpy'
 folder_data = 'aflow/'
 file_data = 'aflow_binary_enthalpy_atom.csv'
 file_graphs = 'graphs_enthalpy_cutoff4A.csv'
@@ -80,8 +81,8 @@ print(errors_mean)
 fig, (ax1, ax2) = plt.subplots(2, 1)
 #ax1.scatter(counts, errors_mean)
 ax1.scatter(np.arange(0,100), errors_mean)
-ax1.set_xlabel('count')
-ax1.set_ylabel('mean error')
+ax1.set_xlabel('atomic number')
+ax1.set_ylabel('MAE')
 ax2.bar(np.arange(0,100),counts)
 ax2.set_yscale('log')
 ax2.set_xlabel('atomic number')

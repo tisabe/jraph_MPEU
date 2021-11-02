@@ -10,6 +10,7 @@ import pandas
 from tqdm import trange
 import sklearn
 import pickle
+import sys
 
 # import custom functions
 from graph_net_fn import *
@@ -123,7 +124,6 @@ class Model:
                                     self.compute_loss_fn))
 
         self.built = True
-        
 
 
     #@jax.jit
@@ -278,11 +278,14 @@ class Model:
 
 
 def main():
-    config.N_HIDDEN_C = 256
+    config.N_HIDDEN_C = 32
+    print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
     config.AVG_READOUT = True
     lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
-    model = Model(lr, 32, 5)
+    batch_size = 32
+    print('batch size: {}'.format(batch_size))
+    model = Model(lr, batch_size, 5)
     #file_str = 'QM9/graphs_U0K.csv'
     file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
@@ -293,21 +296,26 @@ def main():
     test_out, mean_test, std_test = normalize_targets(test_in, test_out)
     outputs, mean_test, std_test = normalize_targets(inputs, outputs)
     model.build(inputs, outputs)
+    num_params = hk.data_structures.tree_size(model.params)
+    byte_size = hk.data_structures.tree_bytes(model.params)
+    print(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
     print('Example of labels:')
     print(outputs)
     print('Mean of labels: {}'.format(np.mean(outputs)))
     print('Std of labels: {}'.format(np.std(outputs)))
     
     # pre training evaluation
-    
+    '''
     preds_train_pre = model.predict(train_in)
     preds_test_pre = model.predict(test_in)
     
     make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
-    
+    '''
+    # train the model
     model.train_and_test(inputs, outputs, 501)
     
+    # save parameters
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
