@@ -278,7 +278,7 @@ class Model:
 
 
 def main():
-    config.N_HIDDEN_C = 32
+    config.N_HIDDEN_C = 64
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
     config.AVG_READOUT = True
@@ -313,17 +313,18 @@ def main():
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 501)
-    
+    model.train_and_test(inputs, outputs, 10)
+    '''
     # save parameters
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
+    '''
     '''
     with open('params.pickle', 'rb') as handle:
         params = pickle.load(handle)
     model.params = params
+    '''
     '''
     # post training evaluation
     preds_train_post = model.predict(train_in)
@@ -337,7 +338,7 @@ def main():
     print(model.test_loss_arr)
     np.savetxt("results_test/train_loss_arr.csv", np.array(model.train_loss_arr), delimiter=",")
     np.savetxt("results_test/test_loss_arr.csv", np.array(model.test_loss_arr), delimiter=",")
-
+    '''
     
 
 if __name__ == "__main__":
