@@ -13,7 +13,8 @@ species_QM9_dict = np.array(['H', 'C', 'N', 'O', 'F'])
 def spektral_to_ase(graph_s: spektral.data.graph.Graph) -> Atoms:
     nodes = graph_s.x
     atomic_indices = np.array(np.argmax(nodes[:,0:5], axis=1))
-    species = species_QM9_dict[atomic_indices]
+    #species = species_QM9_dict[atomic_indices]
+    species = atomic_indices
     #print(nodes[:,0:5])
     #print(species)
     cell = [1, 1, 1]
@@ -59,7 +60,7 @@ def make_QM9_df(data, cutoff, index):
 def test():
     dataset = QM9(amount=1024)
 
-    graph_s = dataset[1]
+    graph_s = dataset[0]
     #print(graph_s)
     atoms = spektral_to_ase(graph_s)
     #view(atoms)
@@ -77,17 +78,18 @@ def test():
 
 def main():
 
-    dataset = QM9(amount = 1024*16)
+    dataset = QM9(amount = None)
     graph_s = dataset[1]
     print(graph_s.y)
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
     #df_csv_file = 'aflow/aflow_binary_enthalpy_atom.csv'
-    graph_df = make_QM9_df(dataset, cutoff=4.0, index=16)
+    graph_df = make_QM9_df(dataset, cutoff=5.0, index=16)
     print(graph_df.head())
     # target file:
     #graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
-    graph_df.to_csv(('QM9/graphs_U0K.csv'))
+    graph_df.to_csv(('QM9/graphs_all_labelidx16.csv'))
     return 0
 
 if __name__ == "__main__":
     main()
+    #test()
