@@ -287,7 +287,8 @@ def main():
     print('batch size: {}'.format(batch_size))
     model = Model(lr, batch_size, 5)
     #file_str = 'QM9/graphs_U0K.csv'
-    file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
+    #file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
+    file_str = 'QM9/graphs_all_labelidx16.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=0.1, random_state=0

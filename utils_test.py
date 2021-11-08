@@ -4,6 +4,7 @@ import spektral
 import jraph
 import numpy as np
 import haiku as hk
+from spektral.datasets import QM9
 
 from typing import Generator, Mapping, Tuple
 import unittest
@@ -112,6 +113,22 @@ class TestHelperFunctions(unittest.TestCase):
         #print(label)
         print(graph.senders)
         print(type(graph.senders))
+
+    def test_reader(self):
+        file_str = 'QM9/graphs_U0K.csv'
+        inputs, outputs, auids = get_data_df_csv(file_str)
+        in_type = type(inputs[0])
+        out_type = type(outputs[0])
+        aud_type = type(auids[0])
+        print("Input type: {}".format(in_type))
+        print("output type: {}".format(out_type))
+        print("Auid type: {}".format(aud_type))
+        reader = DataReader(inputs, outputs)
+        input_reader, output_reader = next(reader)
+        in_type_reader = type(input_reader)
+        out_type_reader = type(output_reader)
+        print("Reader Input type: {}".format(in_type_reader))
+        print("Reader output type: {}".format(out_type_reader))
 
 
 
