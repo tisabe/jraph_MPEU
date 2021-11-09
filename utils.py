@@ -199,7 +199,7 @@ class DataReader:
 
     def __init__(self, dataset_in, dataset_out, batch_size=1):
         self._dataset = dataset_in
-        self._dataset_out = dataset_in
+        self._dataset_out = dataset_out
         self._repeat = False
         self._batch_size = batch_size
         self._generator = self._make_generator()
