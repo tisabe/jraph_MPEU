@@ -141,6 +141,21 @@ class TestHelperFunctions(unittest.TestCase):
         print("Reader output type: {}".format(out_type_reader))
         print("Reader output shape: {}".format(np.shape(output_reader)))
 
+        # replicate data processing in train_epoch of model
+        graphs = []
+        labels = []
+        for i in range(batch_size):
+            graphs.append(train_in[i])
+            labels.append([train_out[i]]) # maybe [] around train_out[i]
+        graph, label = jraph.batch(graphs), np.stack(labels)
+        graph = pad_graph_to_nearest_power_of_two(graph)
+        print("Model input n_node: {}".format(graph.n_node))
+        print(label)
+        print("Model input type: {}".format(type(graph)))
+        print("Model output type: {}".format(type(label)))
+        print("Model output shape: {}".format(np.shape(label)))
+
+
 
 
 

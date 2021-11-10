@@ -221,7 +221,7 @@ class DataReader:
         for _ in range(self._batch_size):
             graph, label = next(self._generator)
             graphs.append(graph)
-            labels.append(label)
+            labels.append([label])
         # return jraph.batch(graphs), np.concatenate(labels, axis=0)
         return jraph.batch(graphs), np.stack(labels)
 
