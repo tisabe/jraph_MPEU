@@ -10,7 +10,17 @@ from typing import Generator, Mapping, Tuple
 import unittest
 
 from utils import *
+import config
 
+def get_random_graph(key) -> jraph.GraphsTuple:
+    graph = jraph.GraphsTuple(nodes=None,
+                      edges=None,
+                      senders=None,
+                      receivers=None,
+                      n_node=jax.random.randint(key, (1,), minval=1, maxval=10),
+                      n_edge=None,
+                      globals=None)
+    return graph
 
 class TestHelperFunctions(unittest.TestCase):
     def test_k_nn_print(self):
@@ -154,6 +164,94 @@ class TestHelperFunctions(unittest.TestCase):
         print("Model input type: {}".format(type(graph)))
         print("Model output type: {}".format(type(label)))
         print("Model output shape: {}".format(np.shape(label)))
+
+        np.testing.assert_array_equal(input_reader.n_node, graph.n_node)
+        self.assertEqual(first=in_type_reader, second=type(graph))
+        self.assertEqual(first=out_type_reader, second=type(label))
+        self.assertEqual(first=np.shape(output_reader), second=np.shape(label))
+
+    def test_normalize_targets_avg(self):
+        #print("testing normalization")
+        n = 10 # number of graphs and labels to generate
+        graphs = []
+        labels = []
+        seed = 0
+        key = jax.random.PRNGKey(seed)
+        for i in range(n):
+            key, subkey = jax.random.split(key)
+            graph = get_random_graph(subkey)
+            graphs.append(graph)
+            labels.append(jax.random.uniform(subkey))
+            #print(graphs[i])
+            #print(labels[i])
+        
+        config.AVG_READOUT = True
+        expected_targets = np.zeros(n)
+        expected_mean = 0
+        expected_std = 0
+        for i in range(n):
+            expected_mean += labels[i]
+        expected_mean = expected_mean/n
+        
+        for i in range(n):
+            expected_std += np.square(labels[i] - expected_mean)
+        expected_std = np.sqrt(expected_std/n)
+
+        for i in range(n):
+            expected_targets[i] = (labels[i] - expected_mean)/expected_std
+        
+        # calculate function values
+        targets, mean, std = normalize_targets(graphs, labels)
+
+        np.testing.assert_almost_equal(targets, expected_targets)
+        np.testing.assert_almost_equal(mean, expected_mean)
+        np.testing.assert_almost_equal(std, expected_std)
+
+    def test_normalize_targets_sum(self):
+        #print("testing normalization")
+        n = 1000 # number of graphs and labels to generate
+        graphs = []
+        labels = []
+        n_nodes = []
+        seed = 1
+        key = jax.random.PRNGKey(seed)
+        for i in range(n):
+            key, subkey = jax.random.split(key)
+            graph = get_random_graph(subkey)
+            n_nodes.append(int(graph.n_node))
+            graphs.append(graph)
+            labels.append(np.float32(jax.random.uniform(subkey)))
+        
+        #print(n_nodes)
+        #print(labels)
+        
+        config.AVG_READOUT = False
+        expected_targets = np.zeros(n)
+        expected_mean = 0
+        expected_std = 0
+        for i in range(n):
+            expected_mean += labels[i]/graphs[i].n_node
+        
+        for i in range(n):
+            expected_std += np.square(labels[i]/graphs[i].n_node - expected_mean)
+        expected_std = np.sqrt(expected_std)
+        
+        for i in range(n):
+            expected_targets[i] = (labels[i] - graphs[i].n_node*expected_mean)/expected_std
+        
+        # calculate function values
+        targets, mean, std = normalize_targets(graphs, labels)
+
+        #print(expected_targets)
+        #print(targets)
+        print("Expected mean: {}".format(expected_mean))
+        print("Actual mean: {}".format(mean))
+        print(expected_std)
+        print(std)
+
+        np.testing.assert_almost_equal(targets, expected_targets)
+        np.testing.assert_almost_equal(mean, expected_mean)
+        np.testing.assert_almost_equal(std, expected_std)
 
 
 

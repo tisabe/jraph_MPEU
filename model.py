@@ -87,10 +87,8 @@ class Model:
 
     def compute_loss(self, params, graph, label, net):
         """Computes loss, with MAE of target label and graph global."""
-        '''print(graph)
-        print(type(graph))
-        print(label)
-        print(type(label))'''
+        #n_nodes = (graph.n_node)
+        #print('loss was rejitted with {} nodes'.format(n_nodes))
         pred_graph = net.apply(params, graph)
         preds = pred_graph.globals
 
@@ -130,7 +128,6 @@ class Model:
         self.built = True
 
 
-    #@jax.jit
     def update(self,
             params: hk.Params,
             opt_state: optax.OptState,
@@ -282,6 +279,7 @@ class Model:
 
 
 def main():
+    #jax.config.update('jax_platform_name', 'cpu')
     config.N_HIDDEN_C = 64
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
@@ -318,7 +316,7 @@ def main():
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 10)
+    model.train_and_test(inputs, outputs, 2)
     '''
     # save parameters
     params = model.params

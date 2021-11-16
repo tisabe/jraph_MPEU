@@ -144,16 +144,17 @@ def normalize_targets(inputs, outputs):
     
     if config.AVG_READOUT:
         scaled_targets = outputs
+        mean = np.mean(scaled_targets)
+        std = np.std(scaled_targets)
     else:
         scaled_targets = np.array(outputs)/n_atoms
-    
-    mean = np.mean(scaled_targets)
-    std = np.std(scaled_targets)
+        mean = np.sum(scaled_targets) # why sum not mean?? defined like this in paper
+        std = np.sqrt(np.sum(np.square(scaled_targets - mean)))
 
     if config.AVG_READOUT:
         return (scaled_targets - mean)/std, mean, std
     else:
-        return (scaled_targets - mean*n_atoms)/std, mean*n_atoms, std
+        return (scaled_targets - mean*n_atoms)/std, mean, std
 
 
 def get_data_df_csv(file_str, include_no_edge_graphs=False):

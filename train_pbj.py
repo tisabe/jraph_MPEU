@@ -58,9 +58,9 @@ def main():
     config.N_HIDDEN_C = 64
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
-    config.AVG_READOUT = True
+    config.AVG_READOUT = False
     lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
-    batch_size = 2
+    batch_size = 32
     print('batch size: {}'.format(batch_size))
     model_test = model.Model(lr, batch_size, 5)
     file_str = 'QM9/graphs_all_labelidx16.csv'
