@@ -75,6 +75,7 @@ def get_highest_atomic_number(input_graphs):
 class Model:
     '''Make a MPEU model.'''
     def __init__(self, learning_rate, batch_size, epochs):
+        '''Initialize the model with hyperparameters, defining the training process'''
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.epochs = epochs
@@ -86,7 +87,18 @@ class Model:
         self.test_loss_arr = []
 
     def compute_loss(self, params, graph, label, net):
-        """Computes loss, with MAE of target label and graph global."""
+        '''Compute loss, with MAE of target label and graph global.
+        
+        Args:
+            params: hk.params, model parameters initialized in self.build function
+            graph: jraph.GraphsTuple, batched with length batch_size, 
+                    input graph for which the label is predicted
+            label: np.array of length batch_size, batched target properties
+            net: GraphNet initialized with haiku, has net.Apply function
+
+        Returns:
+            loss: float, loss value, here MAE, for optimizing net parameters 
+        '''
         #n_nodes = (graph.n_node)
         #print('loss was rejitted with {} nodes'.format(n_nodes))
         pred_graph = net.apply(params, graph)
@@ -100,7 +112,12 @@ class Model:
         return loss
 
     def build(self, inputs, outputs):
-        '''Initialize optimiser and model parameters'''
+        '''Initialize optimiser, model and model parameters.
+        
+        Args:
+            inputs: list of jraph.GraphsTuple, example graphs representing graphs on which will be trained
+            outputs: list of float, example of target labels
+        '''
         graph_example = inputs[0]
         #print(graph_example)
         label_example = outputs[0]
@@ -157,9 +174,6 @@ class Model:
                 graphs.append(graph)
                 labels.append([label])
                 check_sum += 1
-            # return jraph.batch(graphs), np.concatenate(labels, axis=0)
-            #graphs = inputs[i*self.batch_size:i*self.batch_size+self.batch_size]
-            #labels = outputs[i*self.batch_size:i*self.batch_size+self.batch_size]
             graph, label = jraph.batch(graphs), np.stack(labels)
             graph = pad_graph_to_nearest_power_of_two(graph)
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
@@ -186,7 +200,7 @@ class Model:
         return loss_sum # return the summed loss
 
     def train(self, train_inputs, train_outputs, epochs):
-        '''train the model with training data.'''
+        '''Train the model with training data.'''
         print("starting training \n")
         total_num_graphs = len(train_inputs)
         num_training_steps_per_epoch = total_num_graphs // self.batch_size
@@ -288,6 +302,8 @@ def main():
     batch_size = 32
     print('batch size: {}'.format(batch_size))
     model = Model(lr, batch_size, 5)
+
+    ### Load data from file
     file_str = 'QM9/graphs_U0K.csv'
     #file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     #file_str = 'QM9/graphs_all_labelidx16.csv'
@@ -295,10 +311,16 @@ def main():
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=0.1, random_state=0
     )
+
+    ### Normalize data according to readout function (different for summ or mean)
     train_out, mean_train, std_train = normalize_targets(train_in, train_out)
     test_out, mean_test, std_test = normalize_targets(test_in, test_out)
     outputs, mean_test, std_test = normalize_targets(inputs, outputs)
+    
+    ### Build the model: initialize model parameters and optimizer
     model.build(inputs, outputs)
+
+    # get some statistics of parameters and data
     num_params = hk.data_structures.tree_size(model.params)
     byte_size = hk.data_structures.tree_bytes(model.params)
     print(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')

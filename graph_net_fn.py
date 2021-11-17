@@ -40,6 +40,7 @@ def node_embedding_fn(nodes, sent_attributes,
 
 
 def net_embedding():
+    '''Return the embedding layer as a function to be called.'''
     net = jraph.GraphNetwork(
         update_node_fn=node_embedding_fn,
         update_edge_fn=edge_embedding_fn,
@@ -49,8 +50,6 @@ def net_embedding():
 
 # define the shifted softplus activation function
 LOG2 = jnp.log(2)
-
-
 def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     # continuous version of relu activation function
     return jnp.logaddexp(x, 0) - LOG2
@@ -96,14 +95,25 @@ def node_update_fn(nodes, sent_attributes,
 
 
 def readout_global_fn(node_attributes, edge_attributes, globals_) -> jnp.ndarray:
-    """Global readout function for graph net."""
-    # return the aggregated node features
+    '''Global readout function for graph net.
+    Returns the aggregated node features, using the aggregation function 
+    defined with global: config.AVG_READOUT'''
     return node_attributes
 
 
 def readout_node_update_fn(nodes, sent_attributes,
                            received_attributes, global_attributes) -> jnp.ndarray:
-    """Node readout function for graph net."""
+    '''Node update function for readout phase in graph net.
+    
+    Args:
+        nodes: jnp.ndarray, node features to be updated
+        sent_attributes: aggregated sender features, not used
+        received_attributes: aggregated receiver features, not used
+        global_attributs: global features, not used
+
+    Returns:
+        jnp.ndarray, updated node features
+    '''
     net = hk.Sequential(
         [hk.Linear(config.N_HIDDEN_C // 2, with_bias=False),
          shifted_softplus,
@@ -113,9 +123,13 @@ def readout_node_update_fn(nodes, sent_attributes,
 
 
 def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
-    # Add a global paramater for graph classification. It has shape (len(n_node, LABEL_SIZE))
+    '''Apply the GNN to the input graph. Return the updated graph 
+    with predicted label as global feature.'''
+
+    # Add a global paramater for graph classification. It has shape (len(n_node), LABEL_SIZE))
     graph = graph._replace(globals=jnp.zeros([graph.n_node.shape[0], config.LABEL_SIZE], dtype=np.float32))
 
+    # set the aggragation functions according to the globals, set before building the network
     if config.AVG_MESSAGE:
         aggregate_edges_for_nodes_fn = jraph.segment_mean
     else:
@@ -126,6 +140,7 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     else:
         aggregate_nodes_for_globals_fn = utils.segment_sum
 
+    # define a jraph.GraphNetwork for all message passing layers, embedding and readout
     embedder = net_embedding()
     net = jraph.GraphNetwork(
         update_node_fn=node_update_fn,
@@ -147,7 +162,8 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
         update_edge_fn=None,
         update_global_fn=readout_global_fn,
         aggregate_nodes_for_globals_fn=aggregate_nodes_for_globals_fn)
-    # return net(embedder(graph))
+    
+    # propagate the graph through the layers
     graph = embedder(graph)
     graph = net(graph)
     graph = net_2(graph)
