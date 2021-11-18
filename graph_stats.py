@@ -26,6 +26,8 @@ max_edges = max(num_edges)
 max_nodes = max(num_nodes)
 print(num_edges)
 print(num_nodes)
+print('Total number of edges: {}'.format(np.sum(num_edges)))
+print('Total number of nodes: {}'.format(np.sum(num_nodes)))
 
 fig, ax = plt.subplots(2,1)
 

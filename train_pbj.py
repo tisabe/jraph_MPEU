@@ -59,7 +59,7 @@ def main():
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
     config.AVG_READOUT = False
-    lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
+    lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
     batch_size = 32
     print('batch size: {}'.format(batch_size))
     model_test = model.Model(lr, batch_size, 5)
