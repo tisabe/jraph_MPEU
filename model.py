@@ -85,6 +85,8 @@ class Model:
         self.data_out = None
         self.train_loss_arr = []
         self.test_loss_arr = []
+        self.show_train_progress = True # TODO: make accessible
+        self.show_build_progress = True # TODO: make accessible
 
     def compute_loss(self, params, graph, label, net):
         '''Compute loss, with MAE of target label and graph global.
@@ -121,8 +123,7 @@ class Model:
         graph_example = inputs[0]
         #print(graph_example)
         label_example = outputs[0]
-        print(label_example)
-        print(type(label_example))
+        
         if type(label_example) is float:
             config.LABEL_SIZE = 1
         elif type(label_example) is np.float64:
@@ -131,7 +132,10 @@ class Model:
             config.LABEL_SIZE = label_example.shape()
 
         config.MAX_ATOMIC_NUMBER = get_highest_atomic_number(inputs)
-        print('Highest atomic number: {}'.format(config.MAX_ATOMIC_NUMBER))
+        if self.show_build_progress:
+            print(label_example)
+            print(type(label_example))
+            print('Highest atomic number: {}'.format(config.MAX_ATOMIC_NUMBER))
 
         self.net = hk.without_apply_rng(hk.transform(net_fn)) # initializing haiku MLP layers
         self.params = self.net.init(jax.random.PRNGKey(42), graph_example)
@@ -164,7 +168,11 @@ class Model:
 
         loss_sum = 0
         check_sum = 0 # check if all graphs have been used in epoch
-        for i in trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps"):
+        if self.show_train_progress:
+            iterator = trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps")
+        else:
+            iterator = range(num_training_steps_per_epoch)
+        for i in iterator:
             graphs = []
             labels = []
             for idx_batch in range(self.batch_size):
@@ -209,7 +217,8 @@ class Model:
             loss_sum = self.train_epoch(train_inputs, train_outputs, idx_epoch)
             train_inputs, train_outputs = sklearn.utils.shuffle(train_inputs, train_outputs, random_state=0)
             
-            print(loss_sum / total_num_graphs)  # print the average loss per graph
+            if self.show_train_progress:
+                print(loss_sum / total_num_graphs)  # print the average loss per graph
 
     def predict(self, inputs):
         '''Predict outputs based on inputs.'''
@@ -265,10 +274,10 @@ class Model:
             raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
         return loss_sum / n_test
 
-    def train_and_test(self, inputs, outputs, epochs):
+    def train_and_test(self, inputs, outputs, epochs, test_epochs=5, test_size=0.1):
         '''Train and validate the model using training data and cross validation.'''
         train_in, test_in, train_out, test_out = sklearn.model_selection.train_test_split(
-            inputs, outputs, test_size=0.1, random_state=0
+            inputs, outputs, test_size=test_size, random_state=0
         )
         print("starting training \n")
         total_num_graphs = len(train_in)
@@ -279,13 +288,15 @@ class Model:
             train_in, train_out = sklearn.utils.shuffle(train_in, train_out, random_state=0)
             
             self.train_loss_arr.append([idx_epoch, loss_sum/total_num_graphs])
-            print(loss_sum / total_num_graphs)  # print the average loss per graph
+            if self.show_train_progress:
+                print(loss_sum / total_num_graphs)  # print the average loss per graph
 
-            # every 5 epochs, evaluate test loss
-            if idx_epoch%5 == 0:
+            # every test_epochs number of epochs, evaluate test loss
+            if idx_epoch%test_epochs == 0:
                 test_loss = self.test(test_in, test_out)
                 self.test_loss_arr.append([idx_epoch, test_loss])
-                print("Test MAE: {}".format(test_loss))
+                if self.show_train_progress:
+                    print("Test MAE: {}".format(test_loss))
         
 
     def set_train_logging(self, logging=True):
