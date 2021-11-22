@@ -92,7 +92,8 @@ class Model:
         '''Compute loss, with summed absolute error of target label and graph global.
         
         Args:
-            params: hk.params, model parameters initialized in self.build function
+            params: hk.params, model parameters initialized in self.build function, 
+                    weight matrices in haiku Linear layers
             graph: jraph.GraphsTuple, batched with length batch_size, 
                     input graph for which the label is predicted
             label: np.array of length batch_size, batched target properties
@@ -183,7 +184,7 @@ class Model:
                 labels.append([label])
                 check_sum += 1
             graph, label = jraph.batch(graphs), np.stack(labels)
-            graph = pad_graph_to_nearest_power_of_two(graph)
+            graph = pad_graph_to_nearest_power_of_two(graph) # TODO: pad labels here too
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
             loss_sum += loss
         # if number of graphs is not divisible by batch_size, create a batch with leftover graphs
