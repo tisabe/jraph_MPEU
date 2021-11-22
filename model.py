@@ -89,7 +89,7 @@ class Model:
         self.show_build_progress = True # TODO: make accessible
 
     def compute_loss(self, params, graph, label, net):
-        '''Compute loss, with MAE of target label and graph global.
+        '''Compute loss, with summed absolute error of target label and graph global.
         
         Args:
             params: hk.params, model parameters initialized in self.build function
@@ -99,7 +99,7 @@ class Model:
             net: GraphNet initialized with haiku, has net.Apply function
 
         Returns:
-            loss: float, loss value, here MAE, for optimizing net parameters 
+            loss: float, loss value, here summed absolute error, for optimizing net parameters 
         '''
         #n_nodes = (graph.n_node)
         #print('loss was rejitted with {} nodes'.format(n_nodes))
@@ -297,6 +297,74 @@ class Model:
                 self.test_loss_arr.append([idx_epoch, test_loss])
                 if self.show_train_progress:
                     print("Test MAE: {}".format(test_loss))
+
+    def train_early_stopping_epochs(self, 
+                                    train_val_in, 
+                                    train_val_out,
+                                    val_size, 
+                                    patience_ep, 
+                                    interval_ep, 
+                                    max_ep):
+        '''Train the model with early stopping, evaluated in epoch intervals.
+        
+        Args:
+            train_val_in: list of jraph.GraphsTuple, size n_train + n_val
+                Training and validation input data
+            train_val_out: np.ndarray of shape (n_train + n_val), dtype float
+                Training and validation output/target labels
+            val_size: int or float, size of validation dataset
+                If float, fraction of all data that is used for validation
+                If int, absolute size of validation data as subset of all data
+            patience_ep: int, number of epochs to look back for early stopping criteria.
+                If validation error is higher patience_ep number of epochs before, stop training early.
+            interval_ep: int, number of epochs between evaluations of validation error.
+            max_ep: int, maximum number of epochs to train for
+
+        Returns:
+            self: the model object
+        '''
+        # split train_val_in and train_val_out into train and val data
+        train_in, val_in, train_out, val_out = sklearn.model_selection.train_test_split(
+            train_val_in, train_val_out, test_size=val_size, random_state=0
+        )
+        num_train_graphs = len(train_in)
+        val_loss = [] # will be used as a queue
+        best_loss = None
+        best_params = None
+
+        for i in range(max_ep): # loop until max epochs or early stop
+            if i%interval_ep == 0:
+                # every interval_ep number of epochs, evaluate validation error
+                loss = self.test(val_in, val_out)
+                if i == 0: # before first training epoch save validation loss to compare with
+                    best_loss = loss
+
+                if loss < best_loss: # if validation loss improves, save new loss and parameters
+                    best_loss = loss
+                    best_params = self.params
+
+                if self.show_train_progress:
+                    print("Validation loss at epoch {}: {}".format(i, loss))
+                val_loss.append(loss)
+                self.test_loss_arr.append([i, loss])
+
+                if i > patience_ep:
+                    # stop if new loss higher than loss at beginning of interval
+                    if loss > val_loss[0]:
+                        break
+                    else:
+                        # otherwise delete the element at beginning of queue
+                        val_loss.pop(0)
+            
+            loss_sum = self.train_epoch(train_in, train_out, i)
+            train_in, train_out = sklearn.utils.shuffle(train_in, train_out, random_state=0)
+            
+            self.train_loss_arr.append([i, loss_sum/num_train_graphs])
+            if self.show_train_progress:
+                print(loss_sum / num_train_graphs)  # print the average loss per graph in train set
+
+        self.params = best_params # restore best params for final model
+        return self
         
 
     def set_train_logging(self, logging=True):
@@ -308,8 +376,8 @@ def main():
     config.N_HIDDEN_C = 64
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
     config.AVG_MESSAGE = True
-    config.AVG_READOUT = True
-    lr = optax.exponential_decay(5*1e-4, 1000, 0.9)
+    config.AVG_READOUT = False
+    lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
     batch_size = 32
     print('batch size: {}'.format(batch_size))
     model = Model(lr, batch_size, 5)
@@ -319,15 +387,15 @@ def main():
     #file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     #file_str = 'QM9/graphs_all_labelidx16.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
+    
+    ### Normalize data according to readout function (different for summ or mean)
+    #outputs, mean_data, std_data = normalize_targets(inputs, outputs)
+    
+    # split up the data into training and testing data
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=0.1, random_state=0
     )
 
-    ### Normalize data according to readout function (different for summ or mean)
-    train_out, mean_train, std_train = normalize_targets(train_in, train_out)
-    test_out, mean_test, std_test = normalize_targets(test_in, test_out)
-    outputs, mean_test, std_test = normalize_targets(inputs, outputs)
-    
     ### Build the model: initialize model parameters and optimizer
     model.build(inputs, outputs)
 
@@ -349,19 +417,20 @@ def main():
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 2)
-    '''
+    model.train_and_test(inputs, outputs, 10)
+    #model.train_early_stopping_epochs(train_in, train_out, 0.2, 1000, 50, 10000)
+    
     # save parameters
     params = model.params
     with open('results_test/params.pickle', 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    '''
+    
     '''
     with open('params.pickle', 'rb') as handle:
         params = pickle.load(handle)
     model.params = params
     '''
-    '''
+    
     # post training evaluation
     preds_train_post = model.predict(train_in)
     preds_test_post = model.predict(test_in)
@@ -374,7 +443,7 @@ def main():
     print(model.test_loss_arr)
     np.savetxt("results_test/train_loss_arr.csv", np.array(model.train_loss_arr), delimiter=",")
     np.savetxt("results_test/test_loss_arr.csv", np.array(model.test_loss_arr), delimiter=",")
-    '''
+    
     
 
 if __name__ == "__main__":
