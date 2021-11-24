@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
 import jraph
-from jraph._src import utils
 import numpy as np
 import haiku as hk
 import config
@@ -34,7 +33,7 @@ def node_embedding_fn(nodes, sent_attributes,
                       received_attributes, global_attributes) -> jnp.ndarray:
     """Node embedding function for aflow data."""
     # TODO: look up how it is implemented in MPEU
-    net = hk.Linear(config.N_HIDDEN_C, with_bias=False)
+    net = hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT)
     nodes = jax.nn.one_hot(nodes, config.MAX_ATOMIC_NUMBER)
     return net(nodes)
 
@@ -59,22 +58,22 @@ def edge_update_fn(edge_message, sent_attributes, received_attributes,
                    global_edge_attributes) -> jnp.ndarray:
     """Edge update and message function for graph net."""
     # first, compute edge update
-    edge_node_concat = jnp.concatenate([edge_message['edges'], sent_attributes, received_attributes], axis=-1)
+    edge_node_concat = jnp.concatenate([sent_attributes, received_attributes, edge_message['edges']], axis=-1)
     #print(jnp.shape(edge_node_concat))
     net_e = hk.Sequential(
-        [hk.Linear(2 * config.N_HIDDEN_C, with_bias=False),
+        [hk.Linear(2 * config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT),
          shifted_softplus,
-         hk.Linear(config.N_HIDDEN_C, with_bias=False)])
+         hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT)])
     edge_message['edges'] = net_e(edge_node_concat)
 
     # then, compute edge-wise messages
     net_m_e = hk.Sequential(
-        [hk.Linear(config.N_HIDDEN_C, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT),
          shifted_softplus,
-         hk.Linear(config.N_HIDDEN_C, with_bias=False),
+         hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT),
          shifted_softplus])
 
-    net_m_n = hk.Linear(config.N_HIDDEN_C, with_bias=False)
+    net_m_n = hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT)
 
     edge_message['messages'] = jnp.multiply(net_m_e(edge_message['edges']),
                                             net_m_n(received_attributes))
@@ -85,9 +84,9 @@ def node_update_fn(nodes, sent_attributes,
                    received_attributes, global_attributes) -> jnp.ndarray:
     """Node update function for graph net."""
     net = hk.Sequential(
-        [hk.Linear(config.N_HIDDEN_C, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT),
          shifted_softplus,
-         hk.Linear(config.N_HIDDEN_C, with_bias=False)])
+         hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT)])
 
     messages_propagated = net(received_attributes['messages'])
 
@@ -115,9 +114,9 @@ def readout_node_update_fn(nodes, sent_attributes,
         jnp.ndarray, updated node features
     '''
     net = hk.Sequential(
-        [hk.Linear(config.N_HIDDEN_C // 2, with_bias=False),
+        [hk.Linear(config.N_HIDDEN_C // 2, with_bias=False, w_init=config.HK_INIT),
          shifted_softplus,
-         hk.Linear(config.LABEL_SIZE, with_bias=False)])
+         hk.Linear(config.LABEL_SIZE, with_bias=False, w_init=config.HK_INIT)])
 
     return net(nodes)
 
@@ -133,12 +132,12 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     if config.AVG_MESSAGE:
         aggregate_edges_for_nodes_fn = jraph.segment_mean
     else:
-        aggregate_edges_for_nodes_fn = utils.segment_sum
+        aggregate_edges_for_nodes_fn = jraph.segment_sum
 
     if config.AVG_READOUT:
         aggregate_nodes_for_globals_fn = jraph.segment_mean
     else:
-        aggregate_nodes_for_globals_fn = utils.segment_sum
+        aggregate_nodes_for_globals_fn = jraph.segment_sum
 
     # define a jraph.GraphNetwork for all message passing layers, embedding and readout
     embedder = net_embedding()
@@ -165,6 +164,9 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     
     # propagate the graph through the layers
     graph = embedder(graph)
+    # the embedding creates non-zero features in the padding graph, 
+    # so we need to set these back to zero using the following function
+    graph = jraph.zero_out_padding(graph)
     graph = net(graph)
     graph = net_2(graph)
     graph = net_3(graph)

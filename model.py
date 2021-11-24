@@ -66,6 +66,7 @@ def get_highest_atomic_number(input_graphs):
     for i in range(len(input_graphs)):
         graph = input_graphs[i]
         nodes = graph.nodes
+        #print(nodes)
         max_local = max(nodes)
         if max_local > max_num:
             max_num = max_local
@@ -223,13 +224,6 @@ class Model:
 
     def predict(self, inputs):
         '''Predict outputs based on inputs.'''
-        outputs = []
-        '''for i in range(len(inputs)):
-            if i%1000 == 0:
-                print(i)
-            pred_graph = self.net.apply(self.params, inputs[i])
-            preds = pred_graph.globals
-            outputs.append(preds)'''
         graphs = jraph.batch(inputs)
         outputs = self.net.apply(self.params, graphs)
 
@@ -405,7 +399,7 @@ def main():
     byte_size = hk.data_structures.tree_bytes(model.params)
     print(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
     print('Example of labels:')
-    print(outputs)
+    print(outputs[:10])
     print('Mean of labels: {}'.format(np.mean(outputs)))
     print('Std of labels: {}'.format(np.std(outputs)))
     

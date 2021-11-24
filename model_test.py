@@ -26,7 +26,7 @@ class TestHelperFunctions(unittest.TestCase):
         array_string = array_string.replace(' ', ',')
         array = str_to_array(array_string)
         print(array)
-
+    '''
     def test_overfit_model(self):
         config.N_HIDDEN_C = 64
         print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
@@ -61,6 +61,110 @@ class TestHelperFunctions(unittest.TestCase):
         ax.set_ylabel('loss (MAE)')
         plt.yscale('log')
         plt.show()
+    '''
+    def test_zero_graph_apply(self):
+        '''Test if the network being applied on a graph with all features 0 
+        results on 0 prediction and gradient.'''
+        n_node = 10
+        n_edge = 4
+        n_node_features = 1
+        n_edge_features = 1
+        graph_build = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0,0,1,2]),
+            receivers=jnp.array([1,2,0,0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+        label = np.array([1.0])
+        #print(graph_build)
+        # initialize network
+        config.N_HIDDEN_C = 64
+        config.AVG_MESSAGE = False
+        config.AVG_READOUT = False
+        config.HK_INIT = hk.initializers.Identity()
+        lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
+        batch_size = 32
+        model = Model(lr, batch_size, 5)
+        model.build([graph_build], label)
+
+        # graph with zeros as node features and a self edge for every node
+        graph_zero = jraph.GraphsTuple(
+            nodes=jnp.zeros((n_node)),
+            edges=jnp.ones((n_node)),
+            senders=jnp.arange(0,n_node),
+            receivers=jnp.arange(0,n_node),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_node]),
+            globals=None
+        )
+        #print(graph_zero)
+        prediction = model.predict([graph_zero])
+        print('Prediction for zero graph: {}'.format(prediction))
+        
+        # from doing the propagation by hand:
+        sp = shifted_softplus # shorten shifted softplus function
+        h0p = sp(sp(sp(sp(1)))) + 1
+        h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
+        h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
+        print('Expected label: {}'.format(n_node*sp(h0ppp)))
+        self.assertAlmostEqual(n_node*sp(h0ppp), prediction[0,0])
+
+
+
+    def test_padded_graph_apply(self):
+        '''Test that the prediction of the network does not depend on the padding graphs.'''
+        n_node = 10
+        n_edge = 4
+        n_node_features = 1
+        n_edge_features = 1
+        graph_build = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0,0,1,2]),
+            receivers=jnp.array([1,2,0,0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+        label = np.array([1.0])
+        #print(graph_build)
+        # initialize network
+        config.N_HIDDEN_C = 64
+        config.AVG_MESSAGE = False
+        config.AVG_READOUT = False
+        lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
+        batch_size = 32
+        model = Model(lr, batch_size, 5)
+        model.build([graph_build], label)
+
+        # graph with zeros as node features and a self edge for every node
+        graph_zero = jraph.GraphsTuple(
+            nodes=jnp.zeros((n_node)),
+            edges=jnp.ones((n_node)),
+            senders=jnp.arange(0,n_node),
+            receivers=jnp.arange(0,n_node),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_node]),
+            globals=None
+        )
+        graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
+        print(graph_padded)
+        prediction = model.predict([graph_zero])
+        prediction_padded = model.predict([graph_padded])
+        print('Prediction for zero graph: {}'.format(prediction))
+        print('Prediction for zero graph padded: {}'.format(prediction_padded))
+
+        graph_batched = jraph.batch([graph_build, graph_zero])
+        graph_batched_padded = pad_graph_to_nearest_power_of_two(graph_batched)
+        prediction = model.predict([graph_batched])
+        prediction_padded = model.predict([graph_batched_padded])
+        print('Prediction for batch graph: {}'.format(prediction))
+        print('Prediction for batch graph padded: {}'.format(prediction_padded))
+
+        
 
 
 if __name__ == '__main__':

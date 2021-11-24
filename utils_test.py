@@ -11,6 +11,8 @@ import unittest
 
 from utils import *
 import config
+from model import Model
+import graph_net_fn as gnf
 
 def get_random_graph(key) -> jraph.GraphsTuple:
     graph = jraph.GraphsTuple(nodes=None,
@@ -253,6 +255,13 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
 
+    def test_shifted_softplus(self):
+        n = 10
+        res = gnf.shifted_softplus(jnp.zeros((n)))
+        np.testing.assert_almost_equal(np.array(res), np.zeros(n))
+
+
+    
 
 
 
