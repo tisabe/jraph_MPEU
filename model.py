@@ -206,7 +206,7 @@ class Model:
             loss_sum += loss
             
         if check_sum != total_num_graphs:
-            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
+            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(total_num_graphs, check_sum))
         return loss_sum # return the summed loss
 
     def train(self, train_inputs, train_outputs, epochs):
@@ -225,9 +225,10 @@ class Model:
     def predict(self, inputs):
         '''Predict outputs based on inputs.'''
         graphs = jraph.batch(inputs)
+        graphs = pad_graph_to_nearest_power_of_two(graphs) # net.apply needs a padded graph
         outputs = self.net.apply(self.params, graphs)
-
-        return outputs.globals
+        # exclude the last prediction, since it is zero from the padding
+        return outputs.globals[:-1]
 
     def test(self, inputs, outputs):
         '''Test the model by evaluating the loss for inputs and outputs. Return MAE.'''

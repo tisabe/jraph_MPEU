@@ -109,14 +109,16 @@ class TestHelperFunctions(unittest.TestCase):
         h0p = sp(sp(sp(sp(1)))) + 1
         h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
         h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
-        print('Expected label: {}'.format(n_node*sp(h0ppp)))
-        self.assertAlmostEqual(n_node*sp(h0ppp), prediction[0,0])
+        label = n_node*sp(h0ppp)
+        print('Expected label: {}'.format(label))
+        self.assertAlmostEqual(label, prediction[0,0])
+        #self.assertAlmostEqual(0, prediction[1,0])
 
 
 
     def test_padded_graph_apply(self):
         '''Test that the prediction of the network does not depend on the padding graphs.'''
-        n_node = 10
+        n_node = 3
         n_edge = 4
         n_node_features = 1
         n_edge_features = 1
@@ -150,21 +152,15 @@ class TestHelperFunctions(unittest.TestCase):
             n_edge=jnp.array([n_node]),
             globals=None
         )
+        print('Padded graph_zero:')
         graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
         print(graph_padded)
-        prediction = model.predict([graph_zero])
-        prediction_padded = model.predict([graph_padded])
-        print('Prediction for zero graph: {}'.format(prediction))
-        print('Prediction for zero graph padded: {}'.format(prediction_padded))
-
-        graph_batched = jraph.batch([graph_build, graph_zero])
-        graph_batched_padded = pad_graph_to_nearest_power_of_two(graph_batched)
-        prediction = model.predict([graph_batched])
-        prediction_padded = model.predict([graph_batched_padded])
-        print('Prediction for batch graph: {}'.format(prediction))
-        print('Prediction for batch graph padded: {}'.format(prediction_padded))
-
+        graph_updated = model.net.apply(model.params, graph_padded)
+        prediction_padded = graph_updated.globals
+        print(prediction_padded)
         
+        # check that label of padded graph is zero
+        self.assertAlmostEqual(0, prediction_padded[1,0])
 
 
 if __name__ == '__main__':
