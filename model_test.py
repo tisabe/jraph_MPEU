@@ -113,6 +113,12 @@ class TestHelperFunctions(unittest.TestCase):
         print('Expected label: {}'.format(label))
         self.assertAlmostEqual(label, prediction[0,0])
         #self.assertAlmostEqual(0, prediction[1,0])
+        graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
+        loss, grad = model.compute_loss_fn(model.params, graph_padded, label=np.stack([[label]]))
+        print("Loss from compute_loss_fn:")
+        print(loss)
+        print("Gradient from compute_loss_fn:")
+        print(grad)
 
 
 
@@ -161,6 +167,47 @@ class TestHelperFunctions(unittest.TestCase):
         
         # check that label of padded graph is zero
         self.assertAlmostEqual(0, prediction_padded[1,0])
+
+    def test_padded_graph_grad(self):
+        n_node = 3
+        n_edge = 4
+        n_node_features = 1
+        n_edge_features = 1
+        graph_build = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0,0,1,2]),
+            receivers=jnp.array([1,2,0,0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+        label = np.array([1.0])
+        #print(graph_build)
+        # initialize network
+        config.N_HIDDEN_C = 64
+        config.AVG_MESSAGE = False
+        config.AVG_READOUT = False
+        lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
+        batch_size = 32
+        model = Model(lr, batch_size, 5)
+        model.build([graph_build], label)
+
+        # graph with zeros as node features and a self edge for every node
+        graph_zero = jraph.GraphsTuple(
+            nodes=jnp.zeros((n_node)),
+            edges=jnp.ones((n_node)),
+            senders=jnp.arange(0,n_node),
+            receivers=jnp.arange(0,n_node),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_node]),
+            globals=None
+        )
+        print('Padded graph_zero:')
+        graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
+        print(graph_padded)
+        
+
 
 
 if __name__ == '__main__':
