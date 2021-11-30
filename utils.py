@@ -156,6 +156,26 @@ def normalize_targets(inputs, outputs):
     else:
         return (scaled_targets - mean*n_atoms)/std, mean, std
 
+def scale_targets(inputs, outputs, mean, std):
+    '''Return scaled targets. Inverse of normalize_targets, 
+    scales targets back to the original size.
+    Args:
+        inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
+        outputs: 1D-array of normalized target values
+        mean: mean of original targets
+        std: standard deviation of original targets
+    Returns:
+        numpy.array of scaled target values 
+    '''
+    outputs = np.array(outputs)
+    if config.AVG_READOUT:
+        return (outputs * std) + mean
+    else:
+        n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
+        for i in range(len(outputs)):
+            n_atoms[i] = inputs[i].n_node
+        return (outputs * std) + n_atoms * mean
+
 
 def get_data_df_csv(file_str, include_no_edge_graphs=False):
     '''Import data from a pandas.DataFrame saved as csv. 

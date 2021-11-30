@@ -255,6 +255,54 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
 
+    def test_scale_targets_avg(self):
+        #print("testing normalization")
+        n = 10 # number of graphs and labels to generate
+        graphs = []
+        labels = []
+        seed = 0
+        key = jax.random.PRNGKey(seed)
+        for i in range(n):
+            key, subkey = jax.random.split(key)
+            graph = get_random_graph(subkey)
+            graphs.append(graph)
+            labels.append(jax.random.uniform(subkey))
+            #print(graphs[i])
+            #print(labels[i])
+        
+        config.AVG_READOUT = True
+        outputs, mean, std = normalize_targets(graphs, labels)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+        np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
+
+    def test_scale_targets_sum(self):
+        print("testing normalization")
+        n = 10 # number of graphs and labels to generate
+        graphs = []
+        labels = []
+        seed = 0
+        key = jax.random.PRNGKey(seed)
+        n_atoms = []
+        for i in range(n):
+            key, subkey = jax.random.split(key)
+            graph = get_random_graph(subkey)
+            n_atoms.append(graph.n_node)
+            graphs.append(graph)
+            labels.append(jax.random.uniform(subkey))
+            #print(graphs[i])
+            #print(labels[i])
+        
+        config.AVG_READOUT = False
+        outputs, mean, std = normalize_targets(graphs, labels)
+        print(mean)
+        print(std)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+        print(np.array(labels))
+        print(outputs_scaled)
+        print(np.array(n_atoms))
+        np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
+
+
     def test_shifted_softplus(self):
         n = 10
         res = gnf.shifted_softplus(jnp.zeros((n)))
