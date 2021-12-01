@@ -29,11 +29,11 @@ class TestHelperFunctions(unittest.TestCase):
         position_matrix = np.array([[0, 0], [1, 1], [2, 2], [2, 3]])*1.0
         euclidian_distance = dist_matrix(position_matrix)
 
-        print(euclidian_distance)
+        #print(euclidian_distance)
 
         senders, receivers = get_knn_adj_from_dist(euclidian_distance, 5)
-        print(senders)
-        print(receivers)
+        #print(senders)
+        #print(receivers)
 
 
     def test_k_nn_random(self):
@@ -42,7 +42,7 @@ class TestHelperFunctions(unittest.TestCase):
         k = 3
         position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
         distances = dist_matrix(position_matrix)
-        print(distances)
+        #print(distances)
         senders, receivers = get_knn_adj_from_dist(distances, k)
 
         expected_senders = []
@@ -64,14 +64,6 @@ class TestHelperFunctions(unittest.TestCase):
                 idx_list.append(last_idx)
                 expected_senders.append(last_idx)
                 expected_receivers.append(row)
-
-
-
-
-        print(senders)
-        print(np.array(expected_senders))
-        print(receivers)
-        print(np.array(expected_receivers))
 
         np.testing.assert_array_equal(np.array(expected_senders), senders)
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
@@ -116,16 +108,6 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
 
-    def test_spektral_to_jraph(self):
-        dataset = QM9(amount=1)
-        graph, label = spektral_to_jraph(dataset[0])
-        label_size = len(label)
-
-        #print(graph)
-        #print(label)
-        print(graph.senders)
-        print(type(graph.senders))
-
     def test_reader_integration(self):
         file_str = 'QM9/graphs_U0K.csv'
         batch_size = 4
@@ -133,12 +115,12 @@ class TestHelperFunctions(unittest.TestCase):
 
         train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
             inputs, outputs, auids, test_size=0.1, random_state=0)
-        print("train_out type: {}".format(type(train_out)))
-        print("train_out shape: {}".format(np.shape(train_out)))
+        #print("train_out type: {}".format(type(train_out)))
+        #print("train_out shape: {}".format(np.shape(train_out)))
 
         train_out, mean_train, std_train = normalize_targets(train_in, train_out)
-        print("train_out normd type: {}".format(type(train_out)))
-        print("train_out normd shape: {}".format(np.shape(train_out)))
+        #print("train_out normd type: {}".format(type(train_out)))
+        #print("train_out normd shape: {}".format(np.shape(train_out)))
 
         reader = DataReader(train_in, train_out, batch_size=batch_size)
         
@@ -147,11 +129,11 @@ class TestHelperFunctions(unittest.TestCase):
         input_reader = pad_graph_to_nearest_power_of_two(input_reader)
         in_type_reader = type(input_reader)
         out_type_reader = type(output_reader)
-        print("Reader Input n_node: {}".format(input_reader.n_node))
-        print(output_reader)
-        print("Reader Input type: {}".format(in_type_reader))
-        print("Reader output type: {}".format(out_type_reader))
-        print("Reader output shape: {}".format(np.shape(output_reader)))
+        #print("Reader Input n_node: {}".format(input_reader.n_node))
+        #print(output_reader)
+        #print("Reader Input type: {}".format(in_type_reader))
+        #print("Reader output type: {}".format(out_type_reader))
+        #print("Reader output shape: {}".format(np.shape(output_reader)))
 
         # replicate data processing in train_epoch of model
         graphs = []
@@ -161,11 +143,11 @@ class TestHelperFunctions(unittest.TestCase):
             labels.append([train_out[i]]) # maybe [] around train_out[i]
         graph, label = jraph.batch(graphs), np.stack(labels)
         graph = pad_graph_to_nearest_power_of_two(graph)
-        print("Model input n_node: {}".format(graph.n_node))
-        print(label)
-        print("Model input type: {}".format(type(graph)))
-        print("Model output type: {}".format(type(label)))
-        print("Model output shape: {}".format(np.shape(label)))
+        #print("Model input n_node: {}".format(graph.n_node))
+        #print(label)
+        #print("Model input type: {}".format(type(graph)))
+        #print("Model output type: {}".format(type(label)))
+        #print("Model output shape: {}".format(np.shape(label)))
 
         np.testing.assert_array_equal(input_reader.n_node, graph.n_node)
         self.assertEqual(first=in_type_reader, second=type(graph))
@@ -181,7 +163,7 @@ class TestHelperFunctions(unittest.TestCase):
         key = jax.random.PRNGKey(seed)
         for i in range(n):
             key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
+            graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
             #print(graphs[i])
@@ -208,7 +190,7 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_almost_equal(targets, expected_targets)
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
-
+    
     def test_normalize_targets_sum(self):
         #print("testing normalization")
         n = 1000 # number of graphs and labels to generate
@@ -219,7 +201,7 @@ class TestHelperFunctions(unittest.TestCase):
         key = jax.random.PRNGKey(seed)
         for i in range(n):
             key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
+            graph = get_random_graph(key)
             n_nodes.append(int(graph.n_node))
             graphs.append(graph)
             labels.append(np.float32(jax.random.uniform(subkey)))
@@ -246,15 +228,15 @@ class TestHelperFunctions(unittest.TestCase):
 
         #print(expected_targets)
         #print(targets)
-        print("Expected mean: {}".format(expected_mean))
-        print("Actual mean: {}".format(mean))
+        #print("Expected mean: {}".format(expected_mean))
+        #print("Actual mean: {}".format(mean))
         print(expected_std)
         print(std)
 
         np.testing.assert_almost_equal(targets, expected_targets)
-        np.testing.assert_almost_equal(mean, expected_mean)
+        np.testing.assert_almost_equal(mean, float(expected_mean))
         np.testing.assert_almost_equal(std, expected_std)
-
+    
     def test_scale_targets_avg(self):
         #print("testing normalization")
         n = 10 # number of graphs and labels to generate
@@ -264,7 +246,7 @@ class TestHelperFunctions(unittest.TestCase):
         key = jax.random.PRNGKey(seed)
         for i in range(n):
             key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
+            graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
             #print(graphs[i])
@@ -276,7 +258,7 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 
     def test_scale_targets_sum(self):
-        print("testing normalization")
+        print("testing rescaling")
         n = 10 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -285,21 +267,17 @@ class TestHelperFunctions(unittest.TestCase):
         n_atoms = []
         for i in range(n):
             key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
+            graph = get_random_graph(key)
             n_atoms.append(graph.n_node)
             graphs.append(graph)
-            labels.append(jax.random.uniform(subkey))
             #print(graphs[i])
             #print(labels[i])
+        labels = np.random.randint(low=0, high=10, size=(n,1)).astype(np.float32)
         
         config.AVG_READOUT = False
         outputs, mean, std = normalize_targets(graphs, labels)
-        print(mean)
-        print(std)
         outputs_scaled = scale_targets(graphs, outputs, mean, std)
-        print(np.array(labels))
-        print(outputs_scaled)
-        print(np.array(n_atoms))
+        
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 
 

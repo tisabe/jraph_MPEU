@@ -138,9 +138,10 @@ def normalize_targets(inputs, outputs):
     '''return normalized outputs, based on which aggregation function is saved in config.
     Also return mean and standard deviation for later rescaling.
     Inputs, i.e. graphs, are used to get number of atoms, for atom-wise scaling.'''
+    outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
     n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
     for i in range(len(outputs)):
-        n_atoms[i] = inputs[i].n_node
+        n_atoms[i] = inputs[i].n_node[0]
     
     if config.AVG_READOUT:
         scaled_targets = outputs
@@ -154,7 +155,7 @@ def normalize_targets(inputs, outputs):
     if config.AVG_READOUT:
         return (scaled_targets - mean)/std, mean, std
     else:
-        return (scaled_targets - mean*n_atoms)/std, mean, std
+        return (outputs - (mean*n_atoms))/std, mean, std
 
 def scale_targets(inputs, outputs, mean, std):
     '''Return scaled targets. Inverse of normalize_targets, 
@@ -167,14 +168,14 @@ def scale_targets(inputs, outputs, mean, std):
     Returns:
         numpy.array of scaled target values 
     '''
-    outputs = np.array(outputs)
+    outputs = np.reshape(outputs, len(outputs))
     if config.AVG_READOUT:
         return (outputs * std) + mean
     else:
         n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
         for i in range(len(outputs)):
             n_atoms[i] = inputs[i].n_node
-        return (outputs * std) + n_atoms * mean
+        return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
 
 
 def get_data_df_csv(file_str, include_no_edge_graphs=False):

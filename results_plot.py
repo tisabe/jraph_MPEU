@@ -5,9 +5,9 @@ import matplotlib
 from scipy.stats import gaussian_kde
 from sklearn.metrics import r2_score
 
-folder = 'results_test/res_slow_learn/'
+#folder = 'results_test/res_slow_learn/'
 #folder = 'results_norm/'
-#folder = 'results_test/'
+folder = 'results_test/'
 
 df_test_post = pandas.read_csv(folder+'test_post.csv')
 df_train_post = pandas.read_csv(folder+'train_post.csv')

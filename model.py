@@ -385,7 +385,7 @@ def main():
     inputs, outputs, auids = get_data_df_csv(file_str)
     
     ### Normalize data according to readout function (different for summ or mean)
-    #outputs, mean_data, std_data = normalize_targets(inputs, outputs)
+    outputs, mean_data, std_data = normalize_targets(inputs, outputs)
     
     # split up the data into training and testing data
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
@@ -413,7 +413,7 @@ def main():
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 10)
+    model.train_and_test(inputs, outputs, 2)
     #model.train_early_stopping_epochs(train_in, train_out, 0.2, 1000, 50, 10000)
     
     # save parameters
@@ -430,8 +430,13 @@ def main():
     # post training evaluation
     preds_train_post = model.predict(train_in)
     preds_test_post = model.predict(test_in)
+    '''
+    preds_train_post = scale_targets(train_in, preds_train_post, mean_data, std_data)
+    preds_test_post = scale_targets(test_in, preds_test_post, mean_data, std_data)
 
-    
+    train_out = scale_targets(train_in, train_out, mean_data, std_data)
+    test_out = scale_targets(test_in, test_out, mean_data, std_data)
+    '''
     make_result_csv(train_out, preds_train_post, train_auids, 'results_test/train_post.csv')
     make_result_csv(test_out, preds_test_post, test_auids, 'results_test/test_post.csv')
 
