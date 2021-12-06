@@ -3,10 +3,10 @@ import pandas
 import matplotlib.pyplot as plt
 import matplotlib
 from utils import *
-from model import get_data_df_csv
 
 folder_data = 'QM9/'
-file_graphs = 'graphs_all_labelidx16.csv'
+#file_graphs = 'graphs_all_labelidx16.csv'
+file_graphs = 'graphs_U0K.csv'
 
 df_graphs = pandas.read_csv(folder_data+file_graphs)
 inputs, outputs, auids = get_data_df_csv(folder_data+file_graphs)
@@ -40,6 +40,13 @@ ax[1].hist(num_nodes, bins=max_nodes)
 ax[1].set_yscale('log')
 ax[1].set_xlabel('number of nodes per graph')
 ax[1].set_ylabel('count')
+
+plt.show()
+
+# plot label value depending on number of atoms
+fig, ax = plt.subplots()
+
+ax.scatter(num_nodes, outputs)
 
 plt.show()
 

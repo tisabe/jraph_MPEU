@@ -115,6 +115,8 @@ class TestHelperFunctions(unittest.TestCase):
         #self.assertAlmostEqual(0, prediction[1,0])
         graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
         loss, grad = model.compute_loss_fn(model.params, graph_padded, label=np.stack([[label]]))
+        graph_updated = model.net.apply(model.params, graph_padded)
+        print(graph_updated)
         print("Loss from compute_loss_fn:")
         print(loss)
         print("Gradient from compute_loss_fn:")
