@@ -47,6 +47,8 @@ plt.show()
 fig, ax = plt.subplots()
 
 ax.scatter(num_nodes, outputs)
+ax.set_xlabel('number of atoms')
+ax.set_ylabel('U_0K')
 
 plt.show()
 

@@ -11,6 +11,7 @@ from tqdm import trange
 import sklearn
 import pickle
 import sys
+import argparse
 
 # import custom functions
 from graph_net_fn import *
@@ -367,7 +368,7 @@ class Model:
         self.logging = logging
 
 
-def main():
+def main(args):
     #jax.config.update('jax_platform_name', 'cpu')
     config.N_HIDDEN_C = 64
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
@@ -384,7 +385,7 @@ def main():
     #file_str = 'QM9/graphs_all_labelidx16.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
     
-    ### Normalize data according to readout function (different for summ or mean)
+    ### Normalize data according to readout function (different for sum or mean)
     outputs, mean_data, std_data = normalize_targets(inputs, outputs)
     
     # split up the data into training and testing data
@@ -403,6 +404,9 @@ def main():
     print(outputs[:10])
     print('Mean of labels: {}'.format(np.mean(outputs)))
     print('Std of labels: {}'.format(np.std(outputs)))
+
+    print('Normalization Mean: {}'.format(mean_data))
+    print('Normalization Std: {}'.format(std_data))
     
     # pre training evaluation
     '''
@@ -413,7 +417,7 @@ def main():
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 2)
+    model.train_and_test(inputs, outputs, 20)
     #model.train_early_stopping_epochs(train_in, train_out, 0.2, 1000, 50, 10000)
     
     # save parameters
@@ -430,13 +434,13 @@ def main():
     # post training evaluation
     preds_train_post = model.predict(train_in)
     preds_test_post = model.predict(test_in)
-    '''
+    
     preds_train_post = scale_targets(train_in, preds_train_post, mean_data, std_data)
     preds_test_post = scale_targets(test_in, preds_test_post, mean_data, std_data)
 
     train_out = scale_targets(train_in, train_out, mean_data, std_data)
     test_out = scale_targets(test_in, test_out, mean_data, std_data)
-    '''
+    
     make_result_csv(train_out, preds_train_post, train_auids, 'results_test/train_post.csv')
     make_result_csv(test_out, preds_test_post, test_auids, 'results_test/test_post.csv')
 
@@ -448,4 +452,22 @@ def main():
     
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Build, train and test a MPNN Model.')
+    parser.add_argument('-C', '-c', type=int, dest='c', default=64,
+                        help='number of hidden neurons in MLPs')
+    parser.add_argument('-f', '-F', type=str, dest='file', 
+                        help='input file name')
+    parser.add_argument('-avgR', type=bool, dest='AVG_READOUT', default=False, 
+                        help='if using averaging readout function')
+    parser.add_argument('-avgM', type=bool, dest='AVG_READOUT', default=False, 
+                        help='if using averaging message function')
+    parser.add_argument('-init_lr', type=float, dest='init_lr', default=5e-4, 
+                        help='initial learning rate for exponential decay')
+    parser.add_argument('-e', type=int, dest='max_epoch',
+                        help='maximum number of epochs to run')
+    parser.add_argument('-ep', type=int, dest='epochs_patience', default=1000)
+
+
+    args = parser.parse_args()
+    print(args.c)
+    main(args)
