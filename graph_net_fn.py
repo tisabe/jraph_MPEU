@@ -95,6 +95,8 @@ def edge_update_fn(edge_message, sent_attributes, received_attributes,
                                             net_m_n(received_attributes))
     return edge_message
 
+edge_update_fn = jax.vmap(edge_update_fn)
+
 
 def node_update_fn(nodes, sent_attributes,
                    received_attributes, global_attributes) -> jnp.ndarray:
@@ -107,6 +109,8 @@ def node_update_fn(nodes, sent_attributes,
     messages_propagated = net(received_attributes['messages'])
 
     return nodes + messages_propagated
+
+node_update_fn = jax.vmap(node_update_fn)
 
 
 def readout_global_fn(node_attributes, edge_attributes, globals_) -> jnp.ndarray:
