@@ -19,42 +19,6 @@ from utils import *
 import config
 
 
-def get_data_df_csv(file_str, include_no_edge_graphs=False):
-    '''Import data from a pandas.DataFrame saved as csv. 
-    Return as inputs, outputs (e.g. train_inputs, train_outputs)'''
-    df = pandas.read_csv(file_str)
-    inputs = []
-    outputs = []
-    auids = []
-    for index, row in df.iterrows():
-        #print(index)
-        nodes = str_to_array_replace(row['nodes'])
-        auid = row['auid']
-        #nodes = np.reshape(nodes, (-1,1)).astype(np.float32)
-        #print(nodes)
-        #print(type(nodes))
-        #print(row['senders'])
-        senders = str_to_array_replace(row['senders'])
-        #senders = row['senders']
-        receivers = str_to_array_replace(row['receivers'])
-        #receivers = row['receivers']
-        #print(index)
-        #print(row['edges'])
-        edges = str_to_array_float(row['edges'])
-
-        if (not len(edges)==0) or include_no_edge_graphs:
-            graph = jraph.GraphsTuple(
-                n_node=np.asarray([len(nodes)]),
-                n_edge=np.asarray([len(senders)]),
-                nodes=nodes, edges=edges,
-                globals=None,
-                senders=np.asarray(senders), receivers=np.asarray(receivers))
-            inputs.append(graph)
-            outputs.append(row['label'])
-            auids.append(auid)
-
-    return inputs, outputs, auids
-
 def make_result_csv(x, y, auids, path):
     '''Print predictions x versus labels y in a csv at path.'''
     dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten(), 'auid': auids}
@@ -76,11 +40,10 @@ def get_highest_atomic_number(input_graphs):
 
 class Model:
     '''Make a MPEU model.'''
-    def __init__(self, learning_rate, batch_size, epochs):
+    def __init__(self, learning_rate, batch_size):
         '''Initialize the model with hyperparameters, defining the training process'''
         self.learning_rate = learning_rate
         self.batch_size = batch_size
-        self.epochs = epochs
         self.built = False # set to false until model has been built
         self.set_train_logging()
         self.data_in = None
@@ -370,17 +333,17 @@ class Model:
 
 def main(args):
     #jax.config.update('jax_platform_name', 'cpu')
-    config.N_HIDDEN_C = 64
+    config.N_HIDDEN_C = args.c
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
-    config.AVG_MESSAGE = True
-    config.AVG_READOUT = False
-    lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
-    batch_size = 32
+    config.AVG_MESSAGE = args.AVG_MESSAGE
+    config.AVG_READOUT = args.AVG_READOUT
+    lr = optax.exponential_decay(args.init_lr, 100000, 0.96)
+    batch_size = args.batch_size
     print('batch size: {}'.format(batch_size))
-    model = Model(lr, batch_size, 5)
+    model = Model(lr, batch_size)
 
     ### Load data from file
-    file_str = 'QM9/graphs_U0K.csv'
+    file_str = args.file
     #file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
     #file_str = 'QM9/graphs_all_labelidx16.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
@@ -390,7 +353,7 @@ def main(args):
     
     # split up the data into training and testing data
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
-        inputs, outputs, auids, test_size=0.1, random_state=0
+        inputs, outputs, auids, test_size=args.split_test, random_state=0
     )
 
     ### Build the model: initialize model parameters and optimizer
@@ -417,8 +380,11 @@ def main(args):
     make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
     '''
     # train the model
-    model.train_and_test(inputs, outputs, 20)
-    #model.train_early_stopping_epochs(train_in, train_out, 0.2, 1000, 50, 10000)
+    if args.epochs_testing > 0:
+        model.train_and_test(inputs, outputs, args.epochs_testing)
+    else:
+        model.train_early_stopping_epochs(train_in, train_out, args.split_val, 
+        args.epochs_patience, args.epochs_val, args.max_epoch)
     
     # save parameters
     params = model.params
@@ -455,14 +421,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Build, train and test a MPNN Model.')
     parser.add_argument('-C', '-c', type=int, dest='c', default=64,
                         help='number of hidden neurons in MLPs')
-    parser.add_argument('-f', '-F', type=str, dest='file', 
+    parser.add_argument('-B', '-b', type=int, dest='batch_size', default=32,
+                        help='batch size for training the network')
+    parser.add_argument('-f', '-F', type=str, dest='file', default='QM9/graphs_U0K.csv',
                         help='input file name')
     parser.add_argument('-avgR', type=bool, dest='AVG_READOUT', default=False, 
                         help='if using averaging readout function')
-    parser.add_argument('-avgM', type=bool, dest='AVG_READOUT', default=False, 
+    parser.add_argument('-avgM', type=bool, dest='AVG_MESSAGE', default=False, 
                         help='if using averaging message function')
     parser.add_argument('-init_lr', type=float, dest='init_lr', default=5e-4, 
                         help='initial learning rate for exponential decay')
+    parser.add_argument('-split_test', type=float, dest='split_test', default=0.1,
+                        help='test split fraction')
+    parser.add_argument('-split_val', type=float, dest='split_val', default=0.2,
+                        help='validation split fraction')
+    parser.add_argument('-epochs_val', type=int, dest='epochs_val', default=50,
+                        help='number of epochs between evaluations on validation data')
     parser.add_argument('-e', type=int, dest='max_epoch',
                         help='maximum number of epochs to run')
     parser.add_argument('-ep', type=int, dest='epochs_patience', default=1000,
@@ -472,5 +446,4 @@ if __name__ == "__main__":
                                 run model for given number of epochs without early stopping')
 
     args = parser.parse_args()
-    print(args.c)
     main(args)
