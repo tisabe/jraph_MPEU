@@ -465,8 +465,11 @@ if __name__ == "__main__":
                         help='initial learning rate for exponential decay')
     parser.add_argument('-e', type=int, dest='max_epoch',
                         help='maximum number of epochs to run')
-    parser.add_argument('-ep', type=int, dest='epochs_patience', default=1000)
-
+    parser.add_argument('-ep', type=int, dest='epochs_patience', default=1000,
+                        help='for early stopping, number of epochs to wait for improvement in validation loss')
+    parser.add_argument('-t', '--testing', type=int, dest='epochs_testing', default=0,
+                        help='testing epochs, if higher than 0, then testing mode is applied, \
+                                run model for given number of epochs without early stopping')
 
     args = parser.parse_args()
     print(args.c)
