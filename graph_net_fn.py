@@ -8,8 +8,7 @@ import config
 from utils import *
 
 
-def edge_embedding_fn(edges, sent_attributes, received_attributes,
-                      global_edge_attributes) -> jnp.ndarray:
+def edge_embedding_fn(edges) -> jnp.ndarray:
     """Edge embedding function for general data."""
     distances = edges
 
@@ -29,8 +28,25 @@ def edge_embedding_fn(edges, sent_attributes, received_attributes,
     return edge_message
 
 
-def node_embedding_fn(nodes, sent_attributes,
-                      received_attributes, global_attributes) -> jnp.ndarray:
+def edge_embedding_fn_single(edge) -> jnp.ndarray:
+    """Edge embedding function for general data."""
+    distance = edge
+
+    k_max = 150  # TODO: make parameters accessible
+    delta = 0.1
+    mu_min = 0.0
+
+    k_vals = jnp.arange(0, k_max)
+
+    exponents = -1 * jnp.square(distance + mu_min - k_vals * delta) / delta
+    edges = jnp.exp(exponents)
+
+    # now we define a structured vector, to combine edge and message features
+    edge_message = {'edges': edges, 'messages': jnp.zeros((edges.shape[0], config.N_HIDDEN_C))}
+    return edge_message
+
+
+def node_embedding_fn(nodes) -> jnp.ndarray:
     """Node embedding function for aflow data."""
     # TODO: look up how it is implemented in MPEU
     net = hk.Linear(config.N_HIDDEN_C, with_bias=False, w_init=config.HK_INIT)
@@ -40,10 +56,10 @@ def node_embedding_fn(nodes, sent_attributes,
 
 def net_embedding():
     '''Return the embedding layer as a function to be called.'''
-    net = jraph.GraphNetwork(
-        update_node_fn=node_embedding_fn,
-        update_edge_fn=edge_embedding_fn,
-        update_global_fn=None)
+    net = jraph.GraphMapFeatures(
+        embed_node_fn=jax.vmap(node_embedding_fn),
+        #embed_edge_fn=edge_embedding_fn)
+        embed_edge_fn=jax.vmap(edge_embedding_fn_single))
     return net
 
 
