@@ -31,7 +31,6 @@ def get_highest_atomic_number(input_graphs):
     for i in range(len(input_graphs)):
         graph = input_graphs[i]
         nodes = graph.nodes
-        #print(nodes)
         max_local = max(nodes)
         if max_local > max_num:
             max_num = max_local
@@ -67,8 +66,7 @@ class Model:
         Returns:
             loss: float, loss value, here summed absolute error, for optimizing net parameters 
         '''
-        #n_nodes = (graph.n_node)
-        #print('loss was rejitted with {} nodes'.format(n_nodes))
+        
         pred_graph = net.apply(params, graph)
         preds = pred_graph.globals
 
@@ -87,7 +85,6 @@ class Model:
             outputs: list of float, example of target labels
         '''
         graph_example = inputs[0]
-        #print(graph_example)
         label_example = outputs[0]
         
         if type(label_example) is float:
@@ -344,8 +341,6 @@ def main(args):
 
     ### Load data from file
     file_str = args.file
-    #file_str = 'aflow/graphs_enthalpy_cutoff4A.csv'
-    #file_str = 'QM9/graphs_all_labelidx16.csv'
     inputs, outputs, auids = get_data_df_csv(file_str)
     
     ### Normalize data according to readout function (different for sum or mean)
@@ -371,14 +366,6 @@ def main(args):
     print('Normalization Mean: {}'.format(mean_data))
     print('Normalization Std: {}'.format(std_data))
     
-    # pre training evaluation
-    '''
-    preds_train_pre = model.predict(train_in)
-    preds_test_pre = model.predict(test_in)
-    
-    make_result_csv(train_out, preds_train_pre, train_auids, 'results_test/train_pre.csv')
-    make_result_csv(test_out, preds_test_pre, test_auids, 'results_test/test_pre.csv')
-    '''
     # train the model
     if args.epochs_testing > 0:
         model.train_and_test(inputs, outputs, args.epochs_testing)
