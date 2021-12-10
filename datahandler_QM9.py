@@ -5,6 +5,7 @@ from ase import Atoms
 import spektral
 from spektral.datasets import QM9
 import sys
+import argparse
 
 from datahandler import get_graph_cutoff
 
@@ -76,9 +77,9 @@ def test():
     df = make_QM9_df(dataset, cutoff=4, index=7)
     print(df.loc[1])
 
-def main():
+def main(args):
 
-    dataset = QM9(amount = None)
+    dataset = QM9(amount = args.amount)
     graph_s = dataset[1]
     print(graph_s.y)
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
@@ -91,5 +92,9 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Pull QM9 data, convert it to graphs in csv and save file.')
+    parser.add_argument('-n', type=int, dest='amount', default=16000,
+                        help='number of structures to pull from QM9.')
+    args = parser.parse_args()
+    main(args)
     #test()
