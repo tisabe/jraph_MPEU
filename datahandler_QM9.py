@@ -88,13 +88,15 @@ def main(args):
     print(graph_df.head())
     # target file:
     #graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
-    graph_df.to_csv(('QM9/graphs_all_labelidx16.csv'))
+    graph_df.to_csv((args.file_out))
     return 0
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pull QM9 data, convert it to graphs in csv and save file.')
     parser.add_argument('-n', type=int, dest='amount', default=16000,
                         help='number of structures to pull from QM9.')
+    parser.add_argument('-o', type=str, dest='file_out', default='QM9/graphs_U0K.csv',
+                        help='output file name')
     args = parser.parse_args()
     main(args)
     #test()
