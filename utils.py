@@ -145,12 +145,10 @@ def normalize_targets(inputs, outputs):
     
     if config.AVG_READOUT:
         scaled_targets = outputs
-        mean = np.mean(scaled_targets)
-        std = np.std(scaled_targets)
     else:
         scaled_targets = np.array(outputs)/n_atoms
-        mean = np.sum(scaled_targets) # why sum not mean?? defined like this in paper
-        std = np.sqrt(np.sum(np.square(scaled_targets - mean)))
+    mean = np.mean(scaled_targets)
+    std = np.std(scaled_targets)
 
     if config.AVG_READOUT:
         return (scaled_targets - mean)/std, mean, std

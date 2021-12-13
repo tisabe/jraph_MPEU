@@ -215,10 +215,11 @@ class TestHelperFunctions(unittest.TestCase):
         expected_std = 0
         for i in range(n):
             expected_mean += labels[i]/graphs[i].n_node
+        expected_mean = expected_mean/n
         
         for i in range(n):
             expected_std += np.square(labels[i]/graphs[i].n_node - expected_mean)
-        expected_std = np.sqrt(expected_std)
+        expected_std = np.sqrt(expected_std/n)
         
         for i in range(n):
             expected_targets[i] = (labels[i] - graphs[i].n_node*expected_mean)/expected_std
