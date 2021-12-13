@@ -87,7 +87,7 @@ class TestHelperFunctions(unittest.TestCase):
         config.HK_INIT = hk.initializers.Identity()
         lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
         batch_size = 32
-        model = Model(lr, batch_size, 5)
+        model = Model(lr, batch_size)
         model.build([graph_build], label)
 
         # graph with zeros as node features and a self edge for every node
@@ -147,7 +147,7 @@ class TestHelperFunctions(unittest.TestCase):
         config.AVG_READOUT = False
         lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
         batch_size = 32
-        model = Model(lr, batch_size, 5)
+        model = Model(lr, batch_size)
         model.build([graph_build], label)
 
         # graph with zeros as node features and a self edge for every node
@@ -192,7 +192,7 @@ class TestHelperFunctions(unittest.TestCase):
         config.AVG_READOUT = False
         lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
         batch_size = 32
-        model = Model(lr, batch_size, 5)
+        model = Model(lr, batch_size)
         model.build([graph_build], label)
 
         # graph with zeros as node features and a self edge for every node
