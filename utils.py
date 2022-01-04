@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import spektral
 import jraph
 import numpy as np
 import haiku as hk
@@ -112,27 +111,6 @@ def get_knn_adj_from_dist(distance_matrix, k):
 
     return senders, receivers
 
-
-def spektral_to_jraph(graph_s: spektral.data.graph.Graph, cutoff=10) -> jraph.GraphsTuple:
-    '''Return graph in jraph format and separate label (globals) from graph'''
-    nodes = graph_s.x
-    edges = graph_s.e
-    globals = [graph_s.y[7]]
-
-    # construct adjacency matrix from positions in node features
-    distances = dist_matrix(nodes[:, 5:8])
-    # TODO: Make accessible choice between cutoff and knn
-    #senders, receivers = get_cutoff_adj_from_dist(distances, cutoff=cutoff)
-    senders, receivers = get_knn_adj_from_dist(distances, k=12)
-
-    graph_j = jraph.GraphsTuple(
-        n_node=np.asarray([len(nodes)]),
-        n_edge=np.asarray([len(senders)]),
-        nodes=nodes, edges=None,
-        globals=None,
-        senders=np.asarray(senders), receivers=np.asarray(receivers))
-
-    return graph_j, globals
 
 def normalize_targets(inputs, outputs):
     '''return normalized outputs, based on which aggregation function is saved in config.

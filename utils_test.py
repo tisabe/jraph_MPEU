@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import spektral
 import jraph
 import numpy as np
 import haiku as hk

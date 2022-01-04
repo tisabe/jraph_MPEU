@@ -9,9 +9,11 @@ import optax
 import pandas
 from tqdm import trange
 import sklearn
+import sklearn.model_selection
 import pickle
 import sys
 import argparse
+import tensorflow as tf
 
 # import custom functions
 from graph_net_fn import *
@@ -329,6 +331,7 @@ class Model:
 
 
 def main(args):
+    tf.config.experimental.set_visible_devices([], 'GPU') # disables memroy allocation from tf
     #jax.config.update('jax_platform_name', 'cpu')
     config.N_HIDDEN_C = args.c
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
