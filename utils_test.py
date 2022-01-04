@@ -288,6 +288,21 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_almost_equal(np.array(res), np.zeros(n))
 
 
+    def test_get_atomization_energies_QM9(self):
+        graph = jraph.GraphsTuple(nodes=[0,1,2,3,4],
+                      edges=None,
+                      senders=None,
+                      receivers=None,
+                      n_node=[5],
+                      n_edge=None,
+                      globals=None)
+        print(graph)
+        graphs = [graph]
+        labels = [0]
+        outputs = get_atomization_energies_QM9(graphs, labels, 'U0')
+        print(outputs)
+
+
     
 
 
