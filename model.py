@@ -13,7 +13,7 @@ import sklearn.model_selection
 import pickle
 import sys
 import argparse
-import tensorflow as tf
+#import tensorflow as tf
 
 # import custom functions
 from graph_net_fn import *
@@ -331,7 +331,11 @@ class Model:
 
 
 def main(args):
-    tf.config.experimental.set_visible_devices([], 'GPU') # disables memroy allocation from tf
+    '''tf.config.experimental.set_visible_devices([], 'GPU') # disables memroy allocation from tf
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    print(gpus)
+    tf.config.experimental.set_memory_growth(gpus[0], True)'''
+    
     #jax.config.update('jax_platform_name', 'cpu')
     config.N_HIDDEN_C = args.c
     print('N_HIDDEN_C: {}'.format(config.N_HIDDEN_C))
