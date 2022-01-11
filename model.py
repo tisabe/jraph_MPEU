@@ -13,6 +13,8 @@ import sklearn.model_selection
 import pickle
 import sys
 import argparse
+from random import shuffle
+import time
 #import tensorflow as tf
 
 # import custom functions
@@ -53,6 +55,7 @@ class Model:
         self.test_loss_arr = []
         self.show_train_progress = True # TODO: make accessible
         self.show_build_progress = True # TODO: make accessible
+        self.budget = None
 
     def compute_loss(self, params, graph, label, net):
         '''Compute loss, with summed absolute error of target label and graph global.
@@ -72,11 +75,7 @@ class Model:
         pred_graph = net.apply(params, graph)
         preds = pred_graph.globals
 
-        # one graph was added to pad nodes and edges, so globals will also be padded by one
-        # masking is not needed so long as the padded graph also has a zero global array after update
-        label_padded = jnp.pad(label, ((0, 1), (0, 0)))
-
-        loss = jnp.sum(jnp.abs(preds - label_padded))
+        loss = jnp.sum(jnp.abs(preds - label))
         return loss
 
     def build(self, inputs, outputs):
@@ -128,48 +127,27 @@ class Model:
 
     def train_epoch(self, inputs, outputs, idx_epoch):
         '''Train the model for a single epoch.'''
+        time_start = time.time()
         total_num_graphs = len(inputs)
         num_training_steps_per_epoch = total_num_graphs // self.batch_size
 
         loss_sum = 0
-        check_sum = 0 # check if all graphs have been used in epoch
-        if self.show_train_progress:
-            iterator = trange(num_training_steps_per_epoch, desc=("epoch " + str(idx_epoch)), unit="gradient steps")
-        else:
-            iterator = range(num_training_steps_per_epoch)
-        for i in iterator:
-            graphs = []
-            labels = []
-            for idx_batch in range(self.batch_size):
-                # loop over the batch size to create a jraph batch from inputs and outputs
-                graph = inputs[i*self.batch_size+idx_batch]
-                label = outputs[i*self.batch_size+idx_batch]
-                graphs.append(graph)
-                labels.append([label])
-                check_sum += 1
-            graph, label = jraph.batch(graphs), np.stack(labels)
-            graph = pad_graph_to_nearest_power_of_two(graph) # TODO: pad labels here too
-            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
+        label_idx = 0
+        batch_generator = jraph.dynamically_batch(iter(inputs), 
+            self.budget.n_node,
+            self.budget.n_edge,
+            self.budget.n_graph)
+        
+        for graph_batch in batch_generator:
+            n_pad_graphs = jraph.get_number_of_padding_with_graphs_graphs(graph_batch)
+            label = outputs[label_idx:graph_batch.n_node.shape[0]-n_pad_graphs]
+            label_idx = graph_batch.n_node.shape[0]-n_pad_graphs
+            label_padded = np.pad(label, (0,n_pad_graphs))
+            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
             loss_sum += loss
-        # if number of graphs is not divisible by batch_size, create a batch with leftover graphs
-        if total_num_graphs%self.batch_size != 0:
-            idx_start = num_training_steps_per_epoch * self.batch_size
-            idx_end = total_num_graphs
-            graphs = []
-            labels = []
-            for i in range(idx_start, idx_end):
-                graph = inputs[i]
-                label = outputs[i]
-                graphs.append(graph)
-                labels.append([label])
-                check_sum += 1
-            graph, label = jraph.batch(graphs), np.stack(labels)
-            graph = pad_graph_to_nearest_power_of_two(graph)
-            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph, label)
-            loss_sum += loss
-            
-        if check_sum != total_num_graphs:
-            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(total_num_graphs, check_sum))
+        time_epoch = time.time() - time_start
+        print("Time this epoch: {}".format(time_epoch))
+        
         return loss_sum # return the summed loss
 
     def train(self, train_inputs, train_outputs, epochs):
@@ -196,41 +174,23 @@ class Model:
     def test(self, inputs, outputs):
         '''Test the model by evaluating the loss for inputs and outputs. Return MAE.'''
         
-        loss_sum = 0.0
         n_test = len(inputs)
-        check_sum = 0 # check if all graphs have been used in epoch
-        for i in range(n_test // self.batch_size):
-            graphs = []
-            labels = []
-            for idx_batch in range(self.batch_size):
-                graph = inputs[i*self.batch_size+idx_batch]
-                label = outputs[i*self.batch_size+idx_batch]
-                graphs.append(graph)
-                labels.append([label])
-                check_sum += 1
-            # return jraph.batch(graphs), np.concatenate(labels, axis=0)
-            graph, label = jraph.batch(graphs), np.stack(labels)
-            graph = pad_graph_to_nearest_power_of_two(graph)
-            loss, grad = self.compute_loss_fn(self.params, graph, label)
-            loss_sum += loss
-        if n_test%self.batch_size != 0:
-            idx_start = n_test // self.batch_size * self.batch_size
-            idx_end = n_test
-            graphs = []
-            labels = []
-            for i in range(idx_start, idx_end):
-                graph = inputs[i]
-                label = outputs[i]
-                graphs.append(graph)
-                labels.append([label])
-                check_sum += 1
-            graph, label = jraph.batch(graphs), np.stack(labels)
-            graph = pad_graph_to_nearest_power_of_two(graph)
-            loss, grad = self.compute_loss_fn(self.params, graph, label)
+        
+        loss_sum = 0
+        label_idx = 0
+        batch_generator = jraph.dynamically_batch(iter(inputs), 
+            self.budget.n_node,
+            self.budget.n_edge,
+            self.budget.n_graph)
+        
+        for graph_batch in batch_generator:
+            n_pad_graphs = jraph.get_number_of_padding_with_graphs_graphs(graph_batch)
+            label = outputs[label_idx:graph_batch.n_node.shape[0]-n_pad_graphs]
+            label_idx = graph_batch.n_node.shape[0]-n_pad_graphs
+            label_padded = np.pad(label, (0,n_pad_graphs))
+            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
             loss_sum += loss
 
-        if check_sum != n_test:
-            raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
         return loss_sum / n_test
 
     def train_and_test(self, inputs, outputs, epochs, test_epochs=5, test_size=0.1):
@@ -358,8 +318,13 @@ def main(args):
         inputs, outputs, auids, test_size=args.split_test, random_state=0
     )
 
+
     ### Build the model: initialize model parameters and optimizer
     model.build(inputs, outputs)
+
+    # Compute the padding budget for the requested batch size.
+    model.budget = estimate_padding_budget_for_batch_size(train_in, model.batch_size,
+        num_estimation_graphs=100)
 
     # get some statistics of parameters and data
     num_params = hk.data_structures.tree_size(model.params)
