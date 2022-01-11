@@ -129,8 +129,7 @@ class Model:
         '''Train the model for a single epoch.'''
         time_start = time.time()
         total_num_graphs = len(inputs)
-        num_training_steps_per_epoch = total_num_graphs // self.batch_size
-
+        
         loss_sum = 0
         label_idx = 0
         batch_generator = jraph.dynamically_batch(iter(inputs), 
@@ -140,11 +139,14 @@ class Model:
         
         for graph_batch in batch_generator:
             n_pad_graphs = jraph.get_number_of_padding_with_graphs_graphs(graph_batch)
-            label = outputs[label_idx:graph_batch.n_node.shape[0]-n_pad_graphs]
-            label_idx = graph_batch.n_node.shape[0]-n_pad_graphs
+            #print(n_pad_graphs)
+            label = outputs[label_idx:self.batch_size-n_pad_graphs]
+            label_idx += self.batch_size-n_pad_graphs
+            #print(label_idx)
             label_padded = np.pad(label, (0,n_pad_graphs))
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
             loss_sum += loss
+        print(label_idx)
         time_epoch = time.time() - time_start
         print("Time this epoch: {}".format(time_epoch))
         
@@ -174,8 +176,6 @@ class Model:
     def test(self, inputs, outputs):
         '''Test the model by evaluating the loss for inputs and outputs. Return MAE.'''
         
-        n_test = len(inputs)
-        
         loss_sum = 0
         label_idx = 0
         batch_generator = jraph.dynamically_batch(iter(inputs), 
@@ -191,7 +191,7 @@ class Model:
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
             loss_sum += loss
 
-        return loss_sum / n_test
+        return loss_sum
 
     def train_and_test(self, inputs, outputs, epochs, test_epochs=5, test_size=0.1):
         '''Train and validate the model using training data and cross validation.'''
@@ -208,14 +208,14 @@ class Model:
             
             self.train_loss_arr.append([idx_epoch, loss_sum/total_num_graphs])
             if self.show_train_progress:
-                print(loss_sum / total_num_graphs)  # print the average loss per graph
+                print("Train loss: {}".format(loss_sum))  # print the average loss per graph
 
             # every test_epochs number of epochs, evaluate test loss
             if idx_epoch%test_epochs == 0:
                 test_loss = self.test(test_in, test_out)
                 self.test_loss_arr.append([idx_epoch, test_loss])
                 if self.show_train_progress:
-                    print("Test MAE: {}".format(test_loss))
+                    print("Test loss: {}".format(test_loss))
 
     def train_early_stopping_epochs(self, 
                                     train_val_in, 
@@ -317,6 +317,8 @@ def main(args):
     train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
         inputs, outputs, auids, test_size=args.split_test, random_state=0
     )
+    print('Train size: {}'.format(len(train_in)))
+    print('Test size: {}'.format(len(test_in)))
 
 
     ### Build the model: initialize model parameters and optimizer
