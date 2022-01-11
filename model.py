@@ -54,29 +54,31 @@ class Model:
         self.show_train_progress = True # TODO: make accessible
         self.show_build_progress = True # TODO: make accessible
 
-    def compute_loss(self, params, graph, label, net):
+    def compute_loss(self, params, graphs, labels, net):
         '''Compute loss, with summed absolute error of target label and graph global.
         
         Args:
             params: hk.params, model parameters initialized in self.build function, 
                     weight matrices in haiku Linear layers
-            graph: jraph.GraphsTuple, batched with length batch_size, 
+            graphs: jraph.GraphsTuple, batched with length batch_size, 
                     input graph for which the label is predicted
-            label: np.array of length batch_size, batched target properties
+            labels: np.array of length batch_size, batched target properties
             net: GraphNet initialized with haiku, has net.Apply function
 
         Returns:
             loss: float, loss value, here summed absolute error, for optimizing net parameters 
         '''
-        
-        pred_graph = net.apply(params, graph)
+        pred_graph = net.apply(params, graphs)
         preds = pred_graph.globals
+        # Since we have an extra 'dummy' graph in our batch due to padding, we want
+        # to mask out any loss associated with the dummy graph.
+        # Since we padded with `pad_with_graphs` we can recover the mask by using
+        # get_graph_padding_mask.
+        mask = jraph.get_graph_padding_mask(pred_graph)
 
-        # one graph was added to pad nodes and edges, so globals will also be padded by one
-        # masking is not needed so long as the padded graph also has a zero global array after update
-        label_padded = jnp.pad(label, ((0, 1), (0, 0)))
+        labels = jnp.concatenate([labels, jnp.array([[0]])])
+        loss = jnp.sum(jnp.abs(labels - preds * mask))
 
-        loss = jnp.sum(jnp.abs(preds - label_padded))
         return loss
 
     def build(self, inputs, outputs):
@@ -231,7 +233,7 @@ class Model:
 
         if check_sum != n_test:
             raise RuntimeError('Checksum failed! Graphs expected: {}, graphs used: {}'.format(n_test, check_sum))
-        return loss_sum / n_test
+        return loss_sum
 
     def train_and_test(self, inputs, outputs, epochs, test_epochs=5, test_size=0.1):
         '''Train and validate the model using training data and cross validation.'''
@@ -248,14 +250,15 @@ class Model:
             
             self.train_loss_arr.append([idx_epoch, loss_sum/total_num_graphs])
             if self.show_train_progress:
-                print(loss_sum / total_num_graphs)  # print the average loss per graph
+                #print(loss_sum / total_num_graphs)  # print the average loss per graph
+                print(loss_sum)
 
             # every test_epochs number of epochs, evaluate test loss
             if idx_epoch%test_epochs == 0:
                 test_loss = self.test(test_in, test_out)
                 self.test_loss_arr.append([idx_epoch, test_loss])
                 if self.show_train_progress:
-                    print("Test MAE: {}".format(test_loss))
+                    print("Test loss: {}".format(test_loss))
 
     def train_early_stopping_epochs(self, 
                                     train_val_in, 

@@ -296,5 +296,19 @@ def pad_graph_to_nearest_power_of_two(
     return jraph.pad_with_graphs(graphs_tuple, pad_nodes_to, pad_edges_to,
                                  pad_graphs_to)
 
+def get_valid_mask(labels: jnp.ndarray,
+                   graphs: jraph.GraphsTuple) -> jnp.ndarray:
+  """Gets the binary mask indicating only valid labels and graphs."""
+  # We have to ignore all NaN values - which indicate labels for which
+  # the current graphs have no label.
+  labels_mask = ~jnp.isnan(labels)
 
+  # Since we have extra 'dummy' graphs in our batch due to padding, we want
+  # to mask out any loss associated with the dummy graphs.
+  # Since we padded with `pad_with_graphs` we can recover the mask by using
+  # get_graph_padding_mask.
+  graph_mask = jraph.get_graph_padding_mask(graphs)
+
+  # Combine the mask over labels with the mask over graphs.
+  return labels_mask & graph_mask[:, None]
 
