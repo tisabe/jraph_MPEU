@@ -10,7 +10,7 @@ import sklearn
 import pandas
 
 import config
-from typing import Generator, Mapping, Tuple
+from typing import Dict, Generator, Mapping, Tuple, NamedTuple
 
 def str_to_array(str_array):
     '''Return a numpy array converted from a single string, representing an array.'''
@@ -296,19 +296,80 @@ def pad_graph_to_nearest_power_of_two(
     return jraph.pad_with_graphs(graphs_tuple, pad_nodes_to, pad_edges_to,
                                  pad_graphs_to)
 
+class GraphsTupleSize(NamedTuple):
+  """Helper class to represent padding and graph sizes."""
+  n_node: int
+  n_edge: int
+  n_graph: int
+
+def get_graphs_tuple_size(graph: jraph.GraphsTuple):
+  """Returns the number of nodes, edges and graphs in a GraphsTuple."""
+  return GraphsTupleSize(
+      n_node=np.sum(graph.n_node),
+      n_edge=np.sum(graph.n_edge),
+      n_graph=np.shape(graph.n_node)[0])
+
+      
+def estimate_padding_budget_for_batch_size(
+    dataset,
+    batch_size: int,
+    num_estimation_graphs: int) -> GraphsTupleSize:
+  """Estimates the padding budget for a dataset of unbatched GraphsTuples.
+  Args:
+    dataset: A dataset of unbatched GraphsTuples.
+    batch_size: The intended batch size. Note that no batching is performed by
+      this function.
+    num_estimation_graphs: How many graphs to take from the dataset to estimate
+      the distribution of number of nodes and edges per graph.
+  Returns:
+    padding_budget: The padding budget for batching and padding the graphs
+    in this dataset to the given batch size.
+  """
+
+  def next_multiple_of_64(val: float):
+    """Returns the next multiple of 64 after val."""
+    return 64 * (1 + int(val // 64))
+
+  if batch_size <= 1:
+    raise ValueError('Batch size must be > 1 to account for padding graphs.')
+
+  total_num_nodes = 0
+  total_num_edges = 0
+  for graph in dataset[:num_estimation_graphs]:
+    graph_size = get_graphs_tuple_size(graph)
+    if graph_size.n_graph != 1:
+      raise ValueError('Dataset contains batched GraphTuples.')
+
+    total_num_nodes += graph_size.n_node
+    total_num_edges += graph_size.n_edge
+
+  num_nodes_per_graph_estimate = total_num_nodes / num_estimation_graphs
+  num_edges_per_graph_estimate = total_num_edges / num_estimation_graphs
+
+  padding_budget = GraphsTupleSize(
+      n_node=next_multiple_of_64(num_nodes_per_graph_estimate * batch_size),
+      n_edge=next_multiple_of_64(num_edges_per_graph_estimate * batch_size),
+      n_graph=batch_size)
+  return padding_budget
+
+def add_labels_to_graphs(graphs, labels):
+    '''Return a list of jraph.GraphsTuple with the labels as globals.'''
+    graphs_with_globals = []
+    for graph, label in zip(graphs, labels):
+        graph_new = graph
+        graph_new = graph_new._replace(globals = np.array([label]))
+        graphs_with_globals.append(graph_new)
+    return graphs_with_globals
+
+def replace_globals(graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
+  """Replaces the globals attribute with a constant feature for each graph."""
+  return graphs._replace(
+      globals=jnp.zeros([graphs.n_node.shape[0], 1]))
+
 def get_valid_mask(labels: jnp.ndarray,
                    graphs: jraph.GraphsTuple) -> jnp.ndarray:
-  """Gets the binary mask indicating only valid labels and graphs."""
-  # We have to ignore all NaN values - which indicate labels for which
-  # the current graphs have no label.
-  labels_mask = ~jnp.isnan(labels)
-
-  # Since we have extra 'dummy' graphs in our batch due to padding, we want
-  # to mask out any loss associated with the dummy graphs.
-  # Since we padded with `pad_with_graphs` we can recover the mask by using
-  # get_graph_padding_mask.
   graph_mask = jraph.get_graph_padding_mask(graphs)
 
-  # Combine the mask over labels with the mask over graphs.
-  return labels_mask & graph_mask[:, None]
+  return jnp.expand_dims(graph_mask, 1)
+
 

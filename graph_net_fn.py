@@ -166,7 +166,7 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     graph = embedder(graph)
     # the embedding creates non-zero features in the padding graph, 
     # so we need to set these back to zero using the following function
-    graph = jraph.zero_out_padding(graph)
+    #graph = jraph.zero_out_padding(graph)
     graph = net(graph)
     graph = net_2(graph)
     graph = net_3(graph)

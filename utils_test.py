@@ -186,7 +186,7 @@ class TestHelperFunctions(unittest.TestCase):
         # calculate function values
         targets, mean, std = normalize_targets(graphs, labels)
 
-        np.testing.assert_almost_equal(targets, expected_targets)
+        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
     
@@ -233,7 +233,7 @@ class TestHelperFunctions(unittest.TestCase):
         print(expected_std)
         print(std)
 
-        np.testing.assert_almost_equal(targets, expected_targets)
+        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, float(expected_mean))
         np.testing.assert_almost_equal(std, expected_std)
     
@@ -295,11 +295,72 @@ class TestHelperFunctions(unittest.TestCase):
                       n_node=[5],
                       n_edge=None,
                       globals=None)
-        print(graph)
+        #print(graph)
         graphs = [graph]
         labels = [0]
         outputs = get_atomization_energies_QM9(graphs, labels, 'U0')
         print(outputs)
+
+    def test_dynamic_batch_budget(self):
+        n = 1000 # number of graphs
+        graph = jraph.GraphsTuple(nodes=np.asarray([0,1,2,3,4]),
+                      edges=np.ones((6,2)),
+                      senders=None,
+                      receivers=None,
+                      n_node=np.asarray([5]),
+                      n_edge=np.asarray([6]),
+                      globals=None)
+        graphs = [graph] * n
+        
+        batch_size = 32
+        budget = estimate_padding_budget_for_batch_size(graphs, batch_size,
+            num_estimation_graphs=100)
+
+        # calculate the average number of nodes, edges and graphs in a batch
+        expected_n_node = 192 # 32 * 5 + 32 (rounded up by 32)
+        expected_n_edge = 256 # 32 * 6 + 64 (rounded up by 64)
+        expected_n_graph = 32
+        self.assertEqual(budget.n_node, expected_n_node)
+        self.assertEqual(budget.n_edge, expected_n_edge)
+        self.assertEqual(budget.n_graph, expected_n_graph)
+
+    def test_dynamic_batch_labels(self):
+        n = 1000 # number of graphs
+        graph = jraph.GraphsTuple(nodes=np.asarray([0,1,2,3,4]),
+                      edges=np.ones((6,2)),
+                      senders=np.array([0, 1]), 
+                      receivers=np.array([2, 2]),
+                      n_node=np.asarray([5]),
+                      n_edge=np.asarray([6]),
+                      globals=None)
+        graphs = [graph] * n
+        labels = [i for i in range(n)]
+        
+        batch_size = 32
+        budget = estimate_padding_budget_for_batch_size(graphs, batch_size,
+            num_estimation_graphs=100)
+        graphs = add_labels_to_graphs(graphs, labels)
+
+        graph_example = graphs[10]
+        global_example = graph_example.globals
+        label_example = labels[10]
+        print(global_example)
+        print(label_example)
+        np.testing.assert_equal(global_example, label_example)
+
+        batch_generator = jraph.dynamically_batch(iter(graphs), 
+            budget.n_node,
+            budget.n_edge,
+            budget.n_graph)
+        print(budget.n_node)
+        print(budget.n_edge)
+        print(budget.n_graph)
+
+        global_sum = 0
+        for batch in batch_generator:
+            global_sum += sum(batch.globals)
+        print(global_sum)
+        print(sum(labels))
 
 
     
