@@ -352,4 +352,24 @@ def estimate_padding_budget_for_batch_size(
       n_graph=batch_size)
   return padding_budget
 
+def add_labels_to_graphs(graphs, labels):
+    '''Return a list of jraph.GraphsTuple with the labels as globals.'''
+    graphs_with_globals = []
+    for graph, label in zip(graphs, labels):
+        graph_new = graph
+        graph_new = graph_new._replace(globals = np.array([label]))
+        graphs_with_globals.append(graph_new)
+    return graphs_with_globals
+
+def replace_globals(graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
+  """Replaces the globals attribute with a constant feature for each graph."""
+  return graphs._replace(
+      globals=jnp.zeros([graphs.n_node.shape[0], 1]))
+
+def get_valid_mask(labels: jnp.ndarray,
+                   graphs: jraph.GraphsTuple) -> jnp.ndarray:
+  graph_mask = jraph.get_graph_padding_mask(graphs)
+
+  return jnp.expand_dims(graph_mask, 1)
+
 

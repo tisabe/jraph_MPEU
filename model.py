@@ -71,11 +71,64 @@ class Model:
         Returns:
             loss: float, loss value, here summed absolute error, for optimizing net parameters 
         '''
-        
+
+        labels = graph.globals
+        graphs = replace_globals(graph)
+
+        mask = get_valid_mask(labels, graphs)
+        pred_graphs = net.apply(params, graph)
+        predictions = pred_graphs.globals
+        labels = jnp.expand_dims(labels, 1)
+        abs_diff = jnp.abs((predictions - labels)*mask)
+        loss = jnp.sum(abs_diff) / jnp.sum(mask)
+        '''
         pred_graph = net.apply(params, graph)
         preds = pred_graph.globals
-
+        
         loss = jnp.sum(jnp.abs(preds - label))
+        '''
+        return loss
+
+    def compute_loss_print(self, params, graph, label, net):
+        '''Compute loss, with summed absolute error of target label and graph global.
+        
+        Args:
+            params: hk.params, model parameters initialized in self.build function, 
+                    weight matrices in haiku Linear layers
+            graph: jraph.GraphsTuple, batched with length batch_size, 
+                    input graph for which the label is predicted
+            label: np.array of length batch_size, batched target properties
+            net: GraphNet initialized with haiku, has net.Apply function
+
+        Returns:
+            loss: float, loss value, here summed absolute error, for optimizing net parameters 
+        '''
+
+        labels = graph.globals
+        graphs = replace_globals(graph)
+
+        mask = get_valid_mask(labels, graphs)
+        pred_graphs = net.apply(params, graph)
+        predictions = pred_graphs.globals
+        labels = jnp.expand_dims(labels, 1)
+        abs_diff = jnp.abs((predictions - labels)*mask)
+        loss = jnp.sum(abs_diff) / jnp.sum(mask)
+        print(f'labels: {labels}')
+        print(f'labels shape: {np.asarray(labels).shape}')
+        print(f'label: {label}')
+        print(f'label shape: {np.asarray(label).shape}')
+        print(f'mask: {mask}')
+        print(f'mask shape: {np.asarray(mask).shape}')
+        print(f'predictions: {predictions}')
+        print(f'predictions shape: {np.asarray(predictions).shape}')
+        print(f'abs_diff: {abs_diff}')
+        print(f'abs_diff shape: {np.asarray(abs_diff).shape}')
+        '''
+        pred_graph = net.apply(params, graph)
+        preds = pred_graph.globals
+        
+        loss = jnp.sum(jnp.abs(preds - label))
+        '''
         return loss
 
     def build(self, inputs, outputs):
@@ -94,6 +147,7 @@ class Model:
             config.LABEL_SIZE = 1
         else:
             config.LABEL_SIZE = label_example.shape()
+        print(f'LABEL_SIZE: {config.LABEL_SIZE}')
 
         config.MAX_ATOMIC_NUMBER = get_highest_atomic_number(inputs)
         if self.show_build_progress:
@@ -107,9 +161,10 @@ class Model:
         self.opt_state = opt_init(self.params)
 
         self.compute_loss_fn = functools.partial(self.compute_loss, net=self.net)
+        #self.compute_loss_print_fn = functools.partial(self.compute_loss_print, net=self.net)
         self.compute_loss_fn = jax.jit(jax.value_and_grad(
                                     self.compute_loss_fn))
-
+        
         self.built = True
 
 
@@ -121,6 +176,9 @@ class Model:
         ) -> Tuple[hk.Params, optax.OptState]:
         """Learning rule (stochastic gradient descent)."""
         loss, grad = self.compute_loss_fn(params, graph, label)
+
+        #loss = self.compute_loss_print_fn(params, graph, label)
+
         updates, self.opt_state = self.opt_update(grad, opt_state, params)
         new_params = optax.apply_updates(params, updates)
         return new_params, opt_state, loss
@@ -129,10 +187,11 @@ class Model:
         '''Train the model for a single epoch.'''
         time_start = time.time()
         total_num_graphs = len(inputs)
+        graphs = add_labels_to_graphs(inputs, outputs)
         
         loss_sum = 0
-        label_idx = 0
-        batch_generator = jraph.dynamically_batch(iter(inputs), 
+        batch_count = 0
+        batch_generator = jraph.dynamically_batch(iter(graphs), 
             self.budget.n_node,
             self.budget.n_edge,
             self.budget.n_graph)
@@ -140,17 +199,16 @@ class Model:
         for graph_batch in batch_generator:
             n_pad_graphs = jraph.get_number_of_padding_with_graphs_graphs(graph_batch)
             #print(n_pad_graphs)
-            label = outputs[label_idx:self.batch_size-n_pad_graphs]
-            label_idx += self.batch_size-n_pad_graphs
+            label = graph_batch.globals
             #print(label_idx)
-            label_padded = np.pad(label, (0,n_pad_graphs))
             self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
+            batch_count += 1
             loss_sum += loss
-        print(label_idx)
+        #print(label_idx)
         time_epoch = time.time() - time_start
-        print("Time this epoch: {}".format(time_epoch))
+        #print("Time this epoch: {}".format(time_epoch))
         
-        return loss_sum # return the summed loss
+        return loss_sum/batch_count # return the mean loss
 
     def train(self, train_inputs, train_outputs, epochs):
         '''Train the model with training data.'''
@@ -177,21 +235,22 @@ class Model:
         '''Test the model by evaluating the loss for inputs and outputs. Return MAE.'''
         
         loss_sum = 0
-        label_idx = 0
-        batch_generator = jraph.dynamically_batch(iter(inputs), 
+        batch_count = 0
+        graphs = add_labels_to_graphs(inputs, outputs)
+
+        batch_generator = jraph.dynamically_batch(iter(graphs), 
             self.budget.n_node,
             self.budget.n_edge,
             self.budget.n_graph)
         
         for graph_batch in batch_generator:
             n_pad_graphs = jraph.get_number_of_padding_with_graphs_graphs(graph_batch)
-            label = outputs[label_idx:graph_batch.n_node.shape[0]-n_pad_graphs]
-            label_idx = graph_batch.n_node.shape[0]-n_pad_graphs
-            label_padded = np.pad(label, (0,n_pad_graphs))
-            self.params, self.opt_state, loss = self.update(self.params, self.opt_state, graph_batch, label)
+            label = graph_batch.globals
+            loss, grad = self.compute_loss_fn(self.params, graph_batch, label)
+            batch_count += 1
             loss_sum += loss
 
-        return loss_sum
+        return loss_sum/batch_count
 
     def train_and_test(self, inputs, outputs, epochs, test_epochs=5, test_size=0.1):
         '''Train and validate the model using training data and cross validation.'''
