@@ -141,6 +141,12 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
 
     # define a jraph.GraphNetwork for all message passing layers, embedding and readout
     embedder = net_embedding()
+    # propagate the graph through the layers
+    graph = embedder(graph)
+    # the embedding creates non-zero features in the padding graph, 
+    # so we need to set these back to zero using the following function
+    graph = jraph.zero_out_padding(graph)
+    '''
     net = jraph.GraphNetwork(
         update_node_fn=node_update_fn,
         update_edge_fn=edge_update_fn,
@@ -156,19 +162,24 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
         update_edge_fn=edge_update_fn,
         update_global_fn=None,
         aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
+
+    graph = net(graph)
+    graph = net_2(graph)
+    graph = net_3(graph)
+    '''
+    for _ in range(config.NUM_MP_LAYERS):
+        net = jraph.GraphNetwork(
+            update_node_fn=node_update_fn,
+            update_edge_fn=edge_update_fn,
+            update_global_fn=None,
+            aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
+        graph = net(graph)
+
     net_readout = jraph.GraphNetwork(
         update_node_fn=readout_node_update_fn,
         update_edge_fn=None,
         update_global_fn=readout_global_fn,
         aggregate_nodes_for_globals_fn=aggregate_nodes_for_globals_fn)
     
-    # propagate the graph through the layers
-    graph = embedder(graph)
-    # the embedding creates non-zero features in the padding graph, 
-    # so we need to set these back to zero using the following function
-    #graph = jraph.zero_out_padding(graph)
-    graph = net(graph)
-    graph = net_2(graph)
-    graph = net_3(graph)
     graph = net_readout(graph)
     return graph

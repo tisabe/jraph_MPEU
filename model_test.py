@@ -111,17 +111,9 @@ class TestHelperFunctions(unittest.TestCase):
         h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
         label = n_node*sp(h0ppp)
         print('Expected label: {}'.format(label))
-        self.assertAlmostEqual(label, prediction[0,0])
+        self.assertAlmostEqual(label, prediction[0,0], places=5)
         #self.assertAlmostEqual(0, prediction[1,0])
         graph_padded = pad_graph_to_nearest_power_of_two(graph_zero)
-        loss, grad = model.compute_loss_fn(model.params, graph_padded, label=np.stack([[label]]))
-        graph_updated = model.net.apply(model.params, graph_padded)
-        print(graph_updated)
-        print("Loss from compute_loss_fn:")
-        print(loss)
-        print("Gradient from compute_loss_fn:")
-        print(grad)
-
 
 
     def test_padded_graph_apply(self):
@@ -145,6 +137,7 @@ class TestHelperFunctions(unittest.TestCase):
         config.N_HIDDEN_C = 64
         config.AVG_MESSAGE = False
         config.AVG_READOUT = False
+        config.NUM_MP_LAYERS = 3
         lr = optax.exponential_decay(5*1e-4, 100000, 0.96)
         batch_size = 32
         model = Model(lr, batch_size)
