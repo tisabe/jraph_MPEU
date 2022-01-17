@@ -146,27 +146,7 @@ def net_fn(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
     # the embedding creates non-zero features in the padding graph, 
     # so we need to set these back to zero using the following function
     graph = jraph.zero_out_padding(graph)
-    '''
-    net = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None,
-        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
-    net_2 = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None,
-        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
-    net_3 = jraph.GraphNetwork(
-        update_node_fn=node_update_fn,
-        update_edge_fn=edge_update_fn,
-        update_global_fn=None,
-        aggregate_edges_for_nodes_fn=aggregate_edges_for_nodes_fn)
-
-    graph = net(graph)
-    graph = net_2(graph)
-    graph = net_3(graph)
-    '''
+    
     for _ in range(config.NUM_MP_LAYERS):
         net = jraph.GraphNetwork(
             update_node_fn=node_update_fn,
