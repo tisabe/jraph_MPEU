@@ -12,6 +12,7 @@ import haiku as hk
 from graph_net_fn import net_fn
 from utils import *
 import config as config_globals # TODO: switch from global parameters
+from input_pipeline import get_datasets
 
 
 class TrainState(NamedTuple):
