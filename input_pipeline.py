@@ -16,20 +16,33 @@ class DataReader:
         self.total_num_graphs = len(data)
         self._generator = self._make_generator()
         
-        budget = estimate_padding_budget_for_batch_size(data, batch_size,
+        self.budget = estimate_padding_budget_for_batch_size(data, batch_size,
             num_estimation_graphs=100)
 
+        # this makes this thing complicated. From outside of DataReader
+        # we interface with this batch generator, but this batch_generator
+        # needs an iterator itself which is also defined in this class
         self.batch_generator = jraph.dynamically_batch(
             self._generator, 
-            budget.n_node,
-            budget.n_edge,
-            budget.n_graph)
+            self.budget.n_node,
+            self.budget.n_edge,
+            self.budget.n_graph)
 
     def __iter__(self):
         return self
 
     def __next__(self):
         return next(self.batch_generator)
+
+    def _reset(self):
+        # reset the generator object
+        # does not work 
+        self._generator = self._make_generator()
+        self.batch_generator = jraph.dynamically_batch(
+            self._generator, 
+            self.budget.n_node,
+            self.budget.n_edge,
+            self.budget.n_graph)
 
     def _make_generator(self):
         idx = 0
@@ -38,6 +51,10 @@ class DataReader:
             # Only return graphs within the split.
             if not self.repeat:
                 if idx == self.total_num_graphs:
+                    idx = 0
+                    '''here's the problem. At the end of iterating through this dataset,
+                    this return is reached and when trying to iterate with this generator
+                    again, only one None is returned'''
                     return
             else:
                 if idx == self.total_num_graphs:

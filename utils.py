@@ -9,6 +9,9 @@ from ast import literal_eval
 import sklearn
 import pandas
 
+import time
+import logging
+
 import config
 from typing import Dict, Generator, Mapping, Tuple, NamedTuple
 
@@ -371,5 +374,17 @@ def get_valid_mask(labels: jnp.ndarray,
   graph_mask = jraph.get_graph_padding_mask(graphs)
 
   return jnp.expand_dims(graph_mask, 1)
+
+class Time_logger:
+    def __init__(self, config):
+        self.start = time.time()
+        self.step_max = config.num_train_steps_max
+
+    def log_eta(self, step):
+        time_elapsed = time.time() - self.start
+        eta = int(time_elapsed * (self.step_max/step - 1))
+        logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')
+
+
 
 
