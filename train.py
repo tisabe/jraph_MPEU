@@ -10,6 +10,7 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
+import pickle
 
 # import custom functions
 from graph_net_fn import net_fn
@@ -196,6 +197,7 @@ def train_and_evaluate(
             eval_loss = evaluate_model(state, datasets, splits)
             for split in splits:
                 logging.info(f'MAE {split}: {eval_loss[split]}')
+                print(f'MAE {split}: {eval_loss[split]}')
             
             loss_queue.append(eval_loss['validation'])
             params_queue.append(state.params)
@@ -209,6 +211,11 @@ def train_and_evaluate(
                     loss_queue.pop(0)
                     params_queue.pop(0)
 
+    # save parameters of best model
+    index = np.argmin(loss_queue)
+    params = params_queue[index]
+    with open((workdir+'/params.pickle'), 'wb') as handle:
+        pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
 
 
