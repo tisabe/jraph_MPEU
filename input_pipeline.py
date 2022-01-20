@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Sequence
 import jraph
 import sklearn.model_selection
 from random import shuffle
+import numpy as np
 
 from utils import *
 
@@ -65,7 +66,38 @@ class DataReader:
             idx += 1
             yield graph
 
+def get_normalization(
+    data: Sequence[jraph.GraphsTuple], 
+    config: ml_collections.ConfigDict
+    ):
+    '''Return mean and variation for the graph labels.'''
+    x_sum = 0.0
+    x_2_sum = 0.0
+    for graph in data:
+        x = graph.globals
+        if config.avg_aggregation_readout:
+            x = x / graph.n_node.shape[0]
+        x_sum += x
+        x_2_sum += x ** 2.0
+    # Var(X) = E[X^2] - E[X]^2
+    x_mean = x_sum / len(data)
+    x_var = x_2_sum / len(data) - (x_mean) ** 2.0
 
+    return x_mean, np.sqrt(x_var)
+
+def normalize(
+    data: Sequence[jraph.GraphsTuple], 
+    config: ml_collections.ConfigDict
+    ):
+    x_mean, x_var = get_normalization(data, config)
+    print(f'Mean of dataset: {x_mean}')
+    print(f'Std of dataset: {x_var}')
+    graphs_new = []
+    for graph in data:
+        graph_new = graph
+        graph_new = graph_new._replace(globals = (graph.globals - x_mean)/x_var)
+        graphs_new.append(graph_new)
+    return graphs_new
 
 def get_datasets(config: ml_collections.ConfigDict
 ) -> Dict[str, Iterable[jraph.GraphsTuple]]:
@@ -79,6 +111,8 @@ def get_datasets(config: ml_collections.ConfigDict
     '''
     graphs_list, labels_list, _ = get_data_df_csv(config.data_file)
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
+    graphs_list = normalize(graphs_list, config)
+    
 
     # split the graphs into three splits using the fractions defined in config
     train_set, val_and_test_set = sklearn.model_selection.train_test_split(

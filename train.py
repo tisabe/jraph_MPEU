@@ -71,6 +71,7 @@ def train_step(
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
         abs_diff = jnp.abs((predictions - labels)*mask)
+        # TODO: make different loss functions available in config
         loss = jnp.sum(abs_diff)
         mean_loss = loss / jnp.sum(mask)
 
@@ -97,6 +98,7 @@ def evaluate_step(
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
     abs_diff = jnp.abs((predictions - labels)*mask)
+    # TODO: make different loss functions available in config
     loss = jnp.sum(abs_diff)
     mean_loss = loss / jnp.sum(mask)
     return mean_loss
@@ -141,12 +143,13 @@ def train_and_evaluate(
     # Create and initialize network.
     logging.info('Initializing network.')
     rng = jax.random.PRNGKey(42)
-    rng, init_rng = jax.random.split(rng)
+    rng, init_rng = jax.random.split(rng) # split up rngs for deterministic results
     init_graphs = next(datasets['train'])
-    init_graphs = replace_globals(init_graphs)
+    init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
     #print(init_graphs)
     net_fn = create_model(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
+    # TODO: find which initialization is used here and in PBJ
     params = net.init(rng, init_graphs) # create weights etc. for the model
 
     # Create the optimizer
