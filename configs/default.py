@@ -35,4 +35,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_input_feature_size = 100
     config.avg_aggregation_message = False
     config.avg_aggregation_readout = False
+    
+    # Logging options
+    config.log_to_file = True # if logging should go to file if true or console if false
     return config

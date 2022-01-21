@@ -136,6 +136,27 @@ def normalize_targets(inputs, outputs):
     else:
         return (outputs - (mean*n_atoms))/std, mean, std
 
+def normalize_targets_config(inputs, outputs, config):
+    '''return normalized outputs, based on which aggregation function is saved in config.
+    Also return mean and standard deviation for later rescaling.
+    Inputs, i.e. graphs, are used to get number of atoms, for atom-wise scaling.'''
+    outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
+    n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
+    for i in range(len(outputs)):
+        n_atoms[i] = inputs[i].n_node[0]
+    
+    if config.avg_aggregation_readout:
+        scaled_targets = outputs
+    else:
+        scaled_targets = np.array(outputs)/n_atoms
+    mean = np.mean(scaled_targets)
+    std = np.std(scaled_targets)
+
+    if config.avg_aggregation_readout:
+        return (scaled_targets - mean)/std, mean, std
+    else:
+        return (outputs - (mean*n_atoms))/std, mean, std
+
 def scale_targets(inputs, outputs, mean, std):
     '''Return scaled targets. Inverse of normalize_targets, 
     scales targets back to the original size.
@@ -201,11 +222,21 @@ def get_atomization_energies_QM9(graphs, labels, label_str):
     '''
     ref_energies_df = pandas.read_csv('atomref_QM9.txt')
     outputs = []
-    for graph, label in zip(graphs, labels):
-        # sum up the reference energies for the specific graph
-        atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
-        outputs.append(label - atomic_energy)
-    return outputs
+
+    index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
+    'r2','zpve','U0','U','H','G','Cv',
+    'U0_atom','U_atom','H_atom','G_atom']
+
+    if label_str in index_to_str:
+        for graph, label in zip(graphs, labels):
+            # sum up the reference energies for the specific graph
+            atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
+            outputs.append(label - atomic_energy)
+        return outputs
+    else:
+        for graph, label in zip(graphs, labels):
+            outputs.append(label)
+        return outputs
     
 
 

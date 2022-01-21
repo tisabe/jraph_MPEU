@@ -19,7 +19,7 @@ def get_config() -> ml_collections.ConfigDict():
 
     # Training hyperparameters
     config.batch_size = 32
-    config.num_train_steps_max = 1_000_000
+    config.num_train_steps_max = 10_000
     config.log_every_steps = 5_000
     config.eval_every_steps = 10_000
     config.early_stopping_steps = 100_000
@@ -35,4 +35,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_input_feature_size = 100
     config.avg_aggregation_message = False
     config.avg_aggregation_readout = False
+
+    # Logging options
+    config.log_to_file = False # if logging should go to file if true or console if false
     return config

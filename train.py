@@ -1,7 +1,7 @@
 import os
 from typing import NamedTuple, Callable, Dict, Iterable, Sequence
 
-import logging
+from absl import logging
 import jax
 import jax.numpy as jnp
 from flax.training import train_state
@@ -137,6 +137,7 @@ def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
 ) -> train_state.TrainState:
+
     # Get datasets, organized by split.
     logging.info('Loading datasets.')
     datasets = get_datasets(config)
@@ -173,6 +174,12 @@ def train_and_evaluate(
     params_queue = []
     best_params = None
 
+    # set up saving of losses
+    splits = ['train', 'validation', 'test']
+    loss_dict = {}
+    for split in splits:
+        loss_dict[split] = []
+
     # Begin training loop.
     logging.info('Starting training.')
     time_logger = Time_logger(config)
@@ -191,13 +198,12 @@ def train_and_evaluate(
         if step % config.log_every_steps == 0 or is_last_step:
             time_logger.log_eta(step)
 
-        # evaluate model on test and validation data
-        splits = ['train', 'validation', 'test']
+        # evaluate model on train, test and validation data
         if step % config.eval_every_steps == 0 or is_last_step:
             eval_loss = evaluate_model(state, datasets, splits)
             for split in splits:
                 logging.info(f'MAE {split}: {eval_loss[split]}')
-                print(f'MAE {split}: {eval_loss[split]}')
+                loss_dict[split].append(eval_loss[split])
             
             loss_queue.append(eval_loss['validation'])
             params_queue.append(state.params)
@@ -216,7 +222,10 @@ def train_and_evaluate(
     params = params_queue[index]
     with open((workdir+'/params.pickle'), 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
+    
+    for split in splits:
+        np.savetxt(f'{workdir}/{split}_loss.csv', 
+            np.array(loss_dict[split]), delimiter=",")
 
 
     return 0

@@ -10,11 +10,14 @@ import argparse
 from datahandler import get_graph_cutoff
 
 species_QM9_dict = np.array(['H', 'C', 'N', 'O', 'F'])
+# list of label names in the order they appear in in the spektral qm9 dataset
+index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
+    'r2','zpve','U0','U','H','G','Cv',
+    'U0_atom','U_atom','H_atom','G_atom']
 
 def spektral_to_ase(graph_s: spektral.data.graph.Graph) -> Atoms:
     nodes = graph_s.x
     atomic_indices = np.array(np.argmax(nodes[:,0:5], axis=1))
-    #species = species_QM9_dict[atomic_indices]
     species = atomic_indices
     #print(nodes[:,0:5])
     #print(species)
@@ -27,10 +30,19 @@ def spektral_to_ase(graph_s: spektral.data.graph.Graph) -> Atoms:
     return struct
 
 def get_QM9_label(graph_s: spektral.data.graph.Graph, index):
+    # TODO: subtract atomization energies
     label = graph_s.y[index]
     return label
 
-def make_QM9_df(data, cutoff, index):
+def get_index(label_str):
+    for i, label in enumerate(index_to_str):
+        if label == label_str:
+            return i
+    raise(f'Label string not found: {label_str}')
+
+def make_QM9_df(data, label_str, cutoff):
+    index = get_index(label_str)
+    print(f'Label index: {index}')
     graph_df = []
     
     for i, graph_s in enumerate(data):
@@ -38,7 +50,7 @@ def make_QM9_df(data, cutoff, index):
         atoms = spektral_to_ase(graph_s)
         num_atoms = len(atoms)
         if num_atoms < max_atoms:
-            #label = row['enthalpy_atom'] # change this for different target properties/labels
+            # TODO: make graph fully connected
             label = get_QM9_label(graph_s, index)
             nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
             graph = {
@@ -78,13 +90,15 @@ def test():
     print(df.loc[1])
 
 def main(args):
-
-    dataset = QM9(amount = args.amount)
+    if args.amount == 0:
+        dataset = QM9(amount = None)
+    else:
+        dataset = QM9(amount = args.amount)
     graph_s = dataset[1]
     print(graph_s.y)
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
     #df_csv_file = 'aflow/aflow_binary_enthalpy_atom.csv'
-    graph_df = make_QM9_df(dataset, cutoff=5.0, index=16)
+    graph_df = make_QM9_df(dataset, args.label, cutoff=10.0)
     print(graph_df.head())
     # target file:
     #graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
@@ -97,6 +111,8 @@ if __name__ == "__main__":
                         help='number of structures to pull from QM9.')
     parser.add_argument('-o', type=str, dest='file_out', default='QM9/graphs_U0K.csv',
                         help='output file name')
+    parser.add_argument('-label', type=str, dest='label',
+                        help='label name string')
     args = parser.parse_args()
     main(args)
     #test()

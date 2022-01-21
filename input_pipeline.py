@@ -1,5 +1,7 @@
 from xmlrpc.client import Boolean
 import ml_collections
+from absl import logging
+
 from typing import Dict, Iterable, Sequence
 import jraph
 import sklearn.model_selection
@@ -110,8 +112,9 @@ def get_datasets(config: ml_collections.ConfigDict
     The graphs have their regression label as a global feature attached.
     '''
     graphs_list, labels_list, _ = get_data_df_csv(config.data_file)
+    labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
+    logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
-    graphs_list = normalize(graphs_list, config)
     
 
     # split the graphs into three splits using the fractions defined in config
