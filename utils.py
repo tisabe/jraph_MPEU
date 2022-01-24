@@ -203,9 +203,8 @@ def get_data_df_csv(file_str, label_str="U0", include_no_edge_graphs=False):
         senders = str_to_array_replace(row['senders'])
         receivers = str_to_array_replace(row['receivers'])
         edges = str_to_array_float(row['edges'])
-        print(row['label'])
-        labels = str_to_array_replace(row['label'])
-        label = label[label_index]
+        labels = str_to_array_float(row['label'])
+        label = labels[label_index]
 
         if (not len(edges)==0) or include_no_edge_graphs:
             graph = jraph.GraphsTuple(

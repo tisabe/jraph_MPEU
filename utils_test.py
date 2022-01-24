@@ -107,51 +107,10 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
 
-    def test_reader_integration(self):
-        file_str = 'QM9/graphs_U0K.csv'
+    def test_get_data_csv(self):
+        file_str = 'QM9/graphs_all.csv'
         batch_size = 4
         inputs, outputs, auids = get_data_df_csv(file_str)
-
-        train_in, test_in, train_out, test_out, train_auids, test_auids = sklearn.model_selection.train_test_split(
-            inputs, outputs, auids, test_size=0.1, random_state=0)
-        #print("train_out type: {}".format(type(train_out)))
-        #print("train_out shape: {}".format(np.shape(train_out)))
-
-        train_out, mean_train, std_train = normalize_targets(train_in, train_out)
-        #print("train_out normd type: {}".format(type(train_out)))
-        #print("train_out normd shape: {}".format(np.shape(train_out)))
-
-        reader = DataReader(train_in, train_out, batch_size=batch_size)
-        
-        input_reader, output_reader = next(reader)
-
-        input_reader = pad_graph_to_nearest_power_of_two(input_reader)
-        in_type_reader = type(input_reader)
-        out_type_reader = type(output_reader)
-        #print("Reader Input n_node: {}".format(input_reader.n_node))
-        #print(output_reader)
-        #print("Reader Input type: {}".format(in_type_reader))
-        #print("Reader output type: {}".format(out_type_reader))
-        #print("Reader output shape: {}".format(np.shape(output_reader)))
-
-        # replicate data processing in train_epoch of model
-        graphs = []
-        labels = []
-        for i in range(batch_size):
-            graphs.append(train_in[i])
-            labels.append([train_out[i]]) # maybe [] around train_out[i]
-        graph, label = jraph.batch(graphs), np.stack(labels)
-        graph = pad_graph_to_nearest_power_of_two(graph)
-        #print("Model input n_node: {}".format(graph.n_node))
-        #print(label)
-        #print("Model input type: {}".format(type(graph)))
-        #print("Model output type: {}".format(type(label)))
-        #print("Model output shape: {}".format(np.shape(label)))
-
-        np.testing.assert_array_equal(input_reader.n_node, graph.n_node)
-        self.assertEqual(first=in_type_reader, second=type(graph))
-        self.assertEqual(first=out_type_reader, second=type(label))
-        self.assertEqual(first=np.shape(output_reader), second=np.shape(label))
 
     def test_normalize_targets_avg(self):
         #print("testing normalization")
