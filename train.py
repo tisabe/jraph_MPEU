@@ -110,6 +110,7 @@ def evaluate_model(
     datasets: Dict[str, Sequence[jraph.GraphsTuple]],
     splits: Iterable[str]
 ) -> Dict[str, float]:
+
     eval_loss = {}
     for split in splits:
         mean_loss_sum = 0.0
@@ -119,7 +120,7 @@ def evaluate_model(
         batch_size = datasets[split].batch_size
         data = datasets[split].data
         reader_new = DataReader(data=data, 
-            batch_size=batch_size, repeat=False)
+            batch_size=batch_size, repeat=False, key=None)
         
         # loop over all graphs in split dataset 
         # (repeat has to be disabled in this split)
@@ -137,25 +138,28 @@ def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
 ) -> train_state.TrainState:
+    # Initialize rng
+    rng = jax.random.PRNGKey(42)
 
     # Get datasets, organized by split.
+    rng, data_rng = jax.random.split(rng) # split up rngs for deterministic results
     logging.info('Loading datasets.')
-    datasets = get_datasets(config)
+    datasets = get_datasets(config, data_rng)
 
     # Create and initialize network.
     logging.info('Initializing network.')
-    rng = jax.random.PRNGKey(42)
-    rng, init_rng = jax.random.split(rng) # split up rngs for deterministic results
+    rng, init_rng = jax.random.split(rng)
     init_graphs = next(datasets['train'])
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
     #print(init_graphs)
     net_fn = create_model(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
     # TODO: find which initialization is used here and in PBJ
-    params = net.init(rng, init_graphs) # create weights etc. for the model
-
+    params = net.init(init_rng, init_graphs) # create weights etc. for the model
+    
     # Create the optimizer
     tx = create_optimizer(config)
+    logging.info(f'Init_lr: {config.init_lr}')
     #opt_init, opt_update = create_optimizer(config)
     #opt_state = opt_init(params)
 
@@ -197,7 +201,7 @@ def train_and_evaluate(
         is_last_step = (step == config.num_train_steps_max - 1)
         if step % config.log_every_steps == 0 or is_last_step:
             time_logger.log_eta(step)
-
+        
         # evaluate model on train, test and validation data
         if step % config.eval_every_steps == 0 or is_last_step:
             eval_loss = evaluate_model(state, datasets, splits)
@@ -216,7 +220,9 @@ def train_and_evaluate(
                     # otherwise delete the element at beginning of queue
                     loss_queue.pop(0)
                     params_queue.pop(0)
-
+        
+    
+    
     # save parameters of best model
     index = np.argmin(loss_queue)
     params = params_queue[index]
@@ -226,7 +232,6 @@ def train_and_evaluate(
     for split in splits:
         np.savetxt(f'{workdir}/{split}_loss.csv', 
             np.array(loss_dict[split]), delimiter=",")
-
 
     return 0
     

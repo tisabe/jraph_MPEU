@@ -5,18 +5,19 @@ from absl import logging
 from typing import Dict, Iterable, Sequence
 import jraph
 import sklearn.model_selection
-from random import shuffle
+import random
 import numpy as np
 
 from utils import *
 
 class DataReader:
     def __init__(self, data: Sequence[jraph.GraphsTuple], 
-    batch_size: int, repeat: Boolean):
+    batch_size: int, repeat: Boolean, key: jax.random.PRNGKey):
         self.data = data
         self.batch_size = batch_size
         self.repeat = repeat
         self.total_num_graphs = len(data)
+        self.rng = key
         self._generator = self._make_generator()
         
         self.budget = estimate_padding_budget_for_batch_size(data, batch_size,
@@ -48,6 +49,7 @@ class DataReader:
             self.budget.n_graph)
 
     def _make_generator(self):
+        random.seed(a=0)
         idx = 0
         while True:
             # If not repeating, exit when we've cycled through all the graphs.
@@ -61,7 +63,8 @@ class DataReader:
                     return
             else:
                 if idx == self.total_num_graphs:
-                    shuffle(self.data)
+                    self.rng, data_rng = jax.random.split(self.rng)
+                    random.shuffle(self.data)
                 # This will reset the index to 0 if we are at the end of the dataset.
                 idx = idx % self.total_num_graphs
             graph = self.data[idx]
@@ -101,7 +104,7 @@ def normalize(
         graphs_new.append(graph_new)
     return graphs_new
 
-def get_datasets(config: ml_collections.ConfigDict
+def get_datasets(config: ml_collections.ConfigDict, key
 ) -> Dict[str, Iterable[jraph.GraphsTuple]]:
     '''Return a dict with a dataset for each split (training, validation, testing).
 
@@ -125,16 +128,17 @@ def get_datasets(config: ml_collections.ConfigDict
     )
     val_set, test_set = sklearn.model_selection.train_test_split(
         val_and_test_set,
-        test_size=config.test_frac/(config.test_frac+config.val_frac)
+        test_size=config.test_frac/(config.test_frac+config.val_frac),
+        random_state=1
     )
-
+    
     # define iterators and generators
     reader_train = DataReader(data=train_set, 
-        batch_size=config.batch_size, repeat=True)
+        batch_size=config.batch_size, repeat=True, key=key)
     reader_val = DataReader(data=val_set, 
-        batch_size=config.batch_size, repeat=False)
+        batch_size=config.batch_size, repeat=False, key=key)
     reader_test = DataReader(data=test_set, 
-        batch_size=config.batch_size, repeat=False)
+        batch_size=config.batch_size, repeat=False, key=key)
 
     dataset = {'train': reader_train, 
         'validation': reader_val, 
