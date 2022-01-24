@@ -177,10 +177,15 @@ def scale_targets(inputs, outputs, mean, std):
             n_atoms[i] = inputs[i].n_node
         return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
 
+index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
+    'r2','zpve','U0','U','H','G','Cv',
+    'U0_atom','U_atom','H_atom','G_atom']
 
-def get_data_df_csv(file_str, include_no_edge_graphs=False):
+def get_data_df_csv(file_str, label_str="U0", include_no_edge_graphs=False):
     '''Import data from a pandas.DataFrame saved as csv. 
     Return as inputs, outputs (e.g. train_inputs, train_outputs).
+
+    Graphs will have one label, specified by label_str.
 
     If include_no_edge_graphs=False (default), graphs without edges will be skipped.
     Otherwise, they will be included (which might break the GNN).
@@ -189,6 +194,8 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
     inputs = []
     outputs = []
     auids = []
+
+    label_index = index_to_str.index(label_str)
     # iterate over rows in dataframe and append inputs and outputs
     for index, row in df.iterrows():
         nodes = str_to_array_replace(row['nodes'])
@@ -196,6 +203,9 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
         senders = str_to_array_replace(row['senders'])
         receivers = str_to_array_replace(row['receivers'])
         edges = str_to_array_float(row['edges'])
+        print(row['label'])
+        labels = str_to_array_replace(row['label'])
+        label = label[label_index]
 
         if (not len(edges)==0) or include_no_edge_graphs:
             graph = jraph.GraphsTuple(
@@ -205,7 +215,7 @@ def get_data_df_csv(file_str, include_no_edge_graphs=False):
                 globals=None,
                 senders=np.asarray(senders), receivers=np.asarray(receivers))
             inputs.append(graph)
-            outputs.append(row['label'])
+            outputs.append(label)
             auids.append(auid)
 
     return inputs, outputs, auids
