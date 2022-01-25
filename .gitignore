@@ -1,8 +1,7 @@
 __pycache__
 logs
 aflow
-results_test
-results_norm
+results*
 QM9
 log.txt
 *.slurm
