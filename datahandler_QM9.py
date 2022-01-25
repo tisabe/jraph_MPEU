@@ -40,9 +40,7 @@ def get_index(label_str):
             return i
     raise(f'Label string not found: {label_str}')
 
-def make_QM9_df(data, label_str, cutoff):
-    index = get_index(label_str)
-    print(f'Label index: {index}')
+def make_QM9_df(data, cutoff):
     graph_df = []
     
     for i, graph_s in enumerate(data):
@@ -51,7 +49,7 @@ def make_QM9_df(data, label_str, cutoff):
         num_atoms = len(atoms)
         if num_atoms < max_atoms:
             # TODO: make graph fully connected
-            label = get_QM9_label(graph_s, index)
+            label = np.array(graph_s.y)
             nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
             graph = {
                 'nodes' : nodes,
@@ -97,11 +95,8 @@ def main(args):
     graph_s = dataset[1]
     print(graph_s.y)
     np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
-    #df_csv_file = 'aflow/aflow_binary_enthalpy_atom.csv'
-    graph_df = make_QM9_df(dataset, args.label, cutoff=10.0)
+    graph_df = make_QM9_df(dataset, cutoff=10.0)
     print(graph_df.head())
-    # target file:
-    #graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
     graph_df.to_csv((args.file_out))
     return 0
 
@@ -111,8 +106,6 @@ if __name__ == "__main__":
                         help='number of structures to pull from QM9.')
     parser.add_argument('-o', type=str, dest='file_out', default='QM9/graphs_U0K.csv',
                         help='output file name')
-    parser.add_argument('-label', type=str, dest='label',
-                        help='label name string')
     args = parser.parse_args()
     main(args)
     #test()

@@ -104,6 +104,11 @@ def normalize(
         graphs_new.append(graph_new)
     return graphs_new
 
+def get_labels_atomization(graphs, labels, label_str):
+    '''Wrapper function for get_atomization_energies_QM9,
+    to make it compatible with non-QM9 datasets.'''
+    return get_atomization_energies_QM9(graphs, labels, label_str)
+
 def get_datasets(config: ml_collections.ConfigDict, key
 ) -> Dict[str, Iterable[jraph.GraphsTuple]]:
     '''Return a dict with a dataset for each split (training, validation, testing).
@@ -114,7 +119,8 @@ def get_datasets(config: ml_collections.ConfigDict, key
 
     The graphs have their regression label as a global feature attached.
     '''
-    graphs_list, labels_list, _ = get_data_df_csv(config.data_file)
+    graphs_list, labels_list, _ = get_data_df_csv(config.data_file, label_str=config.label_str)
+    labels_list = get_labels_atomization(graphs_list, labels_list, config.label_str)
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
