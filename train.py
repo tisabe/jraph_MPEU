@@ -19,14 +19,23 @@ import config as config_globals # TODO: switch from global parameters
 from input_pipeline import get_datasets
 from input_pipeline import DataReader
 
-'''
-class TrainState(NamedTuple):
-    apply_fn: hk.Transformed # graph net function
-    params: hk.Params # haiku weight parameters
-    opt_state: optax.OptState # optax optimizer state
-    opt_update: optax.Updates # optax optimizer update
-    step: int
-'''
+
+def make_result_csv(x, y, path):
+    '''Print predictions x versus labels y in a csv at path.'''
+    dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
+    df = pandas.DataFrame(data=dict_res)
+    df.to_csv(path)
+
+
+def get_globals(graphs: Sequence[jraph.GraphsTuple]
+) -> Sequence[float]:
+    labels = []
+    for graph in graphs:
+        labels.append(float(graph.globals))
+
+    return labels
+
+
 
 def create_model(config: ml_collections.ConfigDict):
     '''Return a function that applies the graph model.'''
@@ -134,6 +143,39 @@ def evaluate_model(
     return eval_loss
 
 
+def predict(
+    state: train_state.TrainState,
+    datasets: Dict[str, Sequence[jraph.GraphsTuple]],
+    splits: Iterable[str]
+) -> Dict[str, Sequence[float]]:
+    '''Make label predictions on dataset for different splits'''
+
+    pred_dict = {}
+    for split in splits:
+        preds = np.array([])
+
+        # the following is a hack at best, but it works
+        batch_size = datasets[split].batch_size
+        data = datasets[split].data
+        reader_new = DataReader(data=data, 
+            batch_size=batch_size, repeat=False, key=None)
+
+        for graphs in reader_new:
+            labels = graphs.globals
+            graphs = replace_globals(graphs)
+
+            mask = get_valid_mask(labels, graphs)
+            pred_graphs = state.apply_fn(state.params, graphs)
+            preds_batch = pred_graphs.globals
+            # throw away all padding labels
+            preds_batch_valid = preds_batch[mask]
+            # update predictions list
+            preds = np.concatenate((preds, preds_batch_valid), axis=0)
+        
+        pred_dict[split] = preds
+    
+    return pred_dict
+
 def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
@@ -207,7 +249,7 @@ def train_and_evaluate(
             eval_loss = evaluate_model(state, datasets, splits)
             for split in splits:
                 logging.info(f'MAE {split}: {eval_loss[split]}')
-                loss_dict[split].append(eval_loss[split])
+                loss_dict[split].append([step, eval_loss[split]])
             
             loss_queue.append(eval_loss['validation'])
             params_queue.append(state.params)
@@ -228,10 +270,21 @@ def train_and_evaluate(
     params = params_queue[index]
     with open((workdir+'/params.pickle'), 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save predictions of the best model
+    best_state = state.replace(params=params) # restore the state with best params
+    pred_dict = predict(best_state, datasets, splits)
     
     for split in splits:
+        # save the loss curves
         np.savetxt(f'{workdir}/{split}_loss.csv', 
             np.array(loss_dict[split]), delimiter=",")
+
+        # save the predictions and labels
+        labels = get_globals(datasets[split].data)
+        preds = pred_dict[split]
+        make_result_csv(labels, preds, f'{workdir}/{split}_post.csv')
+
 
     return 0
     
