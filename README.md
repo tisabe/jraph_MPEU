@@ -10,22 +10,23 @@ All this code is experimental, run at your own risk!
 
 Only tested on Python 3.7.3
 
-Python library requirements:
-Jax (CPU or GPU)
-tensorflow
-spektral
-numpy
-jraph
-haiku
-optax
-pandas
-tqdm
-sklearn
-pickle
+Python library requirements:  
+Jax (only GPU version has been tested)  
+tensorflow  
+spektral  
+numpy  
+flax  
+jraph  
+haiku  
+optax  
+pandas  
+tqdm  
+sklearn  
+pickle  
 
 If any other libraries are missing, just pip install them, the above list might not be complete.
 
-How to get this running:
+How to get this running:  
 At the moment this can be run with two different datasets: QM9 and aflow.
 
 The QM9 dataset is pulled from spektral and converted into graphs.
@@ -35,7 +36,12 @@ The aflow dataset is just a small testset of materials pulled directly with the 
 To do this first run datapuller.py, you may have to make a directory "aflow".
 Then run datahandler.py to convert the raw data from the pull into graphs.
 
-To train a model run model.py, this defaults to the QM9 dataset, but does not automatically pull it.
+To train a model run main.py, this defaults to the QM9 dataset, but does not automatically pull it. You have to specify config directory, where parameters are pulled and working directory, where results are stored.
+
+The config directory can be one of the two files in configs.
+
+Hardware:  
+Only validated on NVIDIA Quadro RTX 4000 with 8GB of VRAM. Quadro P400 with 2GB of VRAM runs out of memory.
 
 
 
