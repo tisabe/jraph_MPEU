@@ -145,14 +145,14 @@ def normalize_targets_config(inputs, outputs, config):
     for i in range(len(outputs)):
         n_atoms[i] = inputs[i].n_node[0]
     
-    if config.avg_aggregation_readout:
+    if config.aggregation_readout_type=='mean':
         scaled_targets = outputs
     else:
         scaled_targets = np.array(outputs)/n_atoms
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
-    if config.avg_aggregation_readout:
+    if config.aggregation_readout_type=='mean':
         return (scaled_targets - mean)/std, mean, std
     else:
         return (outputs - (mean*n_atoms))/std, mean, std

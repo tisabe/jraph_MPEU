@@ -14,6 +14,7 @@ import pickle
 
 # import custom functions
 from graph_net_fn import net_fn
+from models import GNN
 from utils import *
 import config as config_globals # TODO: switch from global parameters
 from input_pipeline import get_datasets
@@ -39,14 +40,7 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]
 
 def create_model(config: ml_collections.ConfigDict):
     '''Return a function that applies the graph model.'''
-    # first an interface between globals in config and passed config. 
-    # TODO: get rid of globals
-    config_globals.LABEL_SIZE = 1
-    config_globals.N_HIDDEN_C = config.latent_size
-    config_globals.NUM_MP_LAYERS = config.message_passing_steps
-    config_globals.AVG_MESSAGE = config.avg_aggregation_message
-    config_globals.AVG_READOUT = config.avg_aggregation_readout
-    return net_fn
+    return GNN(config)
 
 
 def create_optimizer(

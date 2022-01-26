@@ -80,7 +80,7 @@ def get_normalization(
     x_2_sum = 0.0
     for graph in data:
         x = graph.globals
-        if config.avg_aggregation_readout:
+        if config.aggregation_readout_type=='sum':
             x = x / graph.n_node.shape[0]
         x_sum += x
         x_2_sum += x ** 2.0
