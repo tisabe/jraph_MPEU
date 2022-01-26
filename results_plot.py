@@ -1,6 +1,7 @@
 import argparse
 
 import numpy as np
+from numpy import genfromtxt
 import pandas
 import matplotlib.pyplot as plt
 import matplotlib
@@ -9,50 +10,31 @@ from sklearn.metrics import r2_score
 
 
 def main(args):
-    #folder = 'results_test/res_slow_learn/'
-    #folder = 'results_norm/'
     folder = args.file
 
-    df_test_post = pandas.read_csv(folder+'/test_post.csv')
-    df_train_post = pandas.read_csv(folder+'/train_post.csv')
+    splits = ['train', 'validation', 'test']
 
-    # calculate fit metrics
-    x_train = df_train_post['x'].to_numpy()
-    y_train = df_train_post['y'].to_numpy()
-    r2_train = r2_score(x_train, y_train)
-    print('R2 score on training data: {}'.format(r2_train))
-    error = np.abs(x_train - y_train)
-    mae = np.mean(error)
-    rmse = np.sqrt(np.mean(np.square(error)))
-    print('MAE on training data: {}'.format(mae))
-    print('RMSE score on training data: {}'.format(rmse))
-
-    x_test = df_test_post['x'].to_numpy()
-    y_test = df_test_post['y'].to_numpy()
-    r2_test = r2_score(x_test, y_test)
-    print('R2 score on test data: {}'.format(r2_test))
-    error = np.abs(x_test - y_test)
-    mae = np.mean(error)
-    rmse = np.sqrt(np.mean(np.square(error)))
-    print('MAE on test data: {}'.format(mae))
-    print('RMSE score on test data: {}'.format(rmse))
-
-    #print(df_test_post['x'].to_numpy())
-    #print(df_test_post['y'])
     fig, ax = plt.subplots()
 
     marker_size = 0.3
-    min_x = -20
-    max_x = 10
-    min_y = min_x
-    max_y = max_x
 
-    ax.scatter(df_train_post['x'].to_numpy(), df_train_post['y'].to_numpy(), s=marker_size, label='training')
-    ax.scatter(df_test_post['x'].to_numpy(), df_test_post['y'].to_numpy(), s=marker_size, label='testing')
+    for split in splits:
+        df_post = pandas.read_csv(folder+'/'+split+'_post.csv')
 
-    ax.axline((0,0), slope=1, color='red', label='x=y')
-    #ax[1,1].set_xlim([min_x,max_x])
-    #ax[1,1].set_ylim([min_y,max_y])
+        # calculate fit metrics
+        x = df_post['x'].to_numpy()
+        y = df_post['y'].to_numpy()
+        r2 = r2_score(x, y)
+        print(f'R2 score on {split} data: {r2}')
+        error = np.abs(x - y)
+        mae = np.mean(error)
+        rmse = np.sqrt(np.mean(np.square(error)))
+        print(f'MAE on {split} data: {mae}'.format(mae))
+        print(f'RMSE score on {split} data: {rmse}'.format(rmse))
+
+        ax.scatter(df_post['x'].to_numpy(), df_post['y'].to_numpy(), s=marker_size, label=split)
+        
+    #ax.axline((0,0), slope=1, color='red', label='x=y')
     ax.set_title('test post')
     ax.set_xlabel('target')
     ax.set_ylabel('prediction')
@@ -61,17 +43,19 @@ def main(args):
     plt.show()
 
     ### plot learning curves
-    from numpy import genfromtxt
-    test_loss = genfromtxt(folder+'/test_loss.csv', delimiter=',')
-    train_loss = genfromtxt(folder+'/train_loss.csv', delimiter=',')
-
     fig, ax = plt.subplots()
-    ax.plot(test_loss[:,0], test_loss[:,1], label='test data')
-    ax.plot(train_loss[:,0], train_loss[:,1], label='train data')
-    #ax.set_ylim([1e-3,1e2])
+
+    for split in splits:
+        loss = genfromtxt(folder+'/'+split+'_loss.csv', delimiter=',')
+        ax.plot(loss[:,0], loss[:,1], label=split)
+        if split=='validation':
+            # plot the validation loss offset by early stopping patience
+            loss[:,0] = loss[:,0] + 1e+6
+            ax.plot(loss[:,0], loss[:,1], label=split+' offset')
+    
     ax.legend()
-    ax.set_xlabel('epoch')
-    ax.set_ylabel('loss (MAE)')
+    ax.set_xlabel('gradient step')
+    ax.set_ylabel('loss (MAE), standardized')
     plt.yscale('log')
     plt.show()
 
