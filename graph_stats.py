@@ -6,10 +6,10 @@ from utils import *
 
 folder_data = 'QM9/'
 #file_graphs = 'graphs_all_labelidx16.csv'
-file_graphs = 'graphs_U0K.csv'
+file_graphs = 'graphs_16k.csv'
 
-df_graphs = pandas.read_csv(folder_data+file_graphs)
-inputs, outputs, auids = get_data_df_csv(folder_data+file_graphs)
+label_str = 'gap'
+inputs, outputs, auids = get_data_df_csv(folder_data+file_graphs, label_str=label_str)
 
 #print(inputs[0])
 #print(inputs[-1])
@@ -48,7 +48,7 @@ fig, ax = plt.subplots()
 
 ax.scatter(num_nodes, outputs)
 ax.set_xlabel('number of atoms')
-ax.set_ylabel('U_0K')
+ax.set_ylabel(label_str)
 
 plt.show()
 

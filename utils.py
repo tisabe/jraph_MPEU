@@ -177,6 +177,26 @@ def scale_targets(inputs, outputs, mean, std):
             n_atoms[i] = inputs[i].n_node
         return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
 
+def scale_targets_config(inputs, outputs, mean, std, config):
+    '''Return scaled targets. Inverse of normalize_targets, 
+    scales targets back to the original size.
+    Args:
+        inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
+        outputs: 1D-array of normalized target values
+        mean: mean of original targets
+        std: standard deviation of original targets
+    Returns:
+        numpy.array of scaled target values 
+    '''
+    outputs = np.reshape(outputs, len(outputs))
+    if config.avg_aggregation_readout:
+        return (outputs * std) + mean
+    else:
+        n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
+        for i in range(len(outputs)):
+            n_atoms[i] = inputs[i].n_node
+        return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
+
 index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
     'r2','zpve','U0','U','H','G','Cv',
     'U0_atom','U_atom','H_atom','G_atom']
@@ -246,7 +266,35 @@ def get_atomization_energies_QM9(graphs, labels, label_str):
         for graph, label in zip(graphs, labels):
             outputs.append(label)
         return outputs
+
+
+def get_original_energies_QM9(graphs, labels, label_str):
+    '''Return the original energies in the QM9 dataset by adding
+    reference energies from atomref_QM9.txt.
     
+    Args:
+        graphs: list of jraph.GraphsTuple
+        labels: list of labels (regression targets)
+        label_str: name of the label, one of the attributes in atomref_QM9.txt
+
+    '''
+    ref_energies_df = pandas.read_csv('atomref_QM9.txt')
+    outputs = []
+
+    index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
+    'r2','zpve','U0','U','H','G','Cv',
+    'U0_atom','U_atom','H_atom','G_atom']
+
+    if label_str in index_to_str:
+        for graph, label in zip(graphs, labels):
+            # sum up the reference energies for the specific graph
+            atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
+            outputs.append(label + atomic_energy)
+        return outputs
+    else:
+        for graph, label in zip(graphs, labels):
+            outputs.append(label)
+        return outputs
 
 
 class DataReader:
