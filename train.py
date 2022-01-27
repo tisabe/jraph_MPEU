@@ -87,9 +87,9 @@ def train_step(
         pred_graphs = state.apply_fn(curr_state.params, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
-        abs_diff = jnp.abs((predictions - labels)*mask)
+        sq_diff = jnp.square((predictions - labels)*mask)
         # TODO: make different loss functions available in config
-        loss = jnp.sum(abs_diff)
+        loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
 
         return mean_loss, (loss)
@@ -114,9 +114,9 @@ def evaluate_step(
     pred_graphs = state.apply_fn(state.params, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
-    abs_diff = jnp.abs((predictions - labels)*mask)
+    sq_diff = jnp.square((predictions - labels)*mask)
     # TODO: make different loss functions available in config
-    loss = jnp.sum(abs_diff)
+    loss = jnp.sum(sq_diff)
     mean_loss = loss / jnp.sum(mask)
     return mean_loss
 
@@ -247,7 +247,7 @@ def train_and_evaluate(
         if step % config.eval_every_steps == 0 or is_last_step:
             eval_loss = evaluate_model(state, datasets, splits)
             for split in splits:
-                logging.info(f'MAE {split}: {eval_loss[split]}')
+                logging.info(f'MSE {split}: {eval_loss[split]}')
                 loss_dict[split].append([step, eval_loss[split]])
             
             loss_queue.append(eval_loss['validation'])
