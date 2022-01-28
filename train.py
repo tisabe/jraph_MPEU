@@ -37,6 +37,11 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]
     return labels
 
 
+def get_labels_original(graphs, labels, label_str):
+    '''Wrapper function to get original energies,
+    to make it compatible with non-QM9 datasets.'''
+    return get_original_energies_QM9(graphs, labels, label_str)
+
 
 def create_model(config: ml_collections.ConfigDict):
     '''Return a function that applies the graph model.'''
@@ -74,9 +79,9 @@ def train_step(
         pred_graphs = state.apply_fn(curr_state.params, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
-        abs_diff = jnp.abs((predictions - labels)*mask)
+        sq_diff = jnp.square((predictions - labels)*mask)
         # TODO: make different loss functions available in config
-        loss = jnp.sum(abs_diff)
+        loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
 
         return mean_loss, (loss)
@@ -101,9 +106,9 @@ def evaluate_step(
     pred_graphs = state.apply_fn(state.params, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
-    abs_diff = jnp.abs((predictions - labels)*mask)
+    sq_diff = jnp.square((predictions - labels)*mask)
     # TODO: make different loss functions available in config
-    loss = jnp.sum(abs_diff)
+    loss = jnp.sum(sq_diff)
     mean_loss = loss / jnp.sum(mask)
     return mean_loss
 
@@ -137,38 +142,30 @@ def evaluate_model(
     return eval_loss
 
 
-def predict(
+def predict_split(
     state: train_state.TrainState,
-    datasets: Dict[str, Sequence[jraph.GraphsTuple]],
-    splits: Iterable[str]
-) -> Dict[str, Sequence[float]]:
-    '''Make label predictions on dataset for different splits'''
+    dataset_raw: Sequence[jraph.GraphsTuple],
+    config: ml_collections.ConfigDict
+) -> Sequence[float]:
 
-    pred_dict = {}
-    for split in splits:
-        preds = np.array([])
+    preds = np.array([])
+    reader_new = DataReader(data=dataset_raw, 
+        batch_size=config.batch_size, repeat=False, key=None)
 
-        # the following is a hack at best, but it works
-        batch_size = datasets[split].batch_size
-        data = datasets[split].data
-        reader_new = DataReader(data=data, 
-            batch_size=batch_size, repeat=False, key=None)
+    for graphs in reader_new:
+        labels = graphs.globals
+        graphs = replace_globals(graphs)
 
-        for graphs in reader_new:
-            labels = graphs.globals
-            graphs = replace_globals(graphs)
-
-            mask = get_valid_mask(labels, graphs)
-            pred_graphs = state.apply_fn(state.params, graphs)
-            preds_batch = pred_graphs.globals
-            # throw away all padding labels
-            preds_batch_valid = preds_batch[mask]
-            # update predictions list
-            preds = np.concatenate((preds, preds_batch_valid), axis=0)
-        
-        pred_dict[split] = preds
+        mask = get_valid_mask(labels, graphs)
+        pred_graphs = state.apply_fn(state.params, graphs)
+        preds_batch = pred_graphs.globals
+        # throw away all padding labels
+        preds_batch_valid = preds_batch[mask]
+        # update predictions list
+        preds = np.concatenate((preds, preds_batch_valid), axis=0)
     
-    return pred_dict
+    return preds
+
 
 def train_and_evaluate(
     config: ml_collections.ConfigDict,
@@ -180,7 +177,7 @@ def train_and_evaluate(
     # Get datasets, organized by split.
     rng, data_rng = jax.random.split(rng) # split up rngs for deterministic results
     logging.info('Loading datasets.')
-    datasets = get_datasets(config, data_rng)
+    datasets, datasets_raw, mean, std = get_datasets(config, data_rng)
 
     # Create and initialize network.
     logging.info('Initializing network.')
@@ -242,7 +239,7 @@ def train_and_evaluate(
         if step % config.eval_every_steps == 0 or is_last_step:
             eval_loss = evaluate_model(state, datasets, splits)
             for split in splits:
-                logging.info(f'MAE {split}: {eval_loss[split]}')
+                logging.info(f'MSE {split}: {eval_loss[split]}')
                 loss_dict[split].append([step, eval_loss[split]])
             
             loss_queue.append(eval_loss['validation'])
@@ -267,17 +264,27 @@ def train_and_evaluate(
 
     # save predictions of the best model
     best_state = state.replace(params=params) # restore the state with best params
-    pred_dict = predict(best_state, datasets, splits)
+    #pred_dict = predict(best_state, datasets_raw, splits)
     
     for split in splits:
+        loss_split = np.array(loss_dict[split])
+        # convert loss column to eV
+        loss_split[:,1] = loss_split[:,1]*std
         # save the loss curves
         np.savetxt(f'{workdir}/{split}_loss.csv', 
-            np.array(loss_dict[split]), delimiter=",")
+            np.array(loss_split), delimiter=",")
 
         # save the predictions and labels
-        labels = get_globals(datasets[split].data)
-        preds = pred_dict[split]
-        make_result_csv(labels, preds, f'{workdir}/{split}_post.csv')
+        #labels = get_globals(datasets[split].data)
+        labels = get_globals(datasets_raw[split])
+        preds = predict_split(best_state, datasets_raw[split], config)
+        preds = scale_targets_config(datasets_raw[split], preds, mean, std, config)
+        preds = get_labels_original(datasets_raw[split], preds, config.label_str)
+        labels = np.array(labels)
+        preds = np.array(preds)
+        make_result_csv(
+            labels, preds, 
+            f'{workdir}/{split}_post.csv')
 
 
     return 0
