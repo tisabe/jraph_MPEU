@@ -275,9 +275,12 @@ def train_and_evaluate(
     #pred_dict = predict(best_state, datasets_raw, splits)
     
     for split in splits:
+        loss_split = np.array(loss_dict[split])
+        # convert loss column to eV
+        loss_split[:,1] = loss_split[:,1]*std*hartree_to_ev
         # save the loss curves
         np.savetxt(f'{workdir}/{split}_loss.csv', 
-            np.array(loss_dict[split])*std*hartree_to_ev, delimiter=",")
+            np.array(loss_split), delimiter=",")
 
         # save the predictions and labels
         #labels = get_globals(datasets[split].data)

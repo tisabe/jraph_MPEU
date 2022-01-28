@@ -48,10 +48,12 @@ def main(args):
     for split in splits:
         loss = genfromtxt(folder+'/'+split+'_loss.csv', delimiter=',')
         ax.plot(loss[:,0], loss[:,1], label=split)
+        '''
         if split=='validation':
             # plot the validation loss offset by early stopping patience
             loss[:,0] = loss[:,0] + 1e+6
             ax.plot(loss[:,0], loss[:,1], label=split+' offset')
+        '''
     
     ax.legend()
     ax.set_xlabel('gradient step')
