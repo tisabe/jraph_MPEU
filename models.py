@@ -70,12 +70,12 @@ def get_edge_update_fn(latent_size, hk_init):
         '''Edge update and message function for graph net.'''
         # first, compute edge update
         edge_node_concat = jnp.concatenate([sent_attributes, received_attributes, edge_message['edges']], axis=-1)
-        #print(jnp.shape(edge_node_concat))
+        
         net_edge = hk.Sequential(
-            [hk.Linear(2 * latent_size, with_bias=False, w_init=latent_size),
+            [hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
             shifted_softplus,
             hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
-        print(type(net_edge))
+        
         edge_message['edges'] = net_edge(edge_node_concat)
 
         # then, compute edge-wise messages
@@ -137,7 +137,7 @@ def get_readout_node_update_fn(latent_size, hk_init):
         net = hk.Sequential(
             [hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
             shifted_softplus,
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+            hk.Linear(1, with_bias=False, w_init=hk_init)])
         return net(nodes)
     return readout_node_update_fn
 
@@ -145,7 +145,6 @@ def get_readout_node_update_fn(latent_size, hk_init):
 class GNN:
 
     def __init__(self, config: ml_collections.ConfigDict):
-        print('initializing GNN')
         self.config = config
 
         if self.config.aggregation_message_type=='sum':
@@ -164,7 +163,10 @@ class GNN:
     
     
     def __call__(self, graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
-        print('calling GNN')
+
+        # Add a global paramater for graph classification. It has shape (len(n_node), 1))
+        graphs = graphs._replace(globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
+
         embedder = get_embedder(self.config)
         # embed the graph with embedder
         graphs = embedder(graphs)
