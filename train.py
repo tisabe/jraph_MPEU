@@ -20,8 +20,6 @@ from input_pipeline import get_datasets
 from input_pipeline import DataReader
 
 
-hartree_to_ev = 27.2114 # conversion factor from hartree to electron Volt
-
 def make_result_csv(x, y, path):
     '''Print predictions x versus labels y in a csv at path.'''
     dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
@@ -277,7 +275,7 @@ def train_and_evaluate(
     for split in splits:
         loss_split = np.array(loss_dict[split])
         # convert loss column to eV
-        loss_split[:,1] = loss_split[:,1]*std*hartree_to_ev
+        loss_split[:,1] = loss_split[:,1]*std
         # save the loss curves
         np.savetxt(f'{workdir}/{split}_loss.csv', 
             np.array(loss_split), delimiter=",")
@@ -288,8 +286,8 @@ def train_and_evaluate(
         preds = predict_split(best_state, datasets_raw[split], config)
         preds = scale_targets_config(datasets_raw[split], preds, mean, std, config)
         preds = get_labels_original(datasets_raw[split], preds, config.label_str)
-        labels = np.array(labels) * hartree_to_ev
-        preds = np.array(preds) * hartree_to_ev
+        labels = np.array(labels)
+        preds = np.array(preds)
         make_result_csv(
             labels, preds, 
             f'{workdir}/{split}_post.csv')

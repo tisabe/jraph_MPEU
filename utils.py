@@ -252,11 +252,9 @@ def get_atomization_energies_QM9(graphs, labels, label_str):
     ref_energies_df = pandas.read_csv('atomref_QM9.txt')
     outputs = []
 
-    index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
-    'r2','zpve','U0','U','H','G','Cv',
-    'U0_atom','U_atom','H_atom','G_atom']
-
-    if label_str in index_to_str:
+    reference_energies_available = ['U0','U','H','G','Cv']
+    
+    if label_str in reference_energies_available:
         for graph, label in zip(graphs, labels):
             # sum up the reference energies for the specific graph
             atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
@@ -281,11 +279,9 @@ def get_original_energies_QM9(graphs, labels, label_str):
     ref_energies_df = pandas.read_csv('atomref_QM9.txt')
     outputs = []
 
-    index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
-    'r2','zpve','U0','U','H','G','Cv',
-    'U0_atom','U_atom','H_atom','G_atom']
-
-    if label_str in index_to_str:
+    reference_energies_available = ['U0','U','H','G','Cv']
+    
+    if label_str in reference_energies_available:
         for graph, label in zip(graphs, labels):
             # sum up the reference energies for the specific graph
             atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
