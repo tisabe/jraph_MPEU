@@ -33,10 +33,17 @@ def get_config() -> ml_collections.ConfigDict():
     # MPNN hyperparameters
     config.message_passing_steps = 3
     config.latent_size = 64
+    config.hk_init = None
     config.max_input_feature_size = 100
-    config.avg_aggregation_message = False
-    config.avg_aggregation_readout = False
-
+    config.aggregation_message_type = 'sum'
+    config.aggregation_readout_type = 'sum'
+    # Edge embedding parameters
+    config.k_max = 150
+    config.delta = 0.1
+    config.mu_min = 0.0
+    # Node embedding parameters
+    config.max_atomic_number = 5
+    
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
     return config

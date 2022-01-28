@@ -145,17 +145,17 @@ def normalize_targets_config(inputs, outputs, config):
     for i in range(len(outputs)):
         n_atoms[i] = inputs[i].n_node[0]
     
-    if config.aggregation_readout_type=='mean':
-        scaled_targets = outputs
-    else:
+    if config.aggregation_readout_type=='sum':
         scaled_targets = np.array(outputs)/n_atoms
+    else:
+        scaled_targets = outputs
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
-    if config.aggregation_readout_type=='mean':
-        return (scaled_targets - mean)/std, mean, std
-    else:
+    if config.aggregation_readout_type=='sum':
         return (outputs - (mean*n_atoms))/std, mean, std
+    else:
+        return (scaled_targets - mean)/std, mean, std
 
 def scale_targets(inputs, outputs, mean, std):
     '''Return scaled targets. Inverse of normalize_targets, 
@@ -189,13 +189,13 @@ def scale_targets_config(inputs, outputs, mean, std, config):
         numpy.array of scaled target values 
     '''
     outputs = np.reshape(outputs, len(outputs))
-    if config.avg_aggregation_readout:
-        return (outputs * std) + mean
-    else:
+    if config.aggregation_message_type == 'sum':
         n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
         for i in range(len(outputs)):
             n_atoms[i] = inputs[i].n_node
         return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
+    else:
+        return (outputs * std) + mean
 
 index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
     'r2','zpve','U0','U','H','G','Cv',
