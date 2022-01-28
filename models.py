@@ -66,27 +66,29 @@ def get_edge_update_fn(latent_size, hk_init):
     '''Return the edge update function.'''
     def edge_update_fn(edge_message, sent_attributes, received_attributes,
                     global_edge_attributes) -> jnp.ndarray:
+        #return edge_message
         '''Edge update and message function for graph net.'''
         # first, compute edge update
         edge_node_concat = jnp.concatenate([sent_attributes, received_attributes, edge_message['edges']], axis=-1)
         #print(jnp.shape(edge_node_concat))
-        net_e = hk.Sequential(
+        net_edge = hk.Sequential(
             [hk.Linear(2 * latent_size, with_bias=False, w_init=latent_size),
             shifted_softplus,
             hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
-        edge_message['edges'] = net_e(edge_node_concat)
+        print(type(net_edge))
+        edge_message['edges'] = net_edge(edge_node_concat)
 
         # then, compute edge-wise messages
-        net_m_e = hk.Sequential(
+        net_message_edge = hk.Sequential(
             [hk.Linear(latent_size, with_bias=False, w_init=hk_init),
             shifted_softplus,
             hk.Linear(latent_size, with_bias=False, w_init=hk_init),
             shifted_softplus])
 
-        net_m_n = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        net_message_node = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
 
-        edge_message['messages'] = jnp.multiply(net_m_e(edge_message['edges']),
-                                                net_m_n(received_attributes))
+        edge_message['messages'] = jnp.multiply(net_message_edge(edge_message['edges']),
+                                                net_message_node(received_attributes))
         return edge_message
     return edge_update_fn
 
@@ -181,6 +183,6 @@ class GNN:
             update_global_fn=get_readout_global_fn(),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # apply readout function on graph
-        graph = net_readout(graph)
+        graphs = net_readout(graphs)
 
-        return graph
+        return graphs
