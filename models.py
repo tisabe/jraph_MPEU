@@ -70,12 +70,14 @@ def get_edge_update_fn(latent_size, hk_init):
         #return edge_message
         '''Edge update and message function for graph net.'''
         # first, compute edge update
-        edge_node_concat = jnp.concatenate([sent_attributes, received_attributes, edge_message['edges']], axis=-1)
+        edge_node_concat = jnp.concatenate([sent_attributes, received_attributes, 
+            edge_message['edges']], axis=-1)
         
         net_edge = hk.Sequential(
             [hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
             shifted_softplus,
             hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+        # TODO: check with PBJ which activation function is at end of edge update
         
         edge_message['edges'] = net_edge(edge_node_concat)
 
@@ -89,7 +91,7 @@ def get_edge_update_fn(latent_size, hk_init):
         net_message_node = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
 
         edge_message['messages'] = jnp.multiply(net_message_edge(edge_message['edges']),
-                                                net_message_node(received_attributes))
+                                                net_message_node(sent_attributes))
         return edge_message
     return edge_update_fn
 
@@ -157,7 +159,7 @@ class GNN:
 
         if self.config.aggregation_readout_type=='sum':
             self.aggregation_readout_fn = jraph.segment_sum
-        elif self.config.aggregation_message_type=='mean':
+        elif self.config.aggregation_readout_type=='mean':
             self.aggregation_readout_fn = jraph.segment_mean
         else:
             raise ValueError(f'Aggregation type {self.config.aggregation_readout_type} not recognized')

@@ -10,7 +10,7 @@ from ml_collections import config_flags
 
 import unittest
 
-from models import GNN, shifted_softplus
+from models import GNN, shifted_softplus, get_edge_update_fn, get_edge_embedding_fn
 
 
 class TestHelperFunctions(unittest.TestCase):
@@ -72,6 +72,8 @@ class TestHelperFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
         
+        self.config.latent_size = 64
+        self.config.message_passing_steps = 3
         self.config.hk_init = hk.initializers.Identity()
         net_fn = GNN(self.config)
         net = hk.without_apply_rng(hk.transform(net_fn))
@@ -89,7 +91,60 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_array_equal(prediction.shape, (1,1))
         self.assertAlmostEqual(label, prediction[0,0], places=5)
 
+    
+    def test_edge_update_fn(self):
+        latent_size = 10
+        hk_init = hk.initializers.Identity()
+        edge_update_fn = get_edge_update_fn(latent_size, hk_init)
+        
+        sent_attributes = jnp.arange(0,4) 
+        received_attributes = jnp.arange(4,8)
+        edge = jnp.arange(8,10)
+        message = jnp.arange(0,15)
+        edge_message = {'edges': edge, 'messages': message}
+        graph_globals = jnp.ones((11))
+
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        fun = hk.transform(edge_update_fn)
+        fun = hk.without_apply_rng(fun)
+        params = fun.init(init_rng, 
+            {'edges': jnp.zeros((2)), 'message': jnp.zeros(15)}, 
+            jnp.zeros((4)), jnp.zeros((4)), 
+            jnp.zeros((11)))
+
+        edge_message_update = fun.apply(params, 
+            edge_message, sent_attributes, received_attributes, 
+            graph_globals)
+
+        edge_updated = edge_message_update['edges']
+        message_updated = edge_message_update['messages']
+
+        edge_expected = shifted_softplus(jnp.arange(0,10))
+        np.testing.assert_allclose(edge_updated, edge_expected)
+        
+        # test the result of message calculation
+        node_message_expected = jnp.pad(sent_attributes, (0,6))
+        edge_message_expected = shifted_softplus(shifted_softplus(edge_expected))
+        message_expected = jnp.multiply(node_message_expected, edge_message_expected)
+
+        np.testing.assert_allclose(message_updated, message_expected)
         return 0
+
+    def test_edge_embedding_fn(self):
+        latent_size = 64
+        edges = jnp.ones((1))
+        k_max = 150
+        k_vec = jnp.arange(0, k_max)
+        delta = 0.1
+        mu_min = 0.2
+        fun = get_edge_embedding_fn(latent_size, k_max, delta, mu_min)
+        embedding = fun(edges)
+
+        embedding_expected = [jnp.exp(-jnp.square(edges[0]-(-mu_min+k_vec*delta))/delta)]
+
+        np.testing.assert_allclose(embedding['edges'], embedding_expected, atol=6)
+        np.testing.assert_array_equal(embedding['messages'], jnp.zeros((1,latent_size)))
 
 
 
