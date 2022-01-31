@@ -4,17 +4,16 @@ import json, sys, os
 from urllib.request import urlopen
 import pandas
 
+# Find all properties in http://aflow.org/API/aflux/?schema
+
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    #'nspecies(2),Egap(0*,*1000000),'
-    'nspecies(2),enthalpy_atom,enthalpy_formation_atom,'
-    'geometry_orig,positions_cartesian,compound,' # geometry parameters needed for unit cell
-    'dft_type,kpoints,lattice_system_orig,natoms,'
-    'prototype,species,volume_atom')
-    # ,geometry_orig,icsd_number,kpoints,lattice_system_orig,natoms,
-    # 'positions_cartesian,prototype,spacegroup_orig,species,volume_atom')
-DIRECTIVES = '$paging(1,25000)'
+    'enthalpy_atom(*),enthalpy_formation_atom(*),'
+    'Egap_type(!metal),Egap(*),agl_heat_capacity_Cp_300K,'
+    'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
+    )
+DIRECTIVES = '$paging(0)'
 summons = MATCHBOOK+","+DIRECTIVES
 print(summons)
 print("URL:", SERVER+API+summons)
