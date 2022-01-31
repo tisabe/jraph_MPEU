@@ -53,10 +53,11 @@ def get_embedder(config: ml_collections.ConfigDict):
     delta = config.delta
     mu_min = config.mu_min
     max_atomic_number = config.max_atomic_number
+    hk_init = config.hk_init
 
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=get_edge_embedding_fn(latent_size, k_max, delta, mu_min),
-        embed_node_fn=get_node_embedding_fn(latent_size, max_atomic_number),
+        embed_node_fn=get_node_embedding_fn(latent_size, max_atomic_number, hk_init),
         embed_global_fn=None
     )
     return embedder
