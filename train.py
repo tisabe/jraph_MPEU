@@ -101,13 +101,9 @@ def train_step(
         mask = get_valid_mask(labels, graphs)
         pred_graphs = state.apply_fn(curr_state.params, graphs)
         predictions = pred_graphs.globals
-        labels = jnp.expand_dims(labels, 1)
-        sq_diff = jnp.square((predictions - labels)*mask)
-        # TODO: make different loss functions available in config
-        loss = jnp.sum(sq_diff)
-        mean_loss = loss / jnp.sum(mask)
+        diff_fn = get_diff_fn(config) # TODO: how to get config here?
 
-        return mean_loss, (loss)
+        return diff_fn(labels, predictions, mask)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (mean_loss, (loss)), grads = grad_fn(state.params, graphs)
