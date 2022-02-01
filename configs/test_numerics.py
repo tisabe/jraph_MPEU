@@ -17,6 +17,8 @@ def get_config() -> ml_collections.ConfigDict():
     config.transition_steps = 100_000
     config.decay_rate = 0.96
 
+    config.loss_type = 'MSE'
+
     # Training hyperparameters
     config.batch_size = 32
     config.num_train_steps_max = 100

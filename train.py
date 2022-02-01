@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, Callable, Dict, Iterable, Sequence
+from typing import NamedTuple, Callable, Dict, Iterable, Sequence, Tuple
 
 from absl import logging
 import jax
@@ -59,6 +59,31 @@ def create_optimizer(
         return optax.adam(learning_rate=lr)
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
+def get_diff_fn(config: ml_collections.ConfigDict
+) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], Tuple[float, float]]:
+    '''Return difference function depending on str argument in config.loss_type.
+    The difference function defines how loss is calculated from label and prediction.'''
+    if config.loss_type == 'MSE':
+        def diff_fn(labels, predictions, mask):
+            labels = jnp.expand_dims(labels, 1)
+            sq_diff = jnp.square((predictions - labels)*mask)
+            # TODO: make different loss functions available in config
+            loss = jnp.sum(sq_diff)
+            mean_loss = loss / jnp.sum(mask)
+
+            return mean_loss, (loss)
+        return loss_fn
+    elif config.loss_type == 'MAE':
+        def diff_fn(labels, predictions, mask):
+            labels = jnp.expand_dims(labels, 1)
+            diff = jnp.abs((predictions - labels)*mask)
+            # TODO: make different loss functions available in config
+            loss = jnp.sum(diff)
+            mean_loss = loss / jnp.sum(mask)
+
+            return mean_loss, (loss)
+        return loss_fn      
+    raise ValueError(f'Unsupported loss type: {config.loss_type}.')
 
 @jax.jit
 def train_step(
