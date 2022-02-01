@@ -14,7 +14,7 @@ def main(args):
 
     splits = ['train', 'validation', 'test']
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(2)
 
     marker_size = 0.3
 
@@ -32,14 +32,17 @@ def main(args):
         print(f'MAE on {split} data: {mae}'.format(mae))
         print(f'RMSE score on {split} data: {rmse}'.format(rmse))
 
-        ax.scatter(df_post['x'].to_numpy(), df_post['y'].to_numpy(), s=marker_size, label=split)
+        ax[0].scatter(df_post['x'].to_numpy(), df_post['y'].to_numpy(), s=marker_size, label=split)
+        ax[1].scatter(df_post['x'].to_numpy(), error, s=marker_size, label=split)
         
     #ax.axline((0,0), slope=1, color='red', label='x=y')
-    ax.set_title('test post')
-    ax.set_xlabel('target')
-    ax.set_ylabel('prediction')
-    ax.legend()
-
+    ax[0].set_title('Model regression performance')
+    ax[0].set_ylabel('prediction')
+    ax[1].set_xlabel('target')
+    ax[1].set_ylabel('error')
+    ax[0].legend()
+    ax[1].legend()
+    ax[1].set_yscale('log')
     plt.show()
 
     ### plot learning curves
@@ -53,7 +56,7 @@ def main(args):
             # plot the validation loss offset by early stopping patience
             loss[:,0] = loss[:,0] + 1e+6
             ax.plot(loss[:,0], loss[:,1], label=split+' offset')
-        '''
+        '''        
     
     ax.legend()
     ax.set_xlabel('gradient step')

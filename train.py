@@ -285,6 +285,6 @@ def train_and_evaluate(
             f'{workdir}/{split}_post.csv')
 
 
-    return 0
+    return best_state
     
 
