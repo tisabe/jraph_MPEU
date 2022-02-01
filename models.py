@@ -3,7 +3,6 @@ import jax.numpy as jnp
 import jraph
 import numpy as np
 import haiku as hk
-import config
 import ml_collections
 
 from utils import *

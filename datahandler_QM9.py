@@ -68,25 +68,6 @@ def make_QM9_df(data, cutoff):
     graph_df = pandas.DataFrame(graph_df)
     return graph_df
 
-def test():
-    dataset = QM9(amount=1024)
-
-    graph_s = dataset[0]
-    #print(graph_s)
-    atoms = spektral_to_ase(graph_s)
-    #view(atoms)
-    cutoff = 4
-    nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
-    print(nodes)
-    print(atom_positions)
-    print(edges)
-    print(senders)
-    print(receivers)
-    print(get_QM9_label(graph_s, 7))
-    #view(atoms)
-    df = make_QM9_df(dataset, cutoff=4, index=7)
-    print(df.loc[1])
-
 def main(args):
     if args.amount == 0:
         dataset = QM9(amount = None)
@@ -104,7 +85,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pull QM9 data, convert it to graphs in csv and save file.')
     parser.add_argument('-n', type=int, dest='amount', default=16000,
                         help='number of structures to pull from QM9.')
-    parser.add_argument('-o', type=str, dest='file_out', default='QM9/graphs_U0K.csv',
+    parser.add_argument('-o', type=str, dest='file_out', default='QM9/graphs_16.csv',
                         help='output file name')
     args = parser.parse_args()
     main(args)

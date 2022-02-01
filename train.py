@@ -13,10 +13,8 @@ import haiku as hk
 import pickle
 
 # import custom functions
-from graph_net_fn import net_fn
 from models import GNN
 from utils import *
-import config as config_globals # TODO: switch from global parameters
 from input_pipeline import get_datasets
 from input_pipeline import DataReader
 

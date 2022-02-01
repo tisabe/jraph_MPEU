@@ -9,9 +9,7 @@ from typing import Generator, Mapping, Tuple
 import unittest
 
 from utils import *
-import config
 from model import Model
-import graph_net_fn as gnf
 
 def get_random_graph(key) -> jraph.GraphsTuple:
     graph = jraph.GraphsTuple(nodes=None,
