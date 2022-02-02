@@ -3,7 +3,7 @@ import pandas
 import ase.db
 from ase import Atoms
 #from ase.visualize import view
-from ase.neighborlist import NeighborList
+from datahandler import get_graph_cutoff, get_graph_knearest
 
 import sys
 import argparse
@@ -22,6 +22,21 @@ def main(args):
     for i, row in enumerate(db.select()):
         atoms = row.toatoms() # get the atoms object from each row
         prop_dict = row.key_value_pairs # get property dict
+
+        # calculate adjacency of graph as senders and receivers
+        nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
+
+        # put graph into dict format
+        graph = {
+            'nodes' : nodes,
+            'atom_positions' : atom_positions,
+            'edges' : edges,
+            'senders' : senders,
+            'receivers' : receivers,
+            'label' : label, # TODO: how to save labels: dict or vector?
+            'auid' : auid
+            }
+        graph_df.append(graph)
         print(prop_dict)
         if i>3:
             break
