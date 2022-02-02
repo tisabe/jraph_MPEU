@@ -211,7 +211,7 @@ def main():
     print(graph_df.head())
     # target file:
     #graph_df.to_csv(('aflow/graphs_enthalpy_cutoff4A.csv'))
-    graph_df.to_csv(('aflow/graphs_test_cutoff4A.csv'))
+    graph_df.to_csv(('aflow/graphs_nonmetals.csv'))
     
 
 if __name__ == "__main__":

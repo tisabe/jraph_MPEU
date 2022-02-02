@@ -9,8 +9,8 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'enthalpy_atom(*),enthalpy_formation_atom(*),'
-    'Egap_type(!metal),Egap(*),agl_heat_capacity_Cp_300K,'
+    'enthalpy_formation_atom(*),Egap(*),'
+    '$Egap_type(!metal),' # filters
     'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
@@ -25,4 +25,4 @@ print(df.head())
 print(df.describe())
 if input("Save the dataset? [y/n]") == "y":
     df.to_csv(
-        ('aflow/aflow_binary_enthalpy_atom.csv'))
+        (input('Type directory and filename as "dir/filename.csv": ')))
