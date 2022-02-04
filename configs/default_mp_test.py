@@ -44,7 +44,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.delta = 0.1
     config.mu_min = 0.0
     # Node embedding parameters
-    config.max_atomic_number = 5
+    config.max_atomic_number = 90
 
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
