@@ -7,8 +7,53 @@ import jraph
 import sklearn.model_selection
 import random
 import numpy as np
+import ase.db
+import ase
 
 from utils import *
+
+def ase_row_to_jraph(row: ase.db.row.AtomsRow
+) -> jraph.GraphsTuple:
+    '''Return the ase row as a graph.'''
+    senders = row.data['senders']
+    receivers = row.data['receivers']
+    edges = row.data['edges']
+    atoms = row.toatoms()
+    nodes = atoms.get_atomic_numbers()
+    
+    graph = jraph.GraphsTuple(
+        n_node=np.asarray([len(nodes)]),
+        n_edge=np.asarray([len(senders)]),
+        nodes=nodes, edges=edges,
+        globals=None,
+        senders=np.asarray(senders), receivers=np.asarray(receivers))
+    
+    return graph
+
+def asedb_to_graphslist(file: str, label_str: str, 
+    selection: str = None, limit=None
+) -> Tuple[Sequence[jraph.GraphsTuple], list]:
+    '''Return a list of graphs, by loading rows from local ase database at file.'''
+    graphs = []
+    labels = []
+    db = ase.db.connect(file)
+    count = 0
+    print(selection)
+    for i, row in enumerate(db.select(selection=selection, limit=limit)):
+        if i==0:
+            print(row)
+        if i%1000 == 0:
+            print(i)
+        graph = ase_row_to_jraph(row)
+        if len(graph.edges) == 0: # do not include graphs without edges
+            continue
+        graphs.append(graph)
+        label = row.key_value_pairs[label_str]
+        labels.append(label)
+        count += 1
+    print(count)
+
+    return graphs, labels
 
 class DataReader:
     def __init__(self, data: Sequence[jraph.GraphsTuple], 
@@ -91,9 +136,10 @@ def get_datasets(config: ml_collections.ConfigDict, key
     The graphs have their regression label as a global feature attached.
     '''
     # data will be split into normaized data for regression and raw data for analyzing later
-    graphs_list, labels_list, _ = get_data_df_csv(config.data_file, label_str=config.label_str)
+    graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
+        label_str=config.label_str, limit=3000)
     labels_raw = labels_list
-    labels_list = get_labels_atomization(graphs_list, labels_list, config.label_str)
+    #labels_list = get_labels_atomization(graphs_list, labels_list, config.label_str)
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)

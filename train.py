@@ -301,8 +301,8 @@ def train_and_evaluate(
         #labels = get_globals(datasets[split].data)
         labels = get_globals(datasets_raw[split])
         preds = predict_split(best_state, datasets_raw[split], config)
-        preds = scale_targets_config(datasets_raw[split], preds, mean, std, config)
-        preds = get_labels_original(datasets_raw[split], preds, config.label_str)
+        #preds = scale_targets_config(datasets_raw[split], preds, mean, std, config)
+        #preds = get_labels_original(datasets_raw[split], preds, config.label_str)
         labels = np.array(labels)
         preds = np.array(preds)
         make_result_csv(
