@@ -67,24 +67,20 @@ class TestHelperFunctions(unittest.TestCase):
             label_str='delta_e', 
             limit=2000)
         ndim0 = len(np.shape(graphs[0].edges))
-        print(ndim0)
         for graph in graphs:
             ndim = len(np.shape(graph.edges))
             if ndim != ndim0:
-                print(len(graph.edges))
-                print(graph.edges)
-                print(ndim)
                 raise ValueError('Dimension of edges not 1D')
                 break
 
-    '''
+    
     def test_asedb_to_graphslist_filter(self):
-        selection = 'delta_e!=0'
+        selection = 'fold>=0'
         graphs, labels = asedb_to_graphslist('matproj/mp_graphs.db', 
             label_str='delta_e', 
             selection=selection, limit=2000)
         print(labels[0:10])
-    '''
+    
 if __name__ == '__main__':
     unittest.main()
 

@@ -42,6 +42,7 @@ def asedb_to_graphslist(file: str, label_str: str,
     for i, row in enumerate(db.select(selection=selection, limit=limit)):
         if i==0:
             print(row)
+            print(row.key_value_pairs)
         if i%1000 == 0:
             print(i)
         graph = ase_row_to_jraph(row)
@@ -137,7 +138,8 @@ def get_datasets(config: ml_collections.ConfigDict, key
     '''
     # data will be split into normaized data for regression and raw data for analyzing later
     graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
-        label_str=config.label_str, limit=3000)
+        label_str=config.label_str, selection=config.selection,
+        limit=config.limit_data)
     labels_raw = labels_list
     #labels_list = get_labels_atomization(graphs_list, labels_list, config.label_str)
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)

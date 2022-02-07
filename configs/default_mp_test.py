@@ -28,9 +28,13 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = 50_000
     # data split settings
     config.data_file = 'matproj/mp_graphs.db'
-    config.label_str = 'delta_e' # string to determine which label is used from the dataset
+    config.label_str = 'band_gap' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
+
+    # data selection parameters
+    config.selection = 'fold=1,band_gap>0'
+    config.limit_data = 2000
 
     # MPNN hyperparameters
     config.message_passing_steps = 3

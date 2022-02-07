@@ -6,7 +6,13 @@ import pymatgen.ext.matproj
 import ase
 import ase.db
 
-# Adapted from https://github.com/peterbjorgensen/msgnet
+
+'''This script generates an ase database with materials project data.
+In rows of database structures ar stored as ase.Atoms with geometric information,
+unique identifier in mp database, the fold that the structure belongs to
+and scalar properties: delta_e (formation energy per atom), band_gap 
+(electronic band gap).
+Adapted from https://github.com/peterbjorgensen/msgnet'''
 
 def get_all_results():
     with pymatgen.ext.matproj.MPRester(MATPROJ_API_KEY) as r:
