@@ -80,7 +80,7 @@ def main(args):
         prop_dict = row.key_value_pairs # get property dict
 
         # calculate adjacency of graph as senders and receivers
-        cutoff = 4.0
+        cutoff = args.cutoff
         nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
         data = {'senders': senders, 'receivers': receivers, 'edges': edges}
         # add information about cutoff
@@ -101,6 +101,8 @@ if __name__ == "__main__":
     parser.add_argument('-f', '-F', type=str, dest='file_in', required=True,
                         help='input file name')
     parser.add_argument('-o', type=str, dest='file_out', required=True,
+                        help='output file name')
+    parser.add_argument('-cutoff', type=str, dest='cutoff', default=4.0,
                         help='output file name')
     args = parser.parse_args()
     main(args)
