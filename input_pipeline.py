@@ -141,7 +141,7 @@ def get_datasets(config: ml_collections.ConfigDict, key
         label_str=config.label_str, selection=config.selection,
         limit=config.limit_data)
     labels_raw = labels_list
-    #labels_list = get_labels_atomization(graphs_list, labels_list, config.label_str)
+    
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
