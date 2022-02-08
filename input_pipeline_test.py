@@ -81,30 +81,53 @@ class TestHelperFunctions(unittest.TestCase):
     def test_dbs_raw(self):
         '''Test the raw ase databases without graph features.'''
         files = ['matproj/matproj.db', 'QM9/qm9.db']
-        limit = 10 # maximum number of entries that are read
+        limit = 100 # maximum number of entries that are read
+        if not limit is None:
+            print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
         for file in files:
             print(f'Testing data in {file}')
-            df_keys = None
             with ase.db.connect(file) as asedb:
+                keys_list0 = None
                 for i, row in enumerate(asedb.select(limit=limit)):
-                    #print(row)
-                    #print(row.key_value_pairs)
-                    #print(row.data)
+                    key_value_pairs = row.key_value_pairs
+                    self.assertIsInstance(key_value_pairs, dict)
+                    # check that all the keys are the same
                     if i==0:
-                        df_keys = pd.DataFrame(data=row.key_value_pairs, 
-                            index=[i])
+                        keys_list0 = key_value_pairs.keys()
+                        #print(keys_list0)
                     else:
-                        df = pd.DataFrame(data=row.key_value_pairs, 
-                            index=[i])
-                        def_keys = df_keys.append(df, ignore_index=True)
-            #print(df_keys.count())
-            #print(df_keys.describe())
-            #print(df_keys.head())
-            print(df_keys)
+                        self.assertCountEqual(key_value_pairs.keys(), keys_list0)
         return 0 
 
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
+        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db']
+        limit = 100 # maximum number of entries that are read
+        if not limit is None:
+            print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
+        for file in files:
+            print(f'Testing data in {file}')
+            with ase.db.connect(file) as asedb:
+                keys_list0 = None
+                data_keys_expected = ['senders', 'receivers', 'edges']
+                count_no_edges = 0 # count how many graphs have not edges
+                for i, row in enumerate(asedb.select(limit=limit)):
+                    key_value_pairs = row.key_value_pairs
+                    data = row.data
+                    self.assertIsInstance(key_value_pairs, dict)
+                    self.assertIsInstance(data, dict)
+                    # check that all the keys are the same
+                    if i==0:
+                        keys_list0 = key_value_pairs.keys()
+                        print(keys_list0)
+                        #print(data)
+                    else:
+                        self.assertCountEqual(key_value_pairs.keys(), keys_list0)
+                        self.assertCountEqual(data.keys(), data_keys_expected)
+                    if len(data.edges)==0:
+                        count_no_edges += 1
+                        print(row.toatoms())
+                print(f'Number of graphs with zero edges: {count_no_edges}')
         return 0 
 
 if __name__ == '__main__':

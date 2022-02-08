@@ -32,7 +32,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
 
-     # data selection parameters
+    # data selection parameters
     config.selection = 'fold>=0'
     config.limit_data = None
 

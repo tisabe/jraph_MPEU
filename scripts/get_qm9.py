@@ -44,9 +44,9 @@ def tar_to_xyz(tarpath, dest):
 def load_xyz_file(filename):
     predefined_keys = """tag
     index
-    A
-    B
-    C
+    rotA
+    rotB
+    rotC
     mu
     alpha
     homo
@@ -55,9 +55,9 @@ def load_xyz_file(filename):
     r2
     zpve
     U0
-    U
-    H
-    G
+    U300
+    H300
+    G300
     Cv""".split()
     STATE_READ_NUMBER = 0
     STATE_READ_COMMENT = 1
@@ -152,40 +152,40 @@ def xyz_to_ase(filename, output_name):
     REFERENCE_DICT = {
         ase.data.atomic_numbers["H"]: {
             "U0": -0.500273,
-            "U": -0.498857,
-            "H": -0.497912,
-            "G": -0.510927,
+            "U300": -0.498857,
+            "H300": -0.497912,
+            "G300": -0.510927,
         },
         ase.data.atomic_numbers["C"]: {
             "U0": -37.846772,
-            "U": -37.845355,
-            "H": -37.844411,
-            "G": -37.861317,
+            "U300": -37.845355,
+            "H300": -37.844411,
+            "G300": -37.861317,
         },
         ase.data.atomic_numbers["N"]: {
             "U0": -54.583861,
-            "U": -54.582445,
-            "H": -54.581501,
-            "G": -54.598897,
+            "U300": -54.582445,
+            "H300": -54.581501,
+            "G300": -54.598897,
         },
         ase.data.atomic_numbers["O"]: {
             "U0": -75.064579,
-            "U": -75.063163,
-            "H": -75.062219,
-            "G": -75.079532,
+            "U300": -75.063163,
+            "H300": -75.062219,
+            "G300": -75.079532,
         },
         ase.data.atomic_numbers["F"]: {
             "U0": -99.718730,
-            "U": -99.717314,
-            "H": -99.716370,
-            "G": -99.733544,
+            "U300": -99.717314,
+            "H300": -99.716370,
+            "G300": -99.733544,
         },
     }
 
     # Make a transposed dictionary such that first dimension is property
     REFERENCE_DICT_T = {}
     atom_nums = [ase.data.atomic_numbers[x] for x in ["H", "C", "N", "O", "F"]]
-    for prop in ["U0", "U", "H", "G"]:
+    for prop in ["U0", "U300", "H300", "G300"]:
         prop_dict = dict(zip(atom_nums, [REFERENCE_DICT[at][prop] for at in atom_nums]))
         REFERENCE_DICT_T[prop] = prop_dict
 
@@ -193,9 +193,9 @@ def xyz_to_ase(filename, output_name):
     keywords = [
         ["tag", False],
         ["index", False],
-        ["A", False],
-        ["B", False],
-        ["C", False],
+        ["rotA", False],
+        ["rotB", False],
+        ["rotC", False],
         ["mu", False],
         ["alpha", False],
         ["homo", True],
@@ -204,9 +204,9 @@ def xyz_to_ase(filename, output_name):
         ["r2", False],
         ["zpve", True],
         ["U0", True],
-        ["U", True],
-        ["H", True],
-        ["G", True],
+        ["U300", True],
+        ["H300", True],
+        ["G300", True],
         ["Cv", False],
     ]
     # Load xyz file
@@ -225,7 +225,7 @@ def xyz_to_ase(filename, output_name):
                 if convert:
                     properties_dict[key] *= HARTREE_TO_EV
             atoms = ase.Atoms(numbers=desc.z, positions=desc.coord, pbc=False)
-            asedb.write(atoms, data=properties_dict)
+            asedb.write(atoms, key_value_pairs=properties_dict)
             if i%1000 == 0:
                 print(f'Step {i}')
 

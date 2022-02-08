@@ -73,27 +73,27 @@ def main(args):
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
     db_in = ase.db.connect(args.file_in)
     graph_df = []
-    db_out = ase.db.connect(args.file_out)
+    with ase.db.connect(args.file_out, append=False) as db_out:
 
-    for i, row in enumerate(db_in.select()):
-        atoms = row.toatoms() # get the atoms object from each row
-        prop_dict = row.key_value_pairs # get property dict
+        for i, row in enumerate(db_in.select()):
+            atoms = row.toatoms() # get the atoms object from each row
+            prop_dict = row.key_value_pairs # get property dict
 
-        # calculate adjacency of graph as senders and receivers
-        cutoff = args.cutoff
-        nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
-        data = {'senders': senders, 'receivers': receivers, 'edges': edges}
-        # add information about cutoff
-        prop_dict['cutoff_type'] = 'const'
-        prop_dict['cutoff_val'] = cutoff
+            # calculate adjacency of graph as senders and receivers
+            cutoff = args.cutoff
+            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
+            data = {'senders': senders, 'receivers': receivers, 'edges': edges}
+            # add information about cutoff
+            prop_dict['cutoff_type'] = 'const'
+            prop_dict['cutoff_val'] = cutoff
 
-        # save in new database
-        db_out.write(atoms, key_value_pairs=prop_dict, data=data)
-        
-        if i<3:
-            print(prop_dict)
-        if i%1000 == 0:
-            print(f'Step {i}')
+            # save in new database
+            db_out.write(atoms, key_value_pairs=prop_dict, data=data)
+            
+            if i<3:
+                print(prop_dict)
+            if i%1000 == 0:
+                print(f'Step {i}')
     return 0
 
 if __name__ == "__main__":
@@ -102,7 +102,7 @@ if __name__ == "__main__":
                         help='input file name')
     parser.add_argument('-o', type=str, dest='file_out', required=True,
                         help='output file name')
-    parser.add_argument('-cutoff', type=str, dest='cutoff', default=4.0,
+    parser.add_argument('-cutoff', type=float, dest='cutoff', default=4.0,
                         help='output file name')
     args = parser.parse_args()
     main(args)

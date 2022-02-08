@@ -27,10 +27,14 @@ def get_config() -> ml_collections.ConfigDict():
     config.early_stopping_steps = 1_000_000
     config.checkpoint_every_steps = 50_000
     # data split settings
-    config.data_file = 'QM9/graphs.csv'
+    config.data_file = 'QM9/qm9_graphs.db'
     config.label_str = 'U0' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
+
+    # data selection parameters
+    config.selection = None
+    config.limit_data = None
 
     # MPNN hyperparameters
     config.message_passing_steps = 3
@@ -47,5 +51,5 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_atomic_number = 5
     
     # Logging options
-    config.log_to_file = True # if logging should go to file if true or console if false
+    config.log_to_file = False # if logging should go to file if true or console if false
     return config

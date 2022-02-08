@@ -38,7 +38,7 @@ def asedb_to_graphslist(file: str, label_str: str,
     labels = []
     db = ase.db.connect(file)
     count = 0
-    print(selection)
+    print(f'Selection: {selection}')
     for i, row in enumerate(db.select(selection=selection, limit=limit)):
         if i==0:
             print(row)
