@@ -201,6 +201,7 @@ def train_and_evaluate(
     rng, data_rng = jax.random.split(rng) # split up rngs for deterministic results
     logging.info('Loading datasets.')
     datasets, datasets_raw, mean, std = get_datasets(config, data_rng)
+    logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # Create and initialize network.
     logging.info('Initializing network.')

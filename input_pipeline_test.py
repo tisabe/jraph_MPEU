@@ -8,6 +8,7 @@ import pandas as pd
 from input_pipeline import DataReader
 from input_pipeline import ase_row_to_jraph
 from input_pipeline import asedb_to_graphslist
+from input_pipeline import atoms_to_nodes_list
 from utils import add_labels_to_graphs
 
 class TestHelperFunctions(unittest.TestCase):
@@ -128,7 +129,37 @@ class TestHelperFunctions(unittest.TestCase):
                         count_no_edges += 1
                         print(row.toatoms())
                 print(f'Number of graphs with zero edges: {count_no_edges}')
-        return 0 
+        return 0
+    
+    def test_atoms_to_nodes_list(self):
+        '''Example: atomic numbers as nodes before:
+        [1 1 1 6] Methane
+        [1 1 1 1 1 1 6 6] Ethane
+        [1 1 1 1 6 8] Carbon Monoxide
+        Will be turned into:
+        [0 0 0 1]
+        [0 0 0 0 0 0 1 1]
+        [0 0 0 0 1 2]'''
+        graph0 = jraph.GraphsTuple(n_node=[4], nodes=np.array([1,1,1,6]),
+            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
+        graph1 = jraph.GraphsTuple(n_node=[8], nodes=np.array([1,1,1,1,1,1,6,6]),
+            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
+        graph2 = jraph.GraphsTuple(n_node=[6], nodes=np.array([1,1,1,1,6,8]),
+            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
+        graphs = [graph0, graph1, graph2]
+        graphs, num_classes = atoms_to_nodes_list(graphs)
+        print(graphs)
+        nodes0_expected = np.array([0,0,0,1])
+        nodes1_expected = np.array([0,0,0,0,0,0,1,1])
+        nodes2_expected = np.array([0,0,0,0,1,2])
+        nodes0 = graphs[0].nodes
+        nodes1 = graphs[1].nodes
+        nodes2 = graphs[2].nodes
+        np.testing.assert_array_equal(nodes0_expected, nodes0)
+        np.testing.assert_array_equal(nodes1_expected, nodes1)
+        np.testing.assert_array_equal(nodes2_expected, nodes2)
+        self.assertEqual(num_classes, 3)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -11,6 +11,7 @@ from ml_collections import config_flags
 import unittest
 
 from models import GNN, shifted_softplus, get_edge_update_fn, get_edge_embedding_fn
+from models import get_node_embedding_fn
 
 
 class TestHelperFunctions(unittest.TestCase):
@@ -146,8 +147,25 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_allclose(embedding['edges'], embedding_expected, atol=6)
         np.testing.assert_array_equal(embedding['messages'], jnp.zeros((1,latent_size)))
 
+    def test_node_embedding_fn(self):
+        '''Test the node embedding function'''
+        latent_size = 16
+        max_atomic_number = 5
+        hk_init = hk.initializers.Identity()
+        node_embedding_fn = get_node_embedding_fn(latent_size, max_atomic_number, hk_init)
+        node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
+        
+        nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
+        #print(f'Input nodes: {nodes}')
+        
+        nodes_embedded = node_embedding_fn(nodes)
+        #print(f'Embedded nodes: {nodes_embedded}')
+        
+        np.testing.assert_array_equal([len(nodes),latent_size],
+            nodes_embedded.shape) # check shape of output
 
-
+        sum_nodes_expected = min(max_atomic_number-1, len(nodes))
+        self.assertEqual(int(jnp.sum(nodes_embedded)), sum_nodes_expected)
 
 if __name__ == '__main__':
     unittest.main()

@@ -56,6 +56,37 @@ def asedb_to_graphslist(file: str, label_str: str,
 
     return graphs, labels
 
+def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]
+) -> Tuple[Sequence[jraph.GraphsTuple], int]:
+    '''Return graphs with atomic numbers as graph-nodes turned into 
+    nodes with atomic numbers as classes. This gets rid of atomic numbers that are
+    not present in the dataset.
+    Example: atomic numbers as nodes before:
+    [1 1 1 1 6] Methane
+    [1 1 1 1 1 1 6 6] Ethane
+    [1 1 1 1 6 8] Carbon Monoxide
+    Will be turned into:
+    [0 0 0 0 1]
+    [0 0 0 0 0 0 1 1]
+    [0 0 0 0 1 2]
+    as there are only three different atomic numbers present in the list.
+    Also return the number of classes.'''
+    num_list = [] # list with atomic numbers in the graphs list
+    # generate full list first
+    for graph in graphs:
+        nodes = graph.nodes
+        for num in nodes:
+            if not num in num_list:
+                num_list.append(num)
+    # transform atomic numbers into classes
+    for graph in graphs:
+        nodes = graph.nodes
+        for i, num in enumerate(nodes):
+            nodes[i] = num_list.index(num)
+        graph._replace(nodes=nodes)
+            
+    return graphs, len(num_list)
+
 class DataReader:
     def __init__(self, data: Sequence[jraph.GraphsTuple], 
     batch_size: int, repeat: Boolean, key: jax.random.PRNGKey):
@@ -140,6 +171,9 @@ def get_datasets(config: ml_collections.ConfigDict, key
     graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
         label_str=config.label_str, selection=config.selection,
         limit=config.limit_data)
+    # convert the atomic numbers in nodes to classes and set number of classes
+    graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
+    config.max_atomic_number = num_classes
     labels_raw = labels_list
     
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
