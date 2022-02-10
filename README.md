@@ -23,6 +23,7 @@ pandas
 tqdm  
 sklearn  
 pickle  
+ase  
 
 If any other libraries are missing, just pip install them, the above list might not be complete.
 
