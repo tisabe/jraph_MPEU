@@ -44,6 +44,7 @@ def main(args):
     ax[1].legend()
     ax[1].set_yscale('log')
     plt.show()
+    plt.savefig(folder+'/fit.png')
 
     ### plot learning curves
     fig, ax = plt.subplots()
@@ -63,6 +64,7 @@ def main(args):
     ax.set_ylabel('loss (MAE), standardized')
     plt.yscale('log')
     plt.show()
+    plt.savefig(folder+'/curve.png')
 
 
 if __name__ == "__main__":
