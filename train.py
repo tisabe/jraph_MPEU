@@ -190,6 +190,37 @@ def predict_split(
     return preds
 
 
+def init_state(
+    config: ml_collections.ConfigDict,
+    init_graphs: jraph.GraphsTuple
+) -> train_state.TrainState:
+    '''Initialize a TrainState object using hyperparameters in config,
+    and the init_graphs. This is a representative batch of graphs.'''
+    # Initialize rng
+    # TODO: put seed into config
+    rng = jax.random.PRNGKey(42)
+
+    # Create and initialize network.
+    logging.info('Initializing network.')
+    rng, init_rng = jax.random.split(rng)
+    init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
+    
+    net_fn = create_model(config)
+    net = hk.without_apply_rng(hk.transform(net_fn))
+    # TODO: check changing initializer
+    params = net.init(init_rng, init_graphs) # create weights etc. for the model
+    
+    # Create the optimizer
+    tx = create_optimizer(config)
+    logging.info(f'Init_lr: {config.init_lr}')
+
+    # Create the training state
+    state = train_state.TrainState.create(
+        apply_fn=net.apply, params=params, tx=tx)
+
+    return state
+
+
 def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
@@ -203,26 +234,11 @@ def train_and_evaluate(
     datasets, datasets_raw, mean, std = get_datasets(config, data_rng)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
-    # Create and initialize network.
-    logging.info('Initializing network.')
-    rng, init_rng = jax.random.split(rng)
     init_graphs = next(datasets['train'])
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
-    #print(init_graphs)
-    net_fn = create_model(config)
-    net = hk.without_apply_rng(hk.transform(net_fn))
-    # TODO: find which initialization is used here and in PBJ
-    params = net.init(init_rng, init_graphs) # create weights etc. for the model
     
-    # Create the optimizer
-    tx = create_optimizer(config)
-    logging.info(f'Init_lr: {config.init_lr}')
-    #opt_init, opt_update = create_optimizer(config)
-    #opt_state = opt_init(params)
-
     # Create the training state
-    state = train_state.TrainState.create(
-        apply_fn=net.apply, params=params, tx=tx)
+    state = init_state(config, init_graphs)
     
     # Set up checkpointing of the model.
     checkpoint_dir = os.path.join(workdir, 'checkpoints')

@@ -1,14 +1,35 @@
 import ml_collections
 import numpy as np
 import unittest
+import jax
+import haiku as hk
+import optax
 
 import train
 from configs import default_test as cfg
+from input_pipeline import get_datasets
 
 class TestHelperFunctions(unittest.TestCase):
-    def test_config_import(self):
-        config = cfg.get_config()
-        self.assertEqual(config.batch_size, 32)
+    def setUp(self):
+        self.config = cfg.get_config()
+        self.config.limit_data = 100
+        self.assertEqual(self.config.batch_size, 32)
+        # get testing datasets
+        rng = jax.random.PRNGKey(42)
+        rng, data_rng = jax.random.split(rng)
+        datasets, _, _, _ = get_datasets(self.config, data_rng)
+        self.datasets = datasets
+
+    def test_init_state(self):
+        init_graphs = next(self.datasets['train'])
+        state = train.init_state(self.config, init_graphs)
+        print(type(state.params))
+        self.assertEqual(state.step, 0)
+        self.assertFalse(state.apply_fn is None)
+        self.assertIsInstance(state.tx, optax.GradientTransformation)
+        # TODO: find out the right type to check
+        #self.assertIsInstance(state.params, hk._src.data_structures.FlatMap)
+
         
     
 if __name__ == '__main__':
