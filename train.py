@@ -1,6 +1,13 @@
 import os
-from typing import NamedTuple, Callable, Dict, Iterable, Sequence, Tuple
-
+from typing import (
+    NamedTuple, 
+    Callable, 
+    Dict, 
+    Iterable, 
+    Sequence, 
+    Tuple,
+    Optional
+)
 from absl import logging
 import jax
 import jax.numpy as jnp
@@ -136,31 +143,36 @@ def evaluate_step(
     return mean_loss
 
 
+def evaluate_split(
+    state: train_state.TrainState,
+    graphs: Sequence[jraph.GraphsTuple],
+    batch_size = int
+) -> float:
+    '''Return mean loss for all graphs in graphs.'''
+    mean_loss_sum = 0.0
+    batch_count = 0
+
+    reader = DataReader(data=graphs, 
+        batch_size=batch_size, repeat=False, key=None)
+    
+    for graph_batch in reader:
+        mean_loss = evaluate_step(state, graph_batch)
+        mean_loss_sum += mean_loss
+        batch_count += 1
+    
+    return mean_loss_sum / batch_count
+
+
 def evaluate_model(
     state: train_state.TrainState,
-    datasets: Dict[str, Sequence[jraph.GraphsTuple]],
+    datasets: Dict[str, Iterable[jraph.GraphsTuple]],
     splits: Iterable[str]
 ) -> Dict[str, float]:
-
+    '''Return mean loss for every split in splits.'''
     eval_loss = {}
     for split in splits:
-        mean_loss_sum = 0.0
-        batch_count = 0
-
-        # the following is a hack at best, but it works
-        batch_size = datasets[split].batch_size
-        data = datasets[split].data
-        reader_new = DataReader(data=data, 
-            batch_size=batch_size, repeat=False, key=None)
-        
-        # loop over all graphs in split dataset 
-        # (repeat has to be disabled in this split)
-        for graphs in reader_new:
-            mean_loss = evaluate_step(state, graphs)
-            mean_loss_sum += mean_loss
-            batch_count += 1
-        
-        eval_loss[split] = mean_loss_sum / batch_count
+        eval_loss[split] = evaluate_split(state, 
+            datasets[split].data, datasets[split].batch_size)
     
     return eval_loss
 
@@ -221,6 +233,80 @@ def init_state(
     return state
 
 
+def train(
+    config: ml_collections.ConfigDict,
+    datasets: Dict[str, Sequence[jraph.GraphsTuple]],
+    workdir: Optional[str] = None
+) -> Tuple[train_state.TrainState, float]:
+    '''Train a model using training data in dataset and validation data 
+    in datasets for early stopping and model selection.
+    
+    The globals of training and validation graphs need to be normalized,
+    and the loss will be on normalized errors.'''
+    # Initialize rng
+    rng = jax.random.PRNGKey(42)
+    rng, data_rng = jax.random.split(rng)
+
+    reader_train = DataReader(datasets['train'], config.batch_size, 
+        repeat=True, key=data_rng)
+    init_graphs = next(datasets['train'])
+
+    state = init_state(config, init_graphs)
+    
+    if workdir is not None:
+        # Set up checkpointing of the model.
+        checkpoint_dir = os.path.join(workdir, 'checkpoints')
+    # start at step 1 (or state.step + 1 if state was restored)
+    initial_step = int(state.step) + 1
+    # TODO: get some framework for automatic checkpoint restoring
+
+    loss_queue = []
+    params_queue = []
+    best_params = None
+    
+    logging.info('Starting training.')
+    for step in range(initial_step, config.num_train_steps_max + 1):
+        # Split PRNG key, to ensure different 'randomness' for every step.
+        rng, dropout_rng = jax.random.split(rng)
+
+        # Perform a training step
+        graphs = next(reader_train)
+        state, loss = train_step(state, graphs)
+
+        is_last_step = (step == config.num_train_steps_max - 1)
+        # evaluate model on train, test and validation data
+        if step % config.eval_every_steps == 0 or is_last_step:
+            eval_loss = evaluate_split(state, datasets['validation'],
+                config.batch_size)
+            logging.info(f'validation MSE: {eval_loss}')
+            
+            loss_queue.append(eval_loss)
+            params_queue.append(state.params)
+            # only test for early stopping after the first interval
+            if step > config.early_stopping_steps:
+                # stop if new loss higher than loss at beginning of interval
+                if eval_loss > loss_queue[0]:
+                    break
+                else:
+                    # otherwise delete the element at beginning of queue
+                    loss_queue.pop(0)
+                    params_queue.pop(0)
+
+    # save parameters of best model
+    index = np.argmin(loss_queue)
+    # get lowest validation loss
+    min_loss = loss_queue[index]
+    params = params_queue[index]
+    if workdir is not None:
+        with open((workdir+'/params.pickle'), 'wb') as handle:
+            pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save predictions of the best model
+    best_state = state.replace(params=params) # restore the state with best params
+    
+    return best_state, min_loss
+
+    
 def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
@@ -242,7 +328,7 @@ def train_and_evaluate(
     
     # Set up checkpointing of the model.
     checkpoint_dir = os.path.join(workdir, 'checkpoints')
-    # start at step 1
+    # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state.step) + 1
     # TODO: get some framework for automatic checkpoint restoring
 

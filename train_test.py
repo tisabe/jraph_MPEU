@@ -6,11 +6,11 @@ import haiku as hk
 import optax
 
 import train
-from configs import default_test as cfg
 from input_pipeline import get_datasets
 
 class TestHelperFunctions(unittest.TestCase):
     def setUp(self):
+        from configs import default_test as cfg
         self.config = cfg.get_config()
         self.config.limit_data = 100
         self.assertEqual(self.config.batch_size, 32)
@@ -30,6 +30,8 @@ class TestHelperFunctions(unittest.TestCase):
         # TODO: find out the right type to check
         #self.assertIsInstance(state.params, hk._src.data_structures.FlatMap)
 
+    def test_numerical_stability(self):
+        from configs import test_numerics as cfg_num
         
     
 if __name__ == '__main__':
