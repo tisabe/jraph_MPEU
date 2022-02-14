@@ -62,6 +62,12 @@ def create_optimizer(
             transition_steps=config.transition_steps, 
             decay_rate=config.decay_rate,
             staircase=True)
+    elif config.schedule == 'cosine_decay':
+        lr = optax.cosine_decay_schedule(
+            init_value=config.init_lr, 
+            decay_steps=1e6)
+    else:
+        raise ValueError(f'Unsupported schedule: {config.schedule}.')
 
     if config.optimizer == 'adam':
         return optax.adam(learning_rate=lr)
