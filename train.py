@@ -12,6 +12,7 @@ from absl import logging
 import jax
 import jax.numpy as jnp
 from flax.training import train_state
+import flax.training.checkpoints as ckpt
 import jraph
 import ml_collections
 import numpy as np
@@ -233,6 +234,18 @@ def init_state(
     return state
 
 
+def restore_checkpoint(state, workdir):
+    return ckpt.restore_checkpoint(workdir, state)
+
+
+def save_checkpoint(state, workdir):
+    if jax.process_index() == 0:
+        # get train state from the first replica
+        state = jax.device_get(jax.tree_map(lambda x: x[0], state))
+        step = int(state.step)
+        ckpt.save_checkpoint(workdir, state, step, keep=1)
+
+
 def train(
     config: ml_collections.ConfigDict,
     datasets: Dict[str, Iterable[jraph.GraphsTuple]],
@@ -328,6 +341,7 @@ def train_and_evaluate(
     
     # Set up checkpointing of the model.
     checkpoint_dir = os.path.join(workdir, 'checkpoints')
+
     # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state.step) + 1
     # TODO: get some framework for automatic checkpoint restoring
@@ -380,7 +394,9 @@ def train_and_evaluate(
                     loss_queue.pop(0)
                     params_queue.pop(0)
         
-    
+        # Checkpoint model, if required
+        #if step % config.checkpoint_every_steps == 0 or is_last_step:
+            #save_checkpoint(state, checkpoint_dir)
     
     # save parameters of best model
     index = np.argmin(loss_queue)
