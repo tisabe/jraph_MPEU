@@ -31,8 +31,14 @@ class TestHelperFunctions(unittest.TestCase):
         #self.assertIsInstance(state.params, hk._src.data_structures.FlatMap)
 
     def test_numerical_stability(self):
+        '''Test that the minimum losses in 100 steps are equal up to 5 decimal places,
+        in two runs.'''
         from configs import test_numerics as cfg_num
+        config = cfg_num.get_config()
+        best_state, min_loss = train.train(config, self.datasets)
         
+        best_state, min_loss_new = train.train(config, self.datasets)
+        self.assertAlmostEqual(min_loss, min_loss_new, places=5)
     
 if __name__ == '__main__':
     unittest.main()

@@ -38,13 +38,8 @@ def asedb_to_graphslist(file: str, label_str: str,
     labels = []
     db = ase.db.connect(file)
     count = 0
-    print(f'Selection: {selection}')
+    #print(f'Selection: {selection}')
     for i, row in enumerate(db.select(selection=selection, limit=limit)):
-        if i==0:
-            print(row)
-            print(row.key_value_pairs)
-        if i%1000 == 0:
-            print(i)
         graph = ase_row_to_jraph(row)
         if len(graph.edges) == 0: # do not include graphs without edges
             continue
@@ -52,8 +47,7 @@ def asedb_to_graphslist(file: str, label_str: str,
         label = row.key_value_pairs[label_str]
         labels.append(label)
         count += 1
-    print(count)
-
+    
     return graphs, labels
 
 def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]
@@ -90,14 +84,14 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]
 class DataReader:
     def __init__(self, data: Sequence[jraph.GraphsTuple], 
     batch_size: int, repeat: Boolean, key: jax.random.PRNGKey):
-        self.data = data
+        self.data = data[:] # pass a copy of the list
         self.batch_size = batch_size
         self.repeat = repeat
         self.total_num_graphs = len(data)
         self.rng = key
         self._generator = self._make_generator()
         
-        self.budget = estimate_padding_budget_for_batch_size(data, batch_size,
+        self.budget = estimate_padding_budget_for_batch_size(self.data, batch_size,
             num_estimation_graphs=100)
 
         # this makes this thing complicated. From outside of DataReader
