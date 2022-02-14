@@ -96,10 +96,10 @@ class DataReader:
         self.total_num_graphs = len(data)
         self.rng = key
         self._generator = self._make_generator()
-        
+        '''
         self.budget = estimate_padding_budget_for_batch_size(data, batch_size,
             num_estimation_graphs=100)
-
+        
         # this makes this thing complicated. From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class
@@ -108,12 +108,18 @@ class DataReader:
             self.budget.n_node,
             self.budget.n_edge,
             self.budget.n_graph)
-
+        '''
     def __iter__(self):
         return self
 
     def __next__(self):
-        return next(self.batch_generator)
+        graphs = []
+        for _ in range(self.batch_size):
+            graph = next(self._generator)
+            graphs.append(graph)
+        graphs = jraph.batch(graphs)
+        graphs = pad_graph_to_nearest_power_of_two(graphs)
+        return graphs
 
     def _reset(self):
         # reset the generator object

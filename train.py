@@ -98,6 +98,7 @@ def train_step(
 ) -> Tuple[train_state.TrainState, float]:
     '''Perform one update step over the batch of graphs. 
     Returns a new TrainState and the loss MAE over the batch.'''
+    print('compiling train step')
 
     def loss_fn(params, graphs):
         curr_state = state.replace(params=params)
