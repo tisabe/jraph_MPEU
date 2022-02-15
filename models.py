@@ -5,8 +5,6 @@ import numpy as np
 import haiku as hk
 import ml_collections
 
-from utils import *
-
 
 # define the shifted softplus activation function
 LOG2 = jnp.log(2)
