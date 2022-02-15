@@ -254,7 +254,7 @@ def save_checkpoint(state, workdir):
 
 def train(
     config: ml_collections.ConfigDict,
-    datasets: Dict[str, Iterable[jraph.GraphsTuple]],
+    datasets: Dict[str, Sequence[jraph.GraphsTuple]],
     workdir: Optional[str] = None
 ) -> Tuple[train_state.TrainState, float]:
     '''Train a model using training data in dataset and validation data 
@@ -266,7 +266,7 @@ def train(
     rng = jax.random.PRNGKey(42)
     rng, data_rng = jax.random.split(rng)
 
-    reader_train = DataReader(datasets['train'].data, config.batch_size, 
+    reader_train = DataReader(datasets['train'], config.batch_size, 
         repeat=True, key=data_rng)
     init_graphs = next(reader_train)
 
@@ -295,7 +295,7 @@ def train(
         is_last_step = (step == config.num_train_steps_max - 1)
         # evaluate model on train, test and validation data
         if step % config.eval_every_steps == 0 or is_last_step:
-            eval_loss = evaluate_split(state, datasets['validation'].data,
+            eval_loss = evaluate_split(state, datasets['validation'],
                 config.batch_size)
             logging.info(f'validation MSE: {eval_loss}')
             

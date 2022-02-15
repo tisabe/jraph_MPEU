@@ -19,6 +19,10 @@ class TestHelperFunctions(unittest.TestCase):
         rng, data_rng = jax.random.split(rng)
         datasets, _, _, _ = get_datasets(self.config, data_rng)
         self.datasets = datasets
+        self.datasets_train_val = {
+            'train': self.datasets['train'].data[:],
+            'validation': self.datasets['validation'].data[:]
+        }
 
     def test_init_state(self):
         init_graphs = next(self.datasets['train'])
@@ -35,9 +39,9 @@ class TestHelperFunctions(unittest.TestCase):
         in two runs.'''
         from configs import test_numerics as cfg_num
         config = cfg_num.get_config()
-        best_state, min_loss = train.train(config, self.datasets)
+        best_state, min_loss = train.train(config, self.datasets_train_val)
         
-        best_state, min_loss_new = train.train(config, self.datasets)
+        best_state, min_loss_new = train.train(config, self.datasets_train_val)
         self.assertAlmostEqual(min_loss, min_loss_new, places=5)
     
 if __name__ == '__main__':
