@@ -1,33 +1,36 @@
 import numpy as np
-import pandas
 from ase import Atoms
-#from ase.visualize import view
-from ase.neighborlist import NeighborList
-import sys
 
-from ast import literal_eval
 import warnings
+import unittest
 
 from datahandler import *
 
-# source file:
-np.set_printoptions(threshold=sys.maxsize) # there might be long arrays, so we have to prevent numpy from shortening them
-df_csv_file = 'aflow/aflow_binary_egap_above_zero_below_ten_mill.csv'
-df = pandas.read_csv(df_csv_file)
+class TestHelperFunctions(unittest.TestCase):
+    def setUp(self):
+        self.atoms = Atoms('N4',
+            [(0,0,0), (2,2,0), (2,1,0), (3,1,0)])
 
-row = df.iloc[0]
-atoms = dict_to_ase(row)
-print(atoms)
+    def test_knearest(self):
+        k = 2
+        nodes, pos, edges, senders, receivers = get_graph_knearest(
+            self.atoms, k)
+        np.testing.assert_array_equal(nodes, [7,7,7,7])
+        np.testing.assert_array_equal(pos, self.atoms.get_positions())
+        np.testing.assert_array_equal(edges, np.sqrt([5, 8, 1, 2, 1, 1, 1, 2]))
+        np.testing.assert_array_equal(receivers, [0,0,1,1,2,2,3,3])
+        np.testing.assert_array_equal(senders, [2,1,2,3,3,1,2,1])
+        
+    def test_cutoff(self):
+        cutoff = 2.5
+        nodes, pos, edges, senders, receivers = get_graph_cutoff(
+            self.atoms, cutoff)
+        np.testing.assert_array_equal(nodes, [7,7,7,7])
+        np.testing.assert_array_equal(pos, self.atoms.get_positions())
+        np.testing.assert_array_equal(edges, np.sqrt([5,1,2,1,5,1,2,1]))
+        np.testing.assert_array_equal(receivers, [0,1,1,2,2,2,3,3])
+        np.testing.assert_array_equal(senders, [2,2,3,3,0,1,1,2])
+        
 
-nodes, pos, edges, adj, adj_offset = get_graph_knearest(atoms, 4)
-print('Nodes:')
-print(nodes)
-print('Edges:')
-print(edges)
-print('Adj:')
-print(adj)
-print('Adj offset:')
-print(adj_offset)
-
-
-
+if __name__ == '__main__':
+    unittest.main()

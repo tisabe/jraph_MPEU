@@ -32,11 +32,11 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
     receivers = []
-    connections_offset = []
     edges = []
     atom_numbers = atoms.get_atomic_numbers() # get array of atomic numbers
 
-    # divide cutoff by 2, because ASE defines two atoms as neighbours when their spheres of radii r overlap
+    # divide cutoff by 2, because ASE defines two atoms as neighbours 
+    # when their spheres of radii r overlap
     radii = [cutoff/2] * len(atoms) # make a list with length len(atoms)
     neighborhood = NeighborList(
         radii, skin=0.0, self_interaction=False, bothways=True
@@ -63,7 +63,6 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
 
             senders.append(jj)
             receivers.append(ii)
-            connections_offset.append(np.vstack((offs, np.zeros(3, float))))
             edges.append(dist)
 
     if len(edges) == 0:
@@ -102,8 +101,6 @@ def get_graph_knearest(
         neighborhood.update(atoms)
 
         nodes = []
-        connections = []
-        connections_offset = []
         edges = []
         senders = []
         receivers = []
@@ -111,8 +108,6 @@ def get_graph_knearest(
             atom_positions = atoms.get_positions(wrap=True)
         else:
             atom_positions = atoms.get_positions(wrap=False)
-        keep_connections = []
-        keep_connections_offset = []
         keep_edges = []
         keep_senders = []
         keep_receivers = []
@@ -123,8 +118,6 @@ def get_graph_knearest(
         early_exit = False
         for ii in range(len(atoms)):
             this_edges = []
-            this_connections = []
-            this_connections_offset = []
             this_senders = []
             this_receivers = []
             neighbor_indices, offset = neighborhood.get_neighbors(ii)
@@ -138,34 +131,28 @@ def get_graph_knearest(
                 dist_vec = ii_pos - jj_pos
                 dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
-                this_connections.append([jj, ii])  # from, to
-                this_connections_offset.append(
-                    np.vstack((offs, np.zeros(3, float)))
-                )
                 this_edges.append([dist])
                 this_senders.append(jj)
                 this_receivers.append(ii)
             edges.append(np.array(this_edges))
-            connections.append(np.array(this_connections))
-            connections_offset.append(np.stack(this_connections_offset, axis=0))
-            receivers.append(np.array(this_receivers))
             senders.append(np.array(this_senders))
+            receivers.append(np.array(this_receivers))
         if early_exit:
             continue
         else:
-            for e, c, o in zip(edges, connections, connections_offset):
+            for e, s, r in zip(edges, senders, receivers):
                 # Keep only num_neighbors closest indices
                 keep_ind = np.argsort(e[:, 0])[0:num_neighbors]
                 keep_edges.append(e[keep_ind])
-                keep_connections.append(c[keep_ind])
-                keep_connections_offset.append(o[keep_ind])
+                keep_senders.append(s[keep_ind])
+                keep_receivers.append(r[keep_ind])
         break
     return (
         np.array(nodes),
         atom_positions,
-        np.concatenate(keep_edges),
-        np.concatenate(keep_connections),
-        np.concatenate(keep_connections_offset),
+        np.concatenate(keep_edges).flatten(),
+        np.concatenate(keep_senders),
+        np.concatenate(keep_receivers),
     )
 
 def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
