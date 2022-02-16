@@ -27,7 +27,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.early_stopping_steps = 1_000_000
     config.checkpoint_every_steps = 50_000
     # data split settings
-    config.data_file = 'matproj/mp_graphs.db'
+    config.data_file = 'matproj/mp_graphs_knn.db'
     config.label_str = 'delta_e' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing

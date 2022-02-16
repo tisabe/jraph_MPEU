@@ -102,8 +102,8 @@ class TestHelperFunctions(unittest.TestCase):
 
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
-        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db']
-        limit = 100 # maximum number of entries that are read
+        files = ['matproj/mp_graphs_knn.db', 'QM9/qm9_graphs.db']
+        limit = None # maximum number of entries that are read
         if not limit is None:
             print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
         for file in files:
