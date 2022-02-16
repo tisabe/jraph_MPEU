@@ -223,6 +223,8 @@ def init_state(
     rng, init_rng = jax.random.split(rng)
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
     
+    config.hk_init = hk.initializers.VarianceScaling(
+        mode='fan_avg', distribution='uniform')
     net_fn = create_model(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
     # TODO: check changing initializer
