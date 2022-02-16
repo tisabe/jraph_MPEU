@@ -15,9 +15,7 @@ class TestHelperFunctions(unittest.TestCase):
         self.config.limit_data = 100
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
-        rng = jax.random.PRNGKey(42)
-        rng, data_rng = jax.random.split(rng)
-        datasets, _, _, _ = get_datasets(self.config, data_rng)
+        datasets, _, _, _ = get_datasets(self.config)
         self.datasets = datasets
         self.datasets_train_val = {
             'train': self.datasets['train'].data[:],

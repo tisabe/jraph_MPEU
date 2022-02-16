@@ -8,6 +8,9 @@ def get_config() -> ml_collections.ConfigDict():
     '''Get hyperparameter configuration. Returns a ml_collections.ConfigDict() object.
     '''
     config = ml_collections.ConfigDict()
+
+    # rng init
+    config.seed = 42
     
     # Optimizer
     config.optimizer = 'adam'

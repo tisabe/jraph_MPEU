@@ -5,10 +5,12 @@ import numpy as np
 import ase.db
 import pandas as pd
 
-from input_pipeline import DataReader
-from input_pipeline import ase_row_to_jraph
-from input_pipeline import asedb_to_graphslist
-from input_pipeline import atoms_to_nodes_list
+from input_pipeline import (
+    DataReader,
+    ase_row_to_jraph,
+    asedb_to_graphslist,
+    atoms_to_nodes_list
+)
 from utils import add_labels_to_graphs
 
 class TestHelperFunctions(unittest.TestCase):
@@ -26,8 +28,7 @@ class TestHelperFunctions(unittest.TestCase):
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
 
-        key = jax.random.PRNGKey(42)
-        reader = DataReader(graphs, batch_size, False, key)
+        reader = DataReader(graphs, batch_size, False, 42)
         print('This should not loop')
         for batch in reader:
             print(batch.globals)
@@ -47,8 +48,7 @@ class TestHelperFunctions(unittest.TestCase):
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
 
-        key = jax.random.PRNGKey(42)
-        reader = DataReader(graphs, batch_size, True, key)
+        reader = DataReader(graphs, batch_size, True, 42)
         print('This should loop and shuffle')
         print(next(reader).globals)
         print(next(reader).globals)
@@ -103,7 +103,7 @@ class TestHelperFunctions(unittest.TestCase):
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
         files = ['matproj/mp_graphs_knn.db', 'QM9/qm9_graphs.db']
-        limit = None # maximum number of entries that are read
+        limit = 100 # maximum number of entries that are read
         if not limit is None:
             print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
         for file in files:

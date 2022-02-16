@@ -83,12 +83,12 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]
 
 class DataReader:
     def __init__(self, data: Sequence[jraph.GraphsTuple], 
-    batch_size: int, repeat: Boolean, key: jax.random.PRNGKey):
+    batch_size: int, repeat: Boolean, seed: int = None):
         self.data = data[:] # pass a copy of the list
         self.batch_size = batch_size
         self.repeat = repeat
         self.total_num_graphs = len(data)
-        self.rng = key
+        self.seed = seed
         self._generator = self._make_generator()
         
         self.budget = estimate_padding_budget_for_batch_size(self.data, batch_size,
@@ -120,7 +120,7 @@ class DataReader:
             self.budget.n_graph)
 
     def _make_generator(self):
-        random.seed(a=0)
+        random.seed(a=self.seed)
         idx = 0
         while True:
             # If not repeating, exit when we've cycled through all the graphs.
@@ -134,7 +134,6 @@ class DataReader:
                     return
             else:
                 if idx == self.total_num_graphs:
-                    self.rng, data_rng = jax.random.split(self.rng)
                     random.shuffle(self.data)
                 # This will reset the index to 0 if we are at the end of the dataset.
                 idx = idx % self.total_num_graphs
@@ -148,7 +147,7 @@ def get_labels_atomization(graphs, labels, label_str):
     to make it compatible with non-QM9 datasets.'''
     return get_atomization_energies_QM9(graphs, labels, label_str)
 
-def get_datasets(config: ml_collections.ConfigDict, key
+def get_datasets(config: ml_collections.ConfigDict
 ) -> Tuple[Dict[str, Iterable[jraph.GraphsTuple]], Dict[str, Sequence[jraph.GraphsTuple]], float, float]:
     '''Return a dict with a dataset for each split (training, validation, testing),
     in normalized and in raw form/labels. Also return the mean and standard deviation.
@@ -190,11 +189,11 @@ def get_datasets(config: ml_collections.ConfigDict, key
     
     # define iterators and generators
     reader_train = DataReader(data=train_set, 
-        batch_size=config.batch_size, repeat=True, key=key)
+        batch_size=config.batch_size, repeat=True, seed=config.seed)
     reader_val = DataReader(data=val_set, 
-        batch_size=config.batch_size, repeat=False, key=key)
+        batch_size=config.batch_size, repeat=False)
     reader_test = DataReader(data=test_set, 
-        batch_size=config.batch_size, repeat=False, key=key)
+        batch_size=config.batch_size, repeat=False)
 
     dataset = {'train': reader_train, 
         'validation': reader_val, 

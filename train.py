@@ -160,7 +160,7 @@ def evaluate_split(
     batch_count = 0
 
     reader = DataReader(data=graphs, 
-        batch_size=batch_size, repeat=False, key=None)
+        batch_size=batch_size, repeat=False)
     
     for graph_batch in reader:
         mean_loss = evaluate_step(state, graph_batch)
@@ -192,7 +192,7 @@ def predict_split(
 
     preds = np.array([])
     reader_new = DataReader(data=dataset_raw, 
-        batch_size=config.batch_size, repeat=False, key=None)
+        batch_size=config.batch_size, repeat=False)
 
     for graphs in reader_new:
         labels = graphs.globals
@@ -216,8 +216,7 @@ def init_state(
     '''Initialize a TrainState object using hyperparameters in config,
     and the init_graphs. This is a representative batch of graphs.'''
     # Initialize rng
-    # TODO: put seed into config
-    rng = jax.random.PRNGKey(42)
+    rng = jax.random.PRNGKey(config.seed)
 
     # Create and initialize network.
     logging.info('Initializing network.')
@@ -262,12 +261,9 @@ def train(
     
     The globals of training and validation graphs need to be normalized,
     and the loss will be on normalized errors.'''
-    # Initialize rng
-    rng = jax.random.PRNGKey(42)
-    rng, data_rng = jax.random.split(rng)
-
+    
     reader_train = DataReader(datasets['train'], config.batch_size, 
-        repeat=True, key=data_rng)
+        repeat=True, seed=config.seed)
     init_graphs = next(reader_train)
 
     state = init_state(config, init_graphs)
@@ -285,9 +281,6 @@ def train(
     
     logging.info('Starting training.')
     for step in range(initial_step, config.num_train_steps_max + 1):
-        # Split PRNG key, to ensure different 'randomness' for every step.
-        rng, dropout_rng = jax.random.split(rng)
-
         # Perform a training step
         graphs = next(reader_train)
         state, loss = train_step(state, graphs)
@@ -330,13 +323,9 @@ def train_and_evaluate(
     config: ml_collections.ConfigDict,
     workdir: str
 ) -> train_state.TrainState:
-    # Initialize rng
-    rng = jax.random.PRNGKey(42)
-
-    # Get datasets, organized by split.
-    rng, data_rng = jax.random.split(rng) # split up rngs for deterministic results
+    
     logging.info('Loading datasets.')
-    datasets, datasets_raw, mean, std = get_datasets(config, data_rng)
+    datasets, datasets_raw, mean, std = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     init_graphs = next(datasets['train'])
@@ -368,17 +357,13 @@ def train_and_evaluate(
     time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
-
-        # Split PRNG key, to ensure different 'randomness' for every step.
-        rng, dropout_rng = jax.random.split(rng)
-
         # Perform a training step
         graphs = next(datasets['train'])
         state, loss = train_step(state, graphs)
 
         # Log periodically
         is_last_step = (step == config.num_train_steps_max - 1)
-        if step % config.log_every_steps == 0 or is_last_step:
+        if step % config.log_every_steps == 0:
             time_logger.log_eta(step)
         
         # evaluate model on train, test and validation data
