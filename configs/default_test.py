@@ -14,6 +14,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_train_steps_max = 10_000
     config.log_every_steps = 5_000
     config.eval_every_steps = 10_000
+    config.restore = False
     
     # data selection parameters
     config.limit_data = 2000

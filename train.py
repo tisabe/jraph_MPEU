@@ -240,15 +240,16 @@ def init_state(
 
 
 def restore_checkpoint(state, workdir):
-    return ckpt.restore_checkpoint(workdir, state)
+    with open((workdir+'/params.pickle'), 'rb') as handle:
+        state_dict = pickle.load(handle)
+    return state.replace(params=state_dict['params'], step=state_dict['step'])
+    
 
 
 def save_checkpoint(state, workdir):
-    if jax.process_index() == 0:
-        # get train state from the first replica
-        state = jax.device_get(jax.tree_map(lambda x: x[0], state))
-        step = int(state.step)
-        ckpt.save_checkpoint(workdir, state, step, keep=1)
+    state_dict = {'params': state.params, 'step': state.step}
+    with open((workdir+'/params.pickle'), 'wb') as handle:
+        pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def train(
@@ -337,6 +338,9 @@ def train_and_evaluate(
     # Set up checkpointing of the model.
     checkpoint_dir = os.path.join(workdir, 'checkpoints')
 
+    if config.restore:
+        state = restore_checkpoint(state, checkpoint_dir)
+
     # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state.step) + 1
     # TODO: get some framework for automatic checkpoint restoring
@@ -386,8 +390,8 @@ def train_and_evaluate(
                     params_queue.pop(0)
         
         # Checkpoint model, if required
-        #if step % config.checkpoint_every_steps == 0 or is_last_step:
-            #save_checkpoint(state, checkpoint_dir)
+        if step % config.checkpoint_every_steps == 0 or is_last_step:
+            save_checkpoint(state, checkpoint_dir)
     
     # save parameters of best model
     index = np.argmin(loss_queue)
