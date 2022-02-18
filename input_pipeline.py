@@ -164,9 +164,10 @@ def get_datasets(config: ml_collections.ConfigDict
     graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
         label_str=config.label_str, selection=config.selection,
         limit=config.limit_data)
-    # convert the atomic numbers in nodes to classes and set number of classes
-    graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
-    config.max_atomic_number = num_classes
+    if config.embed_node_type in ['default']:
+        # convert the atomic numbers in nodes to classes and set number of classes
+        graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
+        config.max_atomic_number = num_classes
     labels_raw = labels_list
     
     labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)

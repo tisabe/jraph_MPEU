@@ -62,7 +62,8 @@ def main(args):
     ax.legend()
     ax.set_xlabel('gradient step')
     ax.set_ylabel('MSE (eV^2), standardized')
-    plt.yscale('log')
+    ax.set_yscale('log')
+    #plt.yscale('log')
     plt.show()
     plt.savefig(folder+'/curve.png')
 

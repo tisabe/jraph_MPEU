@@ -40,6 +40,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.limit_data = None
 
     # MPNN hyperparameters
+    config.embed_node_type = 'default'
     config.message_passing_steps = 3
     config.latent_size = 64
     config.hk_init = None

@@ -43,6 +43,88 @@ def get_node_embedding_fn(latent_size, max_atomic_number, hk_init=None):
     return node_embedding_fn
 
 
+def get_node_embedding_const_fn(latent_size, hk_init=None):
+    '''Return the node embedding function.'''
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        '''Embedds the node features using constant vector and a dense nn layer.'''
+        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        nodes = jnp.ones((len(nodes),1))
+        return net(nodes)
+    return node_embedding_fn
+
+
+def get_node_embedding_num_fn(latent_size, hk_init=None):
+    '''Return the node embedding function.'''
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        '''Embedds the node features using atomic number and a dense nn layer.'''
+        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        nodes = jnp.expand_dims(nodes, 1)*0.1 # scale down to fit in range (0,1)
+        return net(nodes)
+    return node_embedding_fn
+
+
+def get_node_embedding_eaff_fn(latent_size, hk_init=None):
+    '''Return the node embedding function.'''
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        '''Embedds the node features using electron affinity depending 
+        on atomic number and a dense nn layer.'''
+        num_to_eaff = [0.0,
+                        -0.69804885,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -1.46237959,
+                        0.30192328,
+                        -1.62640753,
+                        -3.66044176
+                        ]
+        num_to_eaff = jnp.array(num_to_eaff)
+        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        nodes = jax.nn.one_hot(nodes, 10)
+        nodes = jnp.dot(nodes, num_to_eaff)
+        nodes = jnp.expand_dims(jnp.array(nodes), 1)
+        return net(nodes)
+    return node_embedding_fn
+
+
+def get_node_embedding_hbug_fn(latent_size, hk_init=None):
+    '''Return the node embedding function.'''
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        '''Embedds the node features by only putting H atoms to one and all others to 0'''
+        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        nodes = jax.nn.one_hot(nodes, 4)
+        return net(nodes)
+    return node_embedding_fn
+
+
+def get_node_embedding_numeaff_fn(latent_size, hk_init=None):
+    '''Return the node embedding function.'''
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        '''Embedds the node features using electron affinity depending 
+        on atomic number concatenated with one-hot encoded atomic number 
+        and a dense nn layer.'''
+        num_to_eaff = [0.0,
+                        -0.69804885,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -1.46237959,
+                        0.30192328,
+                        -1.62640753,
+                        -3.66044176
+                        ]
+        num_to_eaff = jnp.array(num_to_eaff)
+        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        nodes = jax.nn.one_hot(nodes, 10)
+        eaffs = jnp.dot(nodes, num_to_eaff)
+        eaffs = jnp.expand_dims(eaffs, 1)
+        nodes = jnp.append(nodes, eaffs, axis=1)
+        return net(nodes)
+    return node_embedding_fn
+
+
 def get_embedder(config: ml_collections.ConfigDict):
     '''Return the embedding function, with hyperparameters defined in config.'''
     latent_size = config.latent_size
@@ -51,10 +133,25 @@ def get_embedder(config: ml_collections.ConfigDict):
     mu_min = config.mu_min
     max_atomic_number = config.max_atomic_number
     hk_init = config.hk_init
+    embed_node_type = config.embed_node_type
 
+    if embed_node_type=='default':
+        embed_node_fn=get_node_embedding_fn(latent_size, max_atomic_number, hk_init)
+    elif embed_node_type=='const':
+        embed_node_fn=get_node_embedding_const_fn(latent_size, hk_init)
+    elif embed_node_type=='num':
+        embed_node_fn=get_node_embedding_num_fn(latent_size, hk_init)
+    elif embed_node_type=='eaff':
+        embed_node_fn=get_node_embedding_eaff_fn(latent_size, hk_init)
+    elif embed_node_type=='numeaff':
+        embed_node_fn=get_node_embedding_numeaff_fn(latent_size, hk_init)
+    elif embed_node_type=='hbug':
+        embed_node_fn=get_node_embedding_hbug_fn(latent_size, hk_init)
+    else:
+        raise ValueError(f'Node embedding type {embed_node_type} not recognized')
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=get_edge_embedding_fn(latent_size, k_max, delta, mu_min),
-        embed_node_fn=get_node_embedding_fn(latent_size, max_atomic_number, hk_init),
+        embed_node_fn=embed_node_fn,
         embed_global_fn=None
     )
     return embedder
