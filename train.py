@@ -239,17 +239,36 @@ def init_state(
     return state
 
 
-def restore_checkpoint(state, workdir):
-    with open((workdir+'/params.pickle'), 'rb') as handle:
+def restore_checkpoint(state, checkpoint_dir):
+    with open((checkpoint_dir+'/params.pickle'), 'rb') as handle:
         state_dict = pickle.load(handle)
     return state.replace(params=state_dict['params'], step=state_dict['step'])
     
 
-
-def save_checkpoint(state, workdir):
+def save_checkpoint(state, checkpoint_dir):
+    if not os.path.exists(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
     state_dict = {'params': state.params, 'step': state.step}
-    with open((workdir+'/params.pickle'), 'wb') as handle:
+    with open((checkpoint_dir+'/params.pickle'), 'wb') as handle:
         pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+def restore_loss_curve(dir, splits, std):
+    loss_dict = {}
+    for split in splits:
+        loss_split = np.loadtxt(f'{dir}/{split}_loss.csv', 
+            delimiter=',', ndmin=2)
+        loss_split[:,1] = loss_split[:,1]/std
+        loss_dict[split] = loss_split.tolist()
+    return loss_dict
+
+def save_loss_curve(loss_dict, dir, splits, std):
+    for split in splits:
+        loss_split = np.array(loss_dict[split])
+        # convert loss column to eV
+        loss_split[:,1] = loss_split[:,1]*std
+        # save the loss curves
+        np.savetxt(f'{dir}/{split}_loss.csv', 
+            np.array(loss_split), delimiter=',')
 
 
 def train(
@@ -338,23 +357,23 @@ def train_and_evaluate(
     # Set up checkpointing of the model.
     checkpoint_dir = os.path.join(workdir, 'checkpoints')
 
-    if config.restore:
-        state = restore_checkpoint(state, checkpoint_dir)
-
-    # start at step 1 (or state.step + 1 if state was restored)
-    initial_step = int(state.step) + 1
-    # TODO: get some framework for automatic checkpoint restoring
-
-    # Make a loss queue to compare with earlier losses
-    loss_queue = []
-    params_queue = []
-    best_params = None
-
     # set up saving of losses
     splits = ['train', 'validation', 'test']
     loss_dict = {}
     for split in splits:
         loss_dict[split] = []
+
+    if config.restore:
+        state = restore_checkpoint(state, checkpoint_dir)
+        loss_dict = restore_loss_curve(checkpoint_dir, splits, std)
+
+    # start at step 1 (or state.step + 1 if state was restored)
+    initial_step = int(state.step) + 1
+    
+    # Make a loss queue to compare with earlier losses
+    loss_queue = []
+    params_queue = []
+    best_params = None
 
     # Begin training loop.
     logging.info('Starting training.')
@@ -366,7 +385,7 @@ def train_and_evaluate(
         state, loss = train_step(state, graphs)
 
         # Log periodically
-        is_last_step = (step == config.num_train_steps_max - 1)
+        is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
             time_logger.log_eta(step)
         
@@ -383,6 +402,7 @@ def train_and_evaluate(
             if step > config.early_stopping_steps:
                 # stop if new loss higher than loss at beginning of interval
                 if eval_loss['validation'] > loss_queue[0]:
+                    logging.info('Stopping early.')
                     break
                 else:
                     # otherwise delete the element at beginning of queue
@@ -392,7 +412,11 @@ def train_and_evaluate(
         # Checkpoint model, if required
         if step % config.checkpoint_every_steps == 0 or is_last_step:
             save_checkpoint(state, checkpoint_dir)
-    
+            # save the loss curves
+            save_loss_curve(loss_dict, checkpoint_dir, splits, std)
+        if step==config.num_train_steps_max:
+            logging.info('Reached maximum number of steps without early stopping.')
+
     # save parameters of best model
     index = np.argmin(loss_queue)
     params = params_queue[index]

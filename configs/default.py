@@ -29,7 +29,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.eval_every_steps = 50_000
     config.early_stopping_steps = 1_000_000
     config.checkpoint_every_steps = 50_000
-    config.restore = True # whether to restore from previous checkpoint
+    config.restore = False # whether to restore from previous checkpoint
     # data split settings
     config.data_file = 'QM9/qm9_graphs.db'
     config.label_str = 'U0' # string to determine which label is used from the dataset
