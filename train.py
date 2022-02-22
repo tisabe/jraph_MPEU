@@ -292,6 +292,7 @@ def train(
     if workdir is not None:
         # Set up checkpointing of the model.
         checkpoint_dir = os.path.join(workdir, 'checkpoints')
+        save_config(config, workdir)
     # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state.step) + 1
     # TODO: get some framework for automatic checkpoint restoring
@@ -348,6 +349,9 @@ def train_and_evaluate(
     logging.info('Loading datasets.')
     datasets, datasets_raw, mean, std = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
+
+    # save the config in txt for later inspection
+    save_config(config, workdir)
 
     init_graphs = next(datasets['train'])
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
