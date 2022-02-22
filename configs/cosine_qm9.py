@@ -13,5 +13,6 @@ def get_config() -> ml_collections.ConfigDict():
     # Optimizer
     config.schedule = 'cosine_decay'
     config.init_lr = 1e-3
+    config.transition_steps = 1_000_000
     
     return config

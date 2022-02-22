@@ -54,6 +54,27 @@ def create_model(config: ml_collections.ConfigDict):
     return GNN(config)
 
 
+def cosine_warm_restarts(
+    init_value: float,
+    decay_steps: int,
+    multiplier: int=1
+) -> Callable[[int], float]:
+    '''Return a function that implements a cosine schedule with warm restarts.
+    For more details see: https://arxiv.org/abs/1608.03983'''
+
+    if not decay_steps > 0:
+        raise ValueError('The cosine_decay_schedule requires positive decay_steps!')
+
+    def schedule(count):
+        # TODO: implement multiplier
+        num_restarts = count // decay_steps + 1
+        count_since_restart = count % decay_steps
+        cosine = 0.5 * (1 + jnp.cos(jnp.pi * count_since_restart / decay_steps))
+        return init_value * cosine
+
+    return schedule
+
+
 def create_optimizer(
     config: ml_collections.ConfigDict) -> optax.GradientTransformation:
     if config.schedule == 'exponential_decay':
@@ -63,9 +84,9 @@ def create_optimizer(
             decay_rate=config.decay_rate,
             staircase=True)
     elif config.schedule == 'cosine_decay':
-        lr = optax.cosine_decay_schedule(
+        lr = cosine_warm_restarts(
             init_value=config.init_lr, 
-            decay_steps=1e6)
+            decay_steps=config.transition_steps)
     else:
         raise ValueError(f'Unsupported schedule: {config.schedule}.')
 
@@ -379,6 +400,7 @@ def train_and_evaluate(
             if step > config.early_stopping_steps:
                 # stop if new loss higher than loss at beginning of interval
                 if eval_loss['validation'] > loss_queue[0]:
+                    logging.info(f'Converged after {step} steps.')
                     break
                 else:
                     # otherwise delete the element at beginning of queue
@@ -388,9 +410,10 @@ def train_and_evaluate(
         # Checkpoint model, if required
         #if step % config.checkpoint_every_steps == 0 or is_last_step:
             #save_checkpoint(state, checkpoint_dir)
-    
+
     # save parameters of best model
     index = np.argmin(loss_queue)
+    logging.info(f'Lowest validation MSE: {loss_queue[index]}')
     params = params_queue[index]
     with open((workdir+'/params.pickle'), 'wb') as handle:
         pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
