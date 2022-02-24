@@ -25,7 +25,7 @@ def main(args):
     ax.set_ylabel('MSE (eV^2), standardized')
     plt.yscale('log')
     plt.show()
-    #plt.savefig(folder+'/curve.png')
+    plt.savefig(args.file+'/curve.png')
 
     return 0
 

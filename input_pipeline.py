@@ -142,10 +142,24 @@ class DataReader:
             yield graph
 
 
-def get_labels_atomization(graphs, labels, label_str):
-    '''Wrapper function for get_atomization_energies_QM9,
-    to make it compatible with non-QM9 datasets.'''
-    return get_atomization_energies_QM9(graphs, labels, label_str)
+def get_dataset_single(config: ml_collections.ConfigDict
+) -> Sequence[jraph.GraphsTuple]:
+    '''Return a list of all graphs of the dataset specified in config,
+    and return mean and standard deviation of the globals in the dataset.
+    Number of graphs can be limited in config.'''
+
+    graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
+        label_str=config.label_str, selection=config.selection,
+        limit=config.limit_data)
+    # convert the atomic numbers in nodes to classes and set number of classes
+    graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
+    config.max_atomic_number = num_classes
+
+    labels_list, mean, std = normalize_targets_config(graphs_list, labels_list, config)
+    logging.info(f'Mean: {mean}, Std: {std}')
+    graphs_list = add_labels_to_graphs(graphs_list, labels_list)
+
+    return graphs_list, mean, std
 
 def get_datasets(config: ml_collections.ConfigDict
 ) -> Tuple[Dict[str, Iterable[jraph.GraphsTuple]], Dict[str, Sequence[jraph.GraphsTuple]], float, float]:
@@ -160,7 +174,7 @@ def get_datasets(config: ml_collections.ConfigDict
 
     The graphs have their regression label as a global feature attached.
     '''
-    # data will be split into normaized data for regression and raw data for analyzing later
+    # data will be split into normalized data for regression and raw data for analyzing later
     graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
         label_str=config.label_str, selection=config.selection,
         limit=config.limit_data)

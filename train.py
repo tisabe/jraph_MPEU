@@ -275,6 +275,7 @@ def save_checkpoint(state, workdir):
 def train(
     config: ml_collections.ConfigDict,
     datasets: Dict[str, Sequence[jraph.GraphsTuple]],
+    std: float,
     workdir: Optional[str] = None
 ) -> Tuple[train_state.TrainState, float]:
     '''Train a model using training data in dataset and validation data 
@@ -300,6 +301,7 @@ def train(
     loss_queue = []
     params_queue = []
     best_params = None
+    val_loss = []
     
     logging.info('Starting training.')
     for step in range(initial_step, config.num_train_steps_max + 1):
@@ -313,6 +315,7 @@ def train(
             eval_loss = evaluate_split(state, datasets['validation'],
                 config.batch_size)
             logging.info(f'validation MSE: {eval_loss}')
+            val_loss.append([step, eval_loss])
             
             loss_queue.append(eval_loss)
             params_queue.append(state.params)
@@ -334,6 +337,12 @@ def train(
     if workdir is not None:
         with open((workdir+'/params.pickle'), 'wb') as handle:
             pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        val_loss = np.array(val_loss)
+        # convert loss column to eV
+        val_loss[:,1] = val_loss[:,1]*std
+        # save the loss curves
+        np.savetxt(f'{workdir}/validation_loss.csv', 
+            np.array(val_loss), delimiter=",")
 
     # save predictions of the best model
     best_state = state.replace(params=params) # restore the state with best params
