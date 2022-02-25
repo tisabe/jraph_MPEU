@@ -125,7 +125,7 @@ def train_step(
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (mean_loss, (loss)), grads = grad_fn(state.params, graphs)
-    # update the params with gradient
+    # Update the params with gradient.
     state = state.apply_gradients(grads=grads)
 
     return state, mean_loss
@@ -228,13 +228,13 @@ def init_state(
     # TODO: check changing initializer
     params = net.init(init_rng, init_graphs) # create weights etc. for the model
     
-    # Create the optimizer
-    tx = create_optimizer(config)
     logging.info(f'Init_lr: {config.init_lr}')
+    # Initialize the optimizer.
+    opt_state = create_optimizer(config)
 
-    # Create the training state
+    # Create the training state. Pass the network, the paramters and the optimizer state.
     state = train_state.TrainState.create(
-        apply_fn=net.apply, params=params, tx=tx)
+        apply_fn=net.apply, params=params, tx=opt_state)
 
     return state
 
@@ -246,9 +246,19 @@ def restore_checkpoint(state, checkpoint_dir):
     
 
 def save_checkpoint(state, checkpoint_dir):
+    """Update the model's state by saving params, step # and optimizer state."""
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
-    state_dict = {'params': state.params, 'step': state.step}
+    # Print what type is the state tx (optimizer state)
+    print('\n Type of the optimizer state:')
+    print(type(state.tx))
+    print('Optimizer state:')
+    print(state.tx)
+    state_dict = {
+        'params': state.params,
+        'step': state.step,
+        # This is the optimize state. Naming convention is set by Flax.
+        'opt_state': state.tx}
     with open((checkpoint_dir+'/params.pickle'), 'wb') as handle:
         pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
