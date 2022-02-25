@@ -1,3 +1,5 @@
+"""Main training loop/update function."""
+
 import os
 from typing import (
     NamedTuple, 
@@ -55,17 +57,18 @@ def create_model(config: ml_collections.ConfigDict):
 
 
 def create_optimizer(
-    config: ml_collections.ConfigDict) -> optax.GradientTransformation:
+        config: ml_collections.ConfigDict) -> optax.GradientTransformation:
+    """Create an Optax optimizer object."""
     if config.schedule == 'exponential_decay':
         lr = optax.exponential_decay(
-            init_value=config.init_lr, 
-            transition_steps=config.transition_steps, 
-            decay_rate=config.decay_rate,
-            staircase=True)
+                init_value=config.init_lr, 
+                transition_steps=config.transition_steps, 
+                decay_rate=config.decay_rate,
+                staircase=True)
     elif config.schedule == 'cosine_decay':
         lr = optax.cosine_decay_schedule(
-            init_value=config.init_lr, 
-            decay_steps=1e6)
+                init_value=config.init_lr, 
+                decay_steps=1e6)
     else:
         raise ValueError(f'Unsupported schedule: {config.schedule}.')
 
@@ -73,10 +76,13 @@ def create_optimizer(
         return optax.adam(learning_rate=lr)
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
-def get_diff_fn(config: ml_collections.ConfigDict
-) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], Tuple[float, float]]:
-    '''Return difference function depending on str argument in config.loss_type.
-    The difference function defines how loss is calculated from label and prediction.'''
+def get_diff_fn(config: ml_collections.ConfigDict) -> Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], Tuple[float, float]]:
+    """
+    OBSOLETE!
+
+    Return difference function depending on str argument in config.loss_type.
+    The difference function defines how loss is calculated from label and prediction."""
     if config.loss_type == 'MSE':
         def diff_fn(labels, predictions, mask):
             labels = jnp.expand_dims(labels, 1)
@@ -101,10 +107,12 @@ def get_diff_fn(config: ml_collections.ConfigDict
 
 @jax.jit
 def train_step(
-    state: train_state.TrainState, graphs: jraph.GraphsTuple
-) -> Tuple[train_state.TrainState, float]:
-    '''Perform one update step over the batch of graphs. 
-    Returns a new TrainState and the loss MAE over the batch.'''
+    state: train_state.TrainState, graphs: jraph.GraphsTuple) -> Tuple[
+        train_state.TrainState, float]:
+    """Perform one update step over the batch of graphs.
+
+    Returns a new TrainState and the loss MAE over the batch.
+    """
 
     def loss_fn(params, graphs):
         curr_state = state.replace(params=params)
@@ -210,12 +218,11 @@ def predict_split(
 
 
 def init_state(
-    config: ml_collections.ConfigDict,
-    init_graphs: jraph.GraphsTuple
-) -> train_state.TrainState:
-    '''Initialize a TrainState object using hyperparameters in config,
-    and the init_graphs. This is a representative batch of graphs.'''
-    # Initialize rng
+        config: ml_collections.ConfigDict,
+        init_graphs: jraph.GraphsTuple) -> train_state.TrainState:
+    """Initialize a TrainState object using hyperparameters in config,
+    and the init_graphs. This is a representative batch of graphs."""
+    # Initialize rng.
     rng = jax.random.PRNGKey(config.seed)
 
     # Create and initialize network.
@@ -229,26 +236,34 @@ def init_state(
     params = net.init(init_rng, init_graphs) # create weights etc. for the model
     
     # Create the optimizer
-    tx = create_optimizer(config)
+    opt_state = create_optimizer(config)
     logging.info(f'Init_lr: {config.init_lr}')
 
     # Create the training state
     state = train_state.TrainState.create(
-        apply_fn=net.apply, params=params, tx=tx)
+        apply_fn=net.apply, params=params, tx=opt_state)
 
     return state
 
 
 def restore_checkpoint(state, checkpoint_dir):
+    """Get param values/step # and the optimizer state from model checkpoint."""
     with open((checkpoint_dir+'/params.pickle'), 'rb') as handle:
         state_dict = pickle.load(handle)
-    return state.replace(params=state_dict['params'], step=state_dict['step'])
+    return state.replace(
+        params=state_dict['params'],
+        step=state_dict['step'],
+        tx=state_dict['opt_state'])
     
 
 def save_checkpoint(state, checkpoint_dir):
+    """Save the params/step/optimizer state as a pickle file."""
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
-    state_dict = {'params': state.params, 'step': state.step}
+    state_dict = {
+        'params': state.params,
+        'step': state.step,
+        'opt_state': state.tx}
     with open((checkpoint_dir+'/params.pickle'), 'wb') as handle:
         pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

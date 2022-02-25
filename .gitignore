@@ -7,3 +7,4 @@ QM9
 log.txt
 *.slurm
 *.out
+*/venv
