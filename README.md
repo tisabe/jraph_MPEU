@@ -1,5 +1,5 @@
 # jraph_MPEU
-Message Passing Graph Neural Network with Edge Updates in Jraph
+Message Passing Graph Neural Network with Edge Updates in Jraph.
 
 This code implements a graph neural network with the architecture described in
 https://arxiv.org/pdf/1806.03146.pdf
