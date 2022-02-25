@@ -17,7 +17,7 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     return jnp.logaddexp(x, 0) - LOG2
 
 
-def get_set2set_fn(batch_size, latent_size, num_passes):
+def get_set2set_fn(init_graph, latent_size, num_passes):
     '''Return the set2set function. It has the same call signature as 
     jraph.segment_sum, so it can be used as aggregation function 
     in a jraph.GraphNetwork.'''
@@ -41,7 +41,8 @@ def get_set2set_fn(batch_size, latent_size, num_passes):
                 segment_ids, num_segments, 
                 indices_are_sorted, unique_indices)
             r = jraph.segment_sum(
-                a_i * m_i, segment_ids, num_segments, 
+                jnp.multiply(a_i, m_i), 
+                segment_ids, num_segments, 
                 indices_are_sorted, unique_indices)
             q_star = jnp.concatenate((q, r), axis=-1)
 
