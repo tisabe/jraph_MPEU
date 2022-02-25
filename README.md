@@ -10,7 +10,7 @@ All this code is experimental, run at your own risk!
 
 Only tested on Python 3.7.3
 
-##Python library requirements:  
+## Python library requirements:  
 Jax (only GPU version has been tested)  
 tensorflow  
 spektral  
