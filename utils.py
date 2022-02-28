@@ -378,11 +378,20 @@ class Time_logger:
     def __init__(self, config):
         self.start = time.time()
         self.step_max = config.num_train_steps_max
+        self.time_limit = config.time_limit
 
     def log_eta(self, step):
         time_elapsed = time.time() - self.start
         eta = int(time_elapsed * (self.step_max/step - 1))
         logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')
+
+    def get_time_stop(self):
+        """Return whether the time is over the time limit."""
+        time_elapsed = time.time() - self.start
+        if self.time_limit is not None:
+            return (time_elapsed/3600) > self.time_limit
+        else:
+            return False
 
 
 
