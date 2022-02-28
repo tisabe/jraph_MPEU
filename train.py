@@ -264,8 +264,10 @@ def save_checkpoint(state, checkpoint_dir):
         'params': state.params,
         'step': state.step,
         'opt_state': state.tx}
+    print(type(state.tx))
+    state_dict_host = jax.device_get(state_dict)
     with open((checkpoint_dir+'/params.pickle'), 'wb') as handle:
-        pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(state_dict_host, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def restore_loss_curve(dir, splits, std):
     loss_dict = {}
