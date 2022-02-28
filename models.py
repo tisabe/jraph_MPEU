@@ -16,38 +16,40 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     # continuous version of relu activation function
     return jnp.logaddexp(x, 0) - LOG2
 
+class Set2Set:
+    def __init__(self, latent_size, num_passes, batch_size):
+        '''Return the set2set function. It has the same call signature as 
+        jraph.segment_sum, so it can be used as aggregation function 
+        in a jraph.GraphNetwork.'''
+        
+        self.q_star = jnp.zeros((batch_size, 2*latent_size))
+        self.num_passes = num_passes
 
-def get_set2set_fn(init_graph, latent_size, num_passes):
-    '''Return the set2set function. It has the same call signature as 
-    jraph.segment_sum, so it can be used as aggregation function 
-    in a jraph.GraphNetwork.'''
-    lstm = hk.LSTM((batch_size, latent_size))
-    q_star = jnp.zeros((batch_size, latent_size))
-
-    lstm_init = lstm.initial_state(batch_size)
-    next_state = lstm_init
-
-    def set2set(data: jnp.ndarray,
+    def __call__(self, 
+        data: jnp.ndarray,
         segment_ids: jnp.ndarray,
         num_segments: Optional[int] = None,
         indices_are_sorted: bool = False,
         unique_indices: bool = False
     ):
+        self.lstm = hk.LSTM(latent_size)
+        self.next_state = lstm.initial_state(batch_size)
         m_i = data
-        for i in range(num_passes):
-            q, next_state = lstm(q_star, next_state)
-            e_i = jnp.sum(jnp.multiply(m_i, q), axis=-1)
+        for i in range(self.num_passes):
+            q, self.next_state = self.lstm(self.q_star, self.next_state)
+            q_i = q[segment_ids,:] # for each node i, gather the representing q_i
+            e_i = jnp.sum(jnp.multiply(m_i, q_i), axis=-1)
             a_i = jraph.segment_softmax(e_i, 
-                segment_ids, num_segments, 
-                indices_are_sorted, unique_indices)
+                    segment_ids, num_segments, 
+                    indices_are_sorted, unique_indices)
+            a_i = jnp.reshape(a_i, (-1,1))
             r = jraph.segment_sum(
-                jnp.multiply(a_i, m_i), 
-                segment_ids, num_segments, 
-                indices_are_sorted, unique_indices)
-            q_star = jnp.concatenate((q, r), axis=-1)
+                    jnp.multiply(a_i, m_i), 
+                    segment_ids, num_segments, 
+                    indices_are_sorted, unique_indices)
+            self.q_star = jnp.concatenate((q, r), axis=-1)
 
         return q_star
-    return set2set
 
 
 def get_edge_embedding_fn(latent_size, k_max, delta, mu_min):

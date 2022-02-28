@@ -10,8 +10,14 @@ from ml_collections import config_flags
 
 import unittest
 
-from models import GNN, shifted_softplus, get_edge_update_fn, get_edge_embedding_fn
-from models import get_node_embedding_fn
+from models import (
+    GNN, 
+    shifted_softplus, 
+    get_edge_update_fn, 
+    get_edge_embedding_fn,
+    get_node_embedding_fn,
+    Set2Set
+)
 
 
 class TestHelperFunctions(unittest.TestCase):
@@ -166,6 +172,14 @@ class TestHelperFunctions(unittest.TestCase):
 
         sum_nodes_expected = min(max_atomic_number-1, len(nodes))
         self.assertEqual(int(jnp.sum(nodes_embedded)), sum_nodes_expected)
+
+    def test_set2set(self):
+        latent_size = 64
+        num_passes = 1
+        batch_size = 32
+        set2set = Set2Set(latent_size, num_passes, batch_size)
+        net = hk.without_apply_rng(hk.transform(set2set))
+        params = net.init(init_rng, init_graphs)
 
 if __name__ == '__main__':
     unittest.main()
