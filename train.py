@@ -37,9 +37,10 @@ class Updater:
   This extracts some common boilerplate from the training loop.
   """
 
-  def __init__(self, net_init, loss_fn,
+  def __init__(self, net, loss_fn,
                optimizer: optax.GradientTransformation):
-    self._net_init = net_init
+    self._net_init = net.init
+    self._net_apply = net.apply
     self._loss_fn = loss_fn
     self._opt = optimizer
 
@@ -58,18 +59,18 @@ class Updater:
     return out
 
   @functools.partial(jax.jit, static_argnums=0)
-  def update(self, state: Mapping[str, Any], data: Mapping[str, jnp.ndarray]):
+  def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
     """Updates the state using some data and returns metrics."""
-    rng, new_rng = jax.random.split(state['rng'])
+    #rng, new_rng = jax.random.split(state['rng'])
     params = state['params']
-    loss, g = jax.value_and_grad(self._loss_fn)(params, rng, data)
+    loss, g = jax.value_and_grad(self._loss_fn)(params, data, self._net_apply)
 
     updates, opt_state = self._opt.update(g, state['opt_state'])
     params = optax.apply_updates(params, updates)
 
     new_state = {
         'step': state['step'] + 1,
-        'rng': new_rng,
+        'rng': 0,
         'opt_state': opt_state,
         'params': params,
     }
@@ -205,38 +206,38 @@ def get_diff_fn(config: ml_collections.ConfigDict) -> Callable[
         return loss_fn      
     raise ValueError(f'Unsupported loss type: {config.loss_type}.')
 
-@jax.jit
-def train_step(
-    state: train_state.TrainState, graphs: jraph.GraphsTuple) -> Tuple[
-        train_state.TrainState, float]:
-    """Perform one update step over the batch of graphs.
+# @jax.jit
+# def train_step(
+#     state: train_state.TrainState, graphs: jraph.GraphsTuple) -> Tuple[
+#         train_state.TrainState, float]:
+#     """Perform one update step over the batch of graphs.
 
-    Returns a new TrainState and the loss MAE over the batch.
-    """
+#     Returns a new TrainState and the loss MAE over the batch.
+#     """
 
-    def loss_fn(params, graphs):
-        curr_state = state.replace(params=params)
+#     def loss_fn(params, graphs):
+#         curr_state = state.replace(params=params)
 
-        labels = graphs.globals
-        graphs = replace_globals(graphs)
+#         labels = graphs.globals
+#         graphs = replace_globals(graphs)
 
-        mask = get_valid_mask(labels, graphs)
-        pred_graphs = state.apply_fn(curr_state.params, graphs)
-        predictions = pred_graphs.globals
-        labels = jnp.expand_dims(labels, 1)
-        sq_diff = jnp.square((predictions - labels)*mask)
-        # TODO: make different loss functions available in config
-        loss = jnp.sum(sq_diff)
-        mean_loss = loss / jnp.sum(mask)
+#         mask = get_valid_mask(labels, graphs)
+#         pred_graphs = state.apply_fn(curr_state.params, graphs)
+#         predictions = pred_graphs.globals
+#         labels = jnp.expand_dims(labels, 1)
+#         sq_diff = jnp.square((predictions - labels)*mask)
+#         # TODO: make different loss functions available in config
+#         loss = jnp.sum(sq_diff)
+#         mean_loss = loss / jnp.sum(mask)
 
-        return mean_loss, (loss)
+#         return mean_loss, (loss)
 
-    grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (mean_loss, (loss)), grads = grad_fn(state.params, graphs)
-    # update the params with gradient
-    state = state.apply_gradients(grads=grads)
+#     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+#     (mean_loss, (loss)), grads = grad_fn(state.params, graphs)
+#     # update the params with gradient
+#     state = state.apply_gradients(grads=grads)
 
-    return state, mean_loss
+#     return state, mean_loss
 
 
 @jax.jit
@@ -346,14 +347,14 @@ def init_state(
         optax.adam(0.001, b1=0.9, b2=0.99))
 
 
-    def loss_fn(params, graphs, net):
+    def loss_fn(params, graphs, net_apply):
         # curr_state = state.replace(params=params)
 
         labels = graphs.globals
         graphs = replace_globals(graphs)
 
         mask = get_valid_mask(labels, graphs)
-        pred_graphs = net.apply(params, graphs)
+        pred_graphs = net_apply(params, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
         sq_diff = jnp.square((predictions - labels)*mask)
@@ -361,11 +362,12 @@ def init_state(
         loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
 
-        return mean_loss, (loss)
+        return mean_loss
 
-    updater = Updater(net.init, loss_fn, optimizer)
+    updater = Updater(net, loss_fn, optimizer)
     updater = CheckpointingUpdater(
-        updater, checkpoint_dir=os.path.join(workdir, 'checkpoints'))
+        updater, os.path.join(workdir, 'checkpoints'),
+        config.checkpoint_every_steps)
     rng = jax.random.PRNGKey(428)
     data = init_graphs  # Might not work.
     state = updater.init(rng, data)
@@ -499,7 +501,7 @@ def train_and_evaluate(
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
     
     # Create the training state
-    updater, state = init_state(config, init_graphs)
+    updater, state = init_state(config, init_graphs, workdir)
     
     # # Set up checkpointing of the model.
     # checkpoint_dir = os.path.join(workdir, 'checkpoints')
@@ -533,13 +535,14 @@ def train_and_evaluate(
     for step in range(0, config.num_train_steps_max + 1):
         # Perform a training step
         graphs = next(datasets['train'])
-        state, loss = updater.update(state, graphs)
+        state, loss_metrics = updater.update(state, graphs)
         # state, loss = train_step(state, graphs)
 
-        # # Log periodically
-        # is_last_step = (step == config.num_train_steps_max)
-        # if step % config.log_every_steps == 0:
-        #     time_logger.log_eta(step)
+        # Log periodically
+        is_last_step = (step == config.num_train_steps_max)
+        if step % config.log_every_steps == 0:
+            #time_logger.log_eta(step)
+            logging.info(loss_metrics['loss'])
         
         # # evaluate model on train, test and validation data
         # if step % config.eval_every_steps == 0 or is_last_step:
