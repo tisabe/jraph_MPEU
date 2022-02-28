@@ -304,7 +304,14 @@ def train(
     val_loss = []
     
     logging.info('Starting training.')
+    time_logger = Time_logger(config)
+    
     for step in range(initial_step, config.num_train_steps_max + 1):
+        # check if time ran out
+        time_ran_out = time_logger.get_time_stop()
+        if time_ran_out:
+            logging.info(f'Time ran out after {step} steps.')
+            break
         # Perform a training step
         graphs = next(reader_train)
         state, loss = train_step(state, graphs)
@@ -391,6 +398,11 @@ def train_and_evaluate(
     time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
+        # check if time ran out
+        time_ran_out = time_logger.get_time_stop()
+        if time_ran_out:
+            logging.info(f'Time ran out after {step} steps.')
+            break
         # Perform a training step
         graphs = next(datasets['train'])
         state, loss = train_step(state, graphs)
