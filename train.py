@@ -14,8 +14,6 @@ from typing import (
 from absl import logging
 import jax
 import jax.numpy as jnp
-from flax.training import train_state
-import flax.training.checkpoints as ckpt
 import jraph
 import ml_collections
 import numpy as np
@@ -33,53 +31,53 @@ from input_pipeline import DataReader
 
 
 class Updater:
-  """A stateless abstraction around an init_fn/update_fn pair.
-  This extracts some common boilerplate from the training loop.
-  """
+    """A stateless abstraction around an init_fn/update_fn pair.
+    This extracts some common boilerplate from the training loop.
+    """
 
-  def __init__(self, net, loss_fn,
-               optimizer: optax.GradientTransformation):
-    self._net_init = net.init
-    self._net_apply = net.apply
-    self._loss_fn = loss_fn
-    self._opt = optimizer
+    def __init__(self, net, loss_fn,
+                optimizer: optax.GradientTransformation):
+        self._net_init = net.init
+        self._net_apply = net.apply
+        self._loss_fn = loss_fn
+        self._opt = optimizer
 
-  @functools.partial(jax.jit, static_argnums=0)
-  def init(self, rng, data):
-    """Initializes state of the updater."""
-    out_rng, init_rng = jax.random.split(rng)
-    params = self._net_init(init_rng, data)
-    opt_state = self._opt.init(params)
-    out = dict(
-        step=np.array(0),
-        rng=out_rng,
-        opt_state=opt_state,
-        params=params,
-    )
-    return out
+    @functools.partial(jax.jit, static_argnums=0)
+    def init(self, rng, data):
+        """Initializes state of the updater."""
+        out_rng, init_rng = jax.random.split(rng)
+        params = self._net_init(init_rng, data)
+        opt_state = self._opt.init(params)
+        out = dict(
+            step=np.array(0),
+            rng=out_rng,
+            opt_state=opt_state,
+            params=params,
+        )
+        return out
 
-  @functools.partial(jax.jit, static_argnums=0)
-  def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
-    """Updates the state using some data and returns metrics."""
-    #rng, new_rng = jax.random.split(state['rng'])
-    params = state['params']
-    loss, g = jax.value_and_grad(self._loss_fn)(params, data, self._net_apply)
+    @functools.partial(jax.jit, static_argnums=0)
+    def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
+        """Updates the state using some data and returns metrics."""
+        #rng, new_rng = jax.random.split(state['rng'])
+        params = state['params']
+        loss, grad = jax.value_and_grad(self._loss_fn)(params, data, self._net_apply)
 
-    updates, opt_state = self._opt.update(g, state['opt_state'])
-    params = optax.apply_updates(params, updates)
+        updates, opt_state = self._opt.update(grad, state['opt_state'])
+        params = optax.apply_updates(params, updates)
 
-    new_state = {
-        'step': state['step'] + 1,
-        'rng': 0,
-        'opt_state': opt_state,
-        'params': params,
-    }
+        new_state = {
+            'step': state['step'] + 1,
+            'rng': 0,
+            'opt_state': opt_state,
+            'params': params,
+        }
 
-    metrics = {
-        'step': state['step'],
-        'loss': loss,
-    }
-    return new_state, metrics
+        metrics = {
+            'step': state['step'],
+            'loss': loss,
+        }
+        return new_state, metrics
 
 
 class CheckpointingUpdater:
@@ -102,6 +100,7 @@ class CheckpointingUpdater:
 
     def init(self, rng, data):
         """Initialize experiment state."""
+        # TODO: include argument to ignore previous checkpoints
         if not os.path.exists(self._checkpoint_dir) or not self._checkpoint_paths():
             os.makedirs(self._checkpoint_dir, exist_ok=True)
             return self._inner.init(rng, data)
@@ -129,6 +128,50 @@ class CheckpointingUpdater:
 
         state, out = self._inner.update(state, data)
         return state, out
+
+
+class Evaluater:
+    """A class to evaluate the model with."""
+    def __init__(self, net, loss_fn):
+        self._net_init = net.init
+        self._net_apply = net.apply
+        self._loss_fn = loss_fn
+
+    @functools.partial(jax.jit, static_argnums=0)
+    def _evaluate_step(self, state: dict, graphs: jraph.GraphsTuple
+    ) -> float:
+        """Calculate the mean loss for a batch of graphs."""
+        mean_loss = self._loss_fn(state['params'], graphs, self._net_apply)
+        return mean_loss
+
+    def evaluate_split(self, 
+            state: dict,
+            graphs: Sequence[jraph.GraphsTuple],
+            batch_size: int,
+    ) -> float:
+        """Return mean loss for all graphs in graphs."""
+        
+        reader = DataReader(data=graphs, 
+            batch_size=batch_size, repeat=False)
+        
+        loss_list = [self._evaluate_step(state, batch) for batch in reader]
+        return np.mean(loss_list)
+
+    def evaluate_model(self, 
+            state: Dict,
+            datasets: Dict[str, Iterable[jraph.GraphsTuple]],
+            splits: Iterable[str],
+    ) -> Dict[str, float]:
+        """Return mean loss for every split in splits."""
+        eval_loss = {}
+        for split in splits:
+            eval_loss[split] = self.evaluate_split(state, 
+                    datasets[split].data, datasets[split].batch_size)
+        
+        return eval_loss
+
+    
+        
 
 
 def make_result_csv(x, y, path):
@@ -160,6 +203,7 @@ def create_model(config: ml_collections.ConfigDict):
 def create_optimizer(
         config: ml_collections.ConfigDict) -> optax.GradientTransformation:
     """Create an Optax optimizer object."""
+    # TODO: consider including gradient clipping
     if config.schedule == 'exponential_decay':
         lr = optax.exponential_decay(
                 init_value=config.init_lr, 
@@ -192,8 +236,8 @@ def get_diff_fn(config: ml_collections.ConfigDict) -> Callable[
             loss = jnp.sum(sq_diff)
             mean_loss = loss / jnp.sum(mask)
 
-            return mean_loss, (loss)
-        return loss_fn
+            return mean_loss
+        return diff_fn
     elif config.loss_type == 'MAE':
         def diff_fn(labels, predictions, mask):
             labels = jnp.expand_dims(labels, 1)
@@ -202,103 +246,17 @@ def get_diff_fn(config: ml_collections.ConfigDict) -> Callable[
             loss = jnp.sum(diff)
             mean_loss = loss / jnp.sum(mask)
 
-            return mean_loss, (loss)
-        return loss_fn      
+            return mean_loss
+        return diff_fn   
     raise ValueError(f'Unsupported loss type: {config.loss_type}.')
-
-# @jax.jit
-# def train_step(
-#     state: train_state.TrainState, graphs: jraph.GraphsTuple) -> Tuple[
-#         train_state.TrainState, float]:
-#     """Perform one update step over the batch of graphs.
-
-#     Returns a new TrainState and the loss MAE over the batch.
-#     """
-
-#     def loss_fn(params, graphs):
-#         curr_state = state.replace(params=params)
-
-#         labels = graphs.globals
-#         graphs = replace_globals(graphs)
-
-#         mask = get_valid_mask(labels, graphs)
-#         pred_graphs = state.apply_fn(curr_state.params, graphs)
-#         predictions = pred_graphs.globals
-#         labels = jnp.expand_dims(labels, 1)
-#         sq_diff = jnp.square((predictions - labels)*mask)
-#         # TODO: make different loss functions available in config
-#         loss = jnp.sum(sq_diff)
-#         mean_loss = loss / jnp.sum(mask)
-
-#         return mean_loss, (loss)
-
-#     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-#     (mean_loss, (loss)), grads = grad_fn(state.params, graphs)
-#     # update the params with gradient
-#     state = state.apply_gradients(grads=grads)
-
-#     return state, mean_loss
-
-
-@jax.jit
-def evaluate_step(
-    state: train_state.TrainState, graphs: jraph.GraphsTuple
-) -> float:
-    '''Calculate the mean loss for a batch of graphs.'''
-    labels = graphs.globals
-    graphs = replace_globals(graphs)
-
-    mask = get_valid_mask(labels, graphs)
-    pred_graphs = state.apply_fn(state.params, graphs)
-    predictions = pred_graphs.globals
-    labels = jnp.expand_dims(labels, 1)
-    sq_diff = jnp.square((predictions - labels)*mask)
-    # TODO: make different loss functions available in config
-    loss = jnp.sum(sq_diff)
-    mean_loss = loss / jnp.sum(mask)
-    return mean_loss
-
-
-def evaluate_split(
-    state: train_state.TrainState,
-    graphs: Sequence[jraph.GraphsTuple],
-    batch_size = int
-) -> float:
-    '''Return mean loss for all graphs in graphs.'''
-    mean_loss_sum = 0.0
-    batch_count = 0
-
-    reader = DataReader(data=graphs, 
-        batch_size=batch_size, repeat=False)
-    
-    for graph_batch in reader:
-        mean_loss = evaluate_step(state, graph_batch)
-        mean_loss_sum += mean_loss
-        batch_count += 1
-    
-    return mean_loss_sum / batch_count
-
-
-def evaluate_model(
-    state: train_state.TrainState,
-    datasets: Dict[str, Iterable[jraph.GraphsTuple]],
-    splits: Iterable[str]
-) -> Dict[str, float]:
-    '''Return mean loss for every split in splits.'''
-    eval_loss = {}
-    for split in splits:
-        eval_loss[split] = evaluate_split(state, 
-            datasets[split].data, datasets[split].batch_size)
-    
-    return eval_loss
 
 
 def predict_split(
-    state: train_state.TrainState,
+    state: Dict,
     dataset_raw: Sequence[jraph.GraphsTuple],
     config: ml_collections.ConfigDict
 ) -> Sequence[float]:
-
+    # TODO: put this in evaluater
     preds = np.array([])
     reader_new = DataReader(data=dataset_raw, 
         batch_size=config.batch_size, repeat=False)
@@ -321,7 +279,7 @@ def predict_split(
 def init_state(
         config: ml_collections.ConfigDict,
         init_graphs: jraph.GraphsTuple,
-        workdir: str) -> train_state.TrainState:
+        workdir: str) -> Tuple[CheckpointingUpdater, Dict]:
     """Initialize a TrainState object using hyperparameters in config,
     and the init_graphs. This is a representative batch of graphs."""
     # Initialize rng.
@@ -334,18 +292,9 @@ def init_state(
     
     net_fn = create_model(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
-    # TODO: check changing initializer
-
-    # params = net.init(init_rng, init_graphs) # create weights etc. for the model
     
     # Create the optimizer
-    # opt_state = create_optimizer(config)
-    # opt_state = optax.GradientTransformation
-    # TODO: Change these values.
-    optimizer = optax.chain(
-        optax.clip_by_global_norm(1.5),
-        optax.adam(0.001, b1=0.9, b2=0.99))
-
+    optimizer = create_optimizer(config)
 
     def loss_fn(params, graphs, net_apply):
         # curr_state = state.replace(params=params)
@@ -368,39 +317,13 @@ def init_state(
     updater = CheckpointingUpdater(
         updater, os.path.join(workdir, 'checkpoints'),
         config.checkpoint_every_steps)
-    rng = jax.random.PRNGKey(428)
-    data = init_graphs  # Might not work.
-    state = updater.init(rng, data)
-
-    # logging.info(f'Init_lr: {config.init_lr}')
-
-    # Create the training state
-    # state = train_state.TrainState.create(
-    #     apply_fn=net.apply, params=params, tx=opt_state)
-
-    return updater, state
-
-
-def restore_checkpoint(state, checkpoint_dir):
-    """Get param values/step # and the optimizer state from model checkpoint."""
-    with open((checkpoint_dir+'/params.pickle'), 'rb') as handle:
-        state_dict = pickle.load(handle)
-    return state.replace(
-        params=state_dict['params'],
-        step=state_dict['step'],
-        tx=state_dict['opt_state'])
+    evaluater = Evaluater(net, loss_fn)
     
+    rng = jax.random.PRNGKey(42)
+    state = updater.init(rng, init_graphs)
 
-def save_checkpoint(state, checkpoint_dir):
-    """Save the params/step/optimizer state as a pickle file."""
-    if not os.path.exists(checkpoint_dir):
-        os.mkdir(checkpoint_dir)
-    state_dict = {
-        'params': state.params,
-        'step': state.step,
-        'opt_state': state.tx}
-    with open((checkpoint_dir+'/params.pickle'), 'wb') as handle:
-        pickle.dump(state_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    return updater, state, evaluater
+
 
 def restore_loss_curve(dir, splits, std):
     loss_dict = {}
@@ -410,6 +333,7 @@ def restore_loss_curve(dir, splits, std):
         loss_split[:,1] = loss_split[:,1]/std
         loss_dict[split] = loss_split.tolist()
     return loss_dict
+
 
 def save_loss_curve(loss_dict, dir, splits, std):
     for split in splits:
@@ -443,7 +367,6 @@ def save_loss_curve(loss_dict, dir, splits, std):
 #         checkpoint_dir = os.path.join(workdir, 'checkpoints')
 #     # start at step 1 (or state.step + 1 if state was restored)
 #     initial_step = int(state.step) + 1
-#     # TODO: get some framework for automatic checkpoint restoring
 
 #     loss_queue = []
 #     params_queue = []
@@ -491,7 +414,7 @@ def save_loss_curve(loss_dict, dir, splits, std):
     
 def train_and_evaluate(
         config: ml_collections.ConfigDict,
-        workdir: str) -> train_state.TrainState:
+        workdir: str) -> Dict:
     
     logging.info('Loading datasets.')
     datasets, datasets_raw, mean, std = get_datasets(config)
@@ -501,7 +424,7 @@ def train_and_evaluate(
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
     
     # Create the training state
-    updater, state = init_state(config, init_graphs, workdir)
+    updater, state, evaluater = init_state(config, init_graphs, workdir)
     
     # # Set up checkpointing of the model.
     # checkpoint_dir = os.path.join(workdir, 'checkpoints')
@@ -511,12 +434,6 @@ def train_and_evaluate(
     loss_dict = {}
     for split in splits:
         loss_dict[split] = []
-
-    # TODO: need to check if saving acutally works, change this code
-    # to use checkpoint_updater class.
-    # if config.restore:
-    #     state = restore_checkpoint(state, checkpoint_dir)
-    #     loss_dict = restore_loss_curve(checkpoint_dir, splits, std)
 
     # TODO: No longer needed since Updater.init creates step=0 in state dict.
     # # start at step 1 (or state.step + 1 if state was restored)
@@ -544,12 +461,12 @@ def train_and_evaluate(
             #time_logger.log_eta(step)
             logging.info(loss_metrics['loss'])
         
-        # # evaluate model on train, test and validation data
-        # if step % config.eval_every_steps == 0 or is_last_step:
-        #     eval_loss = evaluate_model(state, datasets, splits)
-        #     for split in splits:
-        #         logging.info(f'MSE {split}: {eval_loss[split]}')
-        #         loss_dict[split].append([step, eval_loss[split]])
+        # evaluate model on train, test and validation data
+        if step % config.eval_every_steps == 0 or is_last_step:
+            eval_loss = evaluater.evaluate_model(state, datasets, splits)
+            for split in splits:
+                logging.info(f'MSE {split}: {eval_loss[split]}')
+                loss_dict[split].append([step, eval_loss[split]])
             
         #     loss_queue.append(eval_loss['validation'])
         #     params_queue.append(state.params)
@@ -603,6 +520,6 @@ def train_and_evaluate(
     #         f'{workdir}/{split}_post.csv')
 
 
-    return best_state
+    return state
     
 
