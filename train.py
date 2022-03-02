@@ -49,7 +49,7 @@ class Updater:
         params = self._net_init(init_rng, data)
         opt_state = self._opt.init(params)
         out = dict(
-            step=np.array(0),
+            step=np.array(1),
             rng=out_rng,
             opt_state=opt_state,
             params=params,
@@ -117,6 +117,8 @@ class CheckpointingUpdater:
         # NOTE: This blocks until `state` is computed. If you want to use JAX async
         # dispatch, maintain state['step'] as a NumPy scalar instead of a JAX array.
         # Context: https://jax.readthedocs.io/en/latest/async_dispatch.html
+        state, metrics = self._inner.update(state, data)
+        
         step = np.array(state['step'])
         if step % self._checkpoint_every_n == 0:
             path = os.path.join(self._checkpoint_dir,
@@ -126,8 +128,7 @@ class CheckpointingUpdater:
             with open(path, 'wb') as f:
                 pickle.dump(checkpoint_state, f)
 
-        state, out = self._inner.update(state, data)
-        return state, out
+        return state, metrics
 
 
 class Evaluater:
@@ -435,9 +436,8 @@ def train_and_evaluate(
     for split in splits:
         loss_dict[split] = []
 
-    # TODO: No longer needed since Updater.init creates step=0 in state dict.
-    # # start at step 1 (or state.step + 1 if state was restored)
-    # initial_step = int(state.step) + 1
+    # start at step 1 (or state.step + 1 if state was restored)
+    initial_step = int(state['step']) + 1
     
     # # Make a loss queue to compare with earlier losses
     # loss_queue = []
@@ -449,7 +449,7 @@ def train_and_evaluate(
     # time_logger = Time_logger(config)
 
     # TODO: Should step start at 0?
-    for step in range(0, config.num_train_steps_max + 1):
+    for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step
         graphs = next(datasets['train'])
         state, loss_metrics = updater.update(state, graphs)
@@ -459,7 +459,7 @@ def train_and_evaluate(
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
             #time_logger.log_eta(step)
-            logging.info(loss_metrics['loss'])
+            logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
         
         # evaluate model on train, test and validation data
         if step % config.eval_every_steps == 0 or is_last_step:
