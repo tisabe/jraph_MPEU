@@ -171,12 +171,9 @@ class Evaluater:
         
         return eval_loss
 
-    
-        
-
 
 def make_result_csv(x, y, path):
-    '''Print predictions x versus labels y in a csv at path.'''
+    """Print predictions x versus labels y in a csv at path."""
     dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
     df = pandas.DataFrame(data=dict_res)
     df.to_csv(path)
@@ -448,7 +445,6 @@ def train_and_evaluate(
     # logging.info('Starting training.')
     # time_logger = Time_logger(config)
 
-    # TODO: Should step start at 0?
     for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step
         graphs = next(datasets['train'])
