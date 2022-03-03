@@ -25,8 +25,10 @@ import pickle
 # import custom functions
 from models import GNN
 from utils import *
-from input_pipeline import get_datasets
-from input_pipeline import DataReader
+from input_pipeline import (
+    get_datasets,
+    DataReader,
+)
 
 
 
@@ -132,11 +134,14 @@ class CheckpointingUpdater:
 
 
 class Evaluater:
-    """A class to evaluate the model with."""
-    def __init__(self, net, loss_fn):
+    """A class to evaluate the model with, save and checkpoint loss metrics."""
+    def __init__(self, net, loss_fn, checkpoint_dir):
         self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
+        self.val_queue = []
+        self._checkpoint_dir = checkpoint_dir
+
 
     @functools.partial(jax.jit, static_argnums=0)
     def _evaluate_step(self, state: dict, graphs: jraph.GraphsTuple
@@ -168,8 +173,40 @@ class Evaluater:
         for split in splits:
             eval_loss[split] = self.evaluate_split(state, 
                     datasets[split].data, datasets[split].batch_size)
-        
         return eval_loss
+
+    def init_loss_lists(self, splits):
+        self.loss_dict = {}
+        for split in splits:
+            self.loss_dict[split] = []
+        # initialize a queue with validation losses for early stopping
+        self.early_stopping_queue = []
+    
+    def save_losses(self, loss_dict, splits, step):
+        """Append values in loss_dict to the object values in self.loss_dict for all splits.
+        Also create the local early stopping queue."""
+        for split in splits:
+            self.loss_dict[split].append([step, loss_dict[split]])
+            if split == 'validation':
+                self.early_stopping_queue.append(loss_dict[split])
+
+    def check_early_stopping(self):
+        """Check the early stopping criterion. If the newest validaiton loss in 
+        self.early_stopping_queue is higher than the zeroth one return True for early stopping.
+        Otherwise, delete the zeroth element in queue and return False for no early stopping."""
+        queue = self.early_stopping_queue # abbreviation
+        if queue[-1] > queue[0]: # check for early stopping condition
+            return True
+        else:
+            queue.pop(0) # Note: also modifies self.early_stopping_queue
+            return False
+    
+    def checkpoint_losses(self):
+        metrics_dict = self.loss_dict.copy()
+        metrics_dict['queue'] = self.early_stopping_queue
+        path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
+        with open(path, 'wb') as f:
+            pickle.dump(metrics_dict, f)
 
 
 def make_result_csv(x, y, path):
@@ -313,9 +350,10 @@ def init_state(
 
     updater = Updater(net, loss_fn, optimizer)
     updater = CheckpointingUpdater(
-        updater, os.path.join(workdir, 'checkpoints'),
-        config.checkpoint_every_steps)
-    evaluater = Evaluater(net, loss_fn)
+            updater, os.path.join(workdir, 'checkpoints'),
+            config.checkpoint_every_steps)
+    evaluater = Evaluater(net, loss_fn,
+            os.path.join(workdir, 'checkpoints'))
     
     rng = jax.random.PRNGKey(42)
     state = updater.init(rng, init_graphs)
@@ -429,9 +467,7 @@ def train_and_evaluate(
 
     # set up saving of losses
     splits = ['train', 'validation', 'test']
-    loss_dict = {}
-    for split in splits:
-        loss_dict[split] = []
+    evaluater.init_loss_lists(splits)
 
     # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state['step']) + 1
@@ -462,28 +498,17 @@ def train_and_evaluate(
             eval_loss = evaluater.evaluate_model(state, datasets, splits)
             for split in splits:
                 logging.info(f'MSE {split}: {eval_loss[split]}')
-                loss_dict[split].append([step, eval_loss[split]])
+            evaluater.save_losses(eval_loss, splits, step)
             
-        #     loss_queue.append(eval_loss['validation'])
-        #     params_queue.append(state.params)
-        #     # only test for early stopping after the first interval
-        #     if step > config.early_stopping_steps:
-        #         # stop if new loss higher than loss at beginning of interval
-        #         if eval_loss['validation'] > loss_queue[0]:
-        #             logging.info('Stopping early.')
-        #             break
-        #         else:
-        #             # otherwise delete the element at beginning of queue
-        #             loss_queue.pop(0)
-        #             params_queue.pop(0)
-        
-        # # Checkpoint model, if required
-        # if step % config.checkpoint_every_steps == 0 or is_last_step:
-        #     save_checkpoint(state, checkpoint_dir)
-        #     # save the loss curves
-        #     save_loss_curve(loss_dict, checkpoint_dir, splits, std)
-        # if step==config.num_train_steps_max:
-        #     logging.info('Reached maximum number of steps without early stopping.')
+            if evaluater.check_early_stopping():
+                logging.info(f'Loss converged at step {step}, stopping early.')
+                break
+
+        if step==config.num_train_steps_max:
+            logging.info('Reached maximum number of steps without early stopping.')
+
+        if step % config.checkpoint_every_steps == 0:
+            evaluater.checkpoint_losses()
 
     # # save parameters of best model
     # index = np.argmin(loss_queue)
