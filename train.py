@@ -141,7 +141,15 @@ class Evaluater:
         self._loss_fn = loss_fn
         self.val_queue = []
         self._checkpoint_dir = checkpoint_dir
-
+        # load loss curve if metrics file exists in checkpoint_dir
+        metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
+        if os.path.exists(metrics_path):
+            logging.info('Loading metrics from %s', metrics_path)
+            with open(metrics_path, 'rb') as f:
+                self._metrics_dict = pickle.load(f)
+            self._loaded_metrics = True
+        else:
+            self._loaded_metrics = False
 
     @functools.partial(jax.jit, static_argnums=0)
     def _evaluate_step(self, state: dict, graphs: jraph.GraphsTuple
@@ -176,11 +184,17 @@ class Evaluater:
         return eval_loss
 
     def init_loss_lists(self, splits):
+        """Initialize a dict to save evaluation losses in."""
         self.loss_dict = {}
-        for split in splits:
-            self.loss_dict[split] = []
-        # initialize a queue with validation losses for early stopping
-        self.early_stopping_queue = []
+        if not self._loaded_metrics:
+            for split in splits:
+                self.loss_dict[split] = []
+            # initialize a queue with validation losses for early stopping
+            self.early_stopping_queue = []
+        else:
+            for split in splits:
+                self.loss_dict[split] = self._metrics_dict[split]
+            self.early_stopping_queue = self._metrics_dict['queue']
     
     def save_losses(self, loss_dict, splits, step):
         """Append values in loss_dict to the object values in self.loss_dict for all splits.
@@ -380,73 +394,6 @@ def save_loss_curve(loss_dict, dir, splits, std):
         np.savetxt(f'{dir}/{split}_loss.csv', 
             np.array(loss_split), delimiter=',')
 
-
-# def train(
-#     config: ml_collections.ConfigDict,
-#     datasets: Dict[str, Sequence[jraph.GraphsTuple]],
-#     workdir: Optional[str] = None
-# ) -> Tuple[train_state.TrainState, float]:
-#     '''Train a model using training data in dataset and validation data 
-#     in datasets for early stopping and model selection.
-    
-#     The globals of training and validation graphs need to be normalized,
-#     and the loss will be on normalized errors.'''
-    
-#     reader_train = DataReader(datasets['train'], config.batch_size, 
-#         repeat=True, seed=config.seed)
-#     init_graphs = next(reader_train)
-
-#     state = init_state(config, init_graphs)
-    
-#     if workdir is not None:
-#         # Set up checkpointing of the model.
-#         checkpoint_dir = os.path.join(workdir, 'checkpoints')
-#     # start at step 1 (or state.step + 1 if state was restored)
-#     initial_step = int(state.step) + 1
-
-#     loss_queue = []
-#     params_queue = []
-#     best_params = None
-    
-#     logging.info('Starting training.')
-#     for step in range(initial_step, config.num_train_steps_max + 1):
-#         # Perform a training step
-#         graphs = next(reader_train)
-#         state, loss = train_step(state, graphs)
-
-#         is_last_step = (step == config.num_train_steps_max - 1)
-#         # evaluate model on train, test and validation data
-#         if step % config.eval_every_steps == 0 or is_last_step:
-#             eval_loss = evaluate_split(state, datasets['validation'],
-#                 config.batch_size)
-#             logging.info(f'validation MSE: {eval_loss}')
-            
-#             loss_queue.append(eval_loss)
-#             params_queue.append(state.params)
-#             # only test for early stopping after the first interval
-#             if step > config.early_stopping_steps:
-#                 # stop if new loss higher than loss at beginning of interval
-#                 if eval_loss > loss_queue[0]:
-#                     break
-#                 else:
-#                     # otherwise delete the element at beginning of queue
-#                     loss_queue.pop(0)
-#                     params_queue.pop(0)
-
-#     # save parameters of best model
-#     index = np.argmin(loss_queue)
-#     # get lowest validation loss
-#     min_loss = loss_queue[index]
-#     params = params_queue[index]
-#     if workdir is not None:
-#         with open((workdir+'/params.pickle'), 'wb') as handle:
-#             pickle.dump(params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-#     # save predictions of the best model
-#     best_state = state.replace(params=params) # restore the state with best params
-    
-#     return best_state, min_loss
-
     
 def train_and_evaluate(
         config: ml_collections.ConfigDict,
@@ -500,9 +447,10 @@ def train_and_evaluate(
                 logging.info(f'MSE {split}: {eval_loss[split]}')
             evaluater.save_losses(eval_loss, splits, step)
             
-            if evaluater.check_early_stopping():
-                logging.info(f'Loss converged at step {step}, stopping early.')
-                break
+            if step > config.early_stopping_steps:
+                if evaluater.check_early_stopping():
+                    logging.info(f'Loss converged at step {step}, stopping early.')
+                    break
 
         if step==config.num_train_steps_max:
             logging.info('Reached maximum number of steps without early stopping.')
