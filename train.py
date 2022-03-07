@@ -50,13 +50,13 @@ class Updater:
         out_rng, init_rng = jax.random.split(rng)
         params = self._net_init(init_rng, data)
         opt_state = self._opt.init(params)
-        out = dict(
-            step=np.array(1),
+        state = dict(
+            step=np.array(0),
             rng=out_rng,
             opt_state=opt_state,
             params=params,
         )
-        return out
+        return state
 
     @functools.partial(jax.jit, static_argnums=0)
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
@@ -140,14 +140,24 @@ class Evaluater:
         self._net_apply = net.apply
         self._loss_fn = loss_fn
         self.val_queue = []
+        self.best_state = None # save the state with lowest validation error in best state
+        self.lowest_val_loss = None
         self._checkpoint_dir = checkpoint_dir
         # load loss curve if metrics file exists in checkpoint_dir
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
+        best_state_path = os.path.join(self._checkpoint_dir, 
+                'best_state.pkl')
         if os.path.exists(metrics_path):
+            # load metrics, if they have been saved before
             logging.info('Loading metrics from %s', metrics_path)
             with open(metrics_path, 'rb') as f:
                 self._metrics_dict = pickle.load(f)
             self._loaded_metrics = True
+            # load best state and lowest loss
+            with open(best_state_path, 'rb') as f:
+                best_state_dict = pickle.load(f)
+                self.best_state = best_state_dict['state']
+                self.lowest_val_loss = best_state_dict['loss']
         else:
             self._loaded_metrics = False
 
@@ -181,6 +191,10 @@ class Evaluater:
         for split in splits:
             eval_loss[split] = self.evaluate_split(state, 
                     datasets[split].data, datasets[split].batch_size)
+            if split=='validation':
+                if self.best_state is None or eval_loss[split] < self.lowest_val_loss:
+                    self.best_state = state.copy()
+                    self.lowest_val_loss = eval_loss[split]
         return eval_loss
 
     def init_loss_lists(self, splits):
@@ -218,9 +232,19 @@ class Evaluater:
     def checkpoint_losses(self):
         metrics_dict = self.loss_dict.copy()
         metrics_dict['queue'] = self.early_stopping_queue
+        # save metrics
         path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         with open(path, 'wb') as f:
             pickle.dump(metrics_dict, f)
+
+    def checkpoint_best_state(self):
+        # save best state
+        state_loss_dict = {'state': self.best_state, 
+                'loss': self.lowest_val_loss}
+        path = os.path.join(self._checkpoint_dir, 
+                'best_state.pkl')
+        with open(path, 'wb') as f:
+            pickle.dump(state_loss_dict, f)
 
 
 def make_result_csv(x, y, path):
@@ -409,23 +433,15 @@ def train_and_evaluate(
     # Create the training state
     updater, state, evaluater = init_state(config, init_graphs, workdir)
     
-    # # Set up checkpointing of the model.
-    # checkpoint_dir = os.path.join(workdir, 'checkpoints')
-
     # set up saving of losses
-    splits = ['train', 'validation', 'test']
-    evaluater.init_loss_lists(splits)
+    eval_splits = ['train', 'validation', 'test'] # splits on which to evaluate
+    evaluater.init_loss_lists(eval_splits)
 
     # start at step 1 (or state.step + 1 if state was restored)
     initial_step = int(state['step']) + 1
     
-    # # Make a loss queue to compare with earlier losses
-    # loss_queue = []
-    # params_queue = []
-    # best_params = None
-
     # # Begin training loop.
-    # logging.info('Starting training.')
+    logging.info('Starting training.')
     # time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
@@ -442,10 +458,10 @@ def train_and_evaluate(
         
         # evaluate model on train, test and validation data
         if step % config.eval_every_steps == 0 or is_last_step:
-            eval_loss = evaluater.evaluate_model(state, datasets, splits)
-            for split in splits:
+            eval_loss = evaluater.evaluate_model(state, datasets, eval_splits)
+            for split in eval_splits:
                 logging.info(f'MSE {split}: {eval_loss[split]}')
-            evaluater.save_losses(eval_loss, splits, step)
+            evaluater.save_losses(eval_loss, eval_splits, step)
             
             if step > config.early_stopping_steps:
                 if evaluater.check_early_stopping():
@@ -457,6 +473,7 @@ def train_and_evaluate(
 
         if step % config.checkpoint_every_steps == 0:
             evaluater.checkpoint_losses()
+            evaluater.checkpoint_best_state()
 
     # # save parameters of best model
     # index = np.argmin(loss_queue)
@@ -487,8 +504,8 @@ def train_and_evaluate(
     #     make_result_csv(
     #         labels, preds, 
     #         f'{workdir}/{split}_post.csv')
-
-
-    return state
+    lowest_val_loss = evaluater.lowest_val_loss
+    logging.info(f'Lowest validation loss: {lowest_val_loss}')
+    return evaluater.best_state
     
 

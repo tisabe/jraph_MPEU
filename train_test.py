@@ -24,11 +24,14 @@ class TestHelperFunctions(unittest.TestCase):
 
     def test_init_state(self):
         init_graphs = next(self.datasets['train'])
-        state = train.init_state(self.config, init_graphs)
-        print(type(state.params))
-        self.assertEqual(state.step, 0)
-        self.assertFalse(state.apply_fn is None)
-        self.assertIsInstance(state.tx, optax.GradientTransformation)
+        workdir = 'results/test/checkpoint'
+        updater, state, evaluater = train.init_state(
+                self.config, init_graphs, workdir)
+        print(type(state['params']))
+        opt_state = state['opt_state']
+        self.assertEqual(state['step'], 0)
+        self.assertIsInstance(state['rng'], type(jax.random.PRNGKey(0)))
+        #self.assertIsInstance(opt_state, optax.GradientTransformation)
         # TODO: find out the right type to check
         #self.assertIsInstance(state.params, hk._src.data_structures.FlatMap)
 
