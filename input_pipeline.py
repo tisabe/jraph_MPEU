@@ -10,7 +10,16 @@ import numpy as np
 import ase.db
 import ase
 
-from utils import *
+from utils import (
+    estimate_padding_budget_for_batch_size,
+    normalize_targets_config,
+    add_labels_to_graphs,
+)
+"""
+The functions in this file interface with the ase.db to make lists of jraph graphs,
+where the labels are standardized and the nodes have the right numbers 
+as input features.
+"""
 
 def ase_row_to_jraph(row: ase.db.row.AtomsRow
 ) -> jraph.GraphsTuple:
@@ -141,11 +150,6 @@ class DataReader:
             idx += 1
             yield graph
 
-
-def get_labels_atomization(graphs, labels, label_str):
-    '''Wrapper function for get_atomization_energies_QM9,
-    to make it compatible with non-QM9 datasets.'''
-    return get_atomization_energies_QM9(graphs, labels, label_str)
 
 def get_datasets(config: ml_collections.ConfigDict
 ) -> Tuple[Dict[str, Iterable[jraph.GraphsTuple]], Dict[str, Sequence[jraph.GraphsTuple]], float, float]:

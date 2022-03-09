@@ -10,6 +10,7 @@ from typing import (
     Tuple,
     Optional,
     Any,
+    Mapping
 )
 from absl import logging
 import jax
@@ -24,7 +25,11 @@ import pickle
 
 # import custom functions
 from models import GNN
-from utils import *
+from utils import (
+    Time_logger,
+    replace_globals,
+    get_valid_mask
+)
 from input_pipeline import (
     get_datasets,
     DataReader,
