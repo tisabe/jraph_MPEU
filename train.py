@@ -92,7 +92,7 @@ class CheckpointingUpdater:
     def __init__(self,
                 inner: Updater,
                 checkpoint_dir: str,
-                checkpoint_every_n: int = 10):
+                checkpoint_every_n: int):
         self._inner = inner
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_every_n = checkpoint_every_n
@@ -135,7 +135,8 @@ class CheckpointingUpdater:
 
 class Evaluater:
     """A class to evaluate the model with, save and checkpoint loss metrics."""
-    def __init__(self, net, loss_fn, checkpoint_dir):
+    def __init__(self, net, loss_fn, checkpoint_dir: str,
+            checkpoint_every_n: int, eval_every_n: int):
         self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
@@ -143,6 +144,8 @@ class Evaluater:
         self.best_state = None # save the state with lowest validation error in best state
         self.lowest_val_loss = None
         self._checkpoint_dir = checkpoint_dir
+        self._checkpoint_every_n = checkpoint_every_n
+        self._eval_every_n = eval_every_n
         # load loss curve if metrics file exists in checkpoint_dir
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         best_state_path = os.path.join(self._checkpoint_dir, 
@@ -246,6 +249,26 @@ class Evaluater:
         with open(path, 'wb') as f:
             pickle.dump(state_loss_dict, f)
 
+    def update(self, state, datasets, eval_splits):
+        """Updates the evaluater and wraps self function calls.
+        Calculate and save loss metrics, checkpoint model
+        and check for early stopping."""
+        step = state['step']
+        if step%self._eval_every_n == 0:
+            eval_loss = self.evaluate_model(state, datasets, eval_splits)
+            for split in eval_splits:
+                logging.info(f'MSE {split}: {eval_loss[split]}')
+            self.save_losses(eval_loss, eval_splits, step)
+            early_stop = self.check_early_stopping()
+        else:
+            early_stop = False
+
+        if step%self._checkpoint_every_n == 0:
+            self.checkpoint_losses()
+            self.checkpoint_best_state()
+
+        return early_stop
+
 
 def make_result_csv(x, y, path):
     """Print predictions x versus labels y in a csv at path."""
@@ -263,13 +286,13 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
 
 
 def get_labels_original(graphs, labels, label_str):
-    '''Wrapper function to get original energies,
-    to make it compatible with non-QM9 datasets.'''
+    """Wrapper function to get original energies,
+    to make it compatible with non-QM9 datasets."""
     return get_original_energies_QM9(graphs, labels, label_str)
 
 
 def create_model(config: ml_collections.ConfigDict):
-    '''Return a function that applies the graph model.'''
+    """Return a function that applies the graph model."""
     return GNN(config)
 
 
@@ -352,7 +375,7 @@ def predict_split(
 def init_state(
         config: ml_collections.ConfigDict,
         init_graphs: jraph.GraphsTuple,
-        workdir: str) -> Tuple[CheckpointingUpdater, Dict]:
+        workdir: str) -> Tuple[CheckpointingUpdater, Dict, Evaluater]:
     """Initialize a TrainState object using hyperparameters in config,
     and the init_graphs. This is a representative batch of graphs."""
     # Initialize rng.
@@ -391,7 +414,9 @@ def init_state(
             updater, os.path.join(workdir, 'checkpoints'),
             config.checkpoint_every_steps)
     evaluater = Evaluater(net, loss_fn,
-            os.path.join(workdir, 'checkpoints'))
+            os.path.join(workdir, 'checkpoints'),
+            config.checkpoint_every_steps,
+            config.eval_every_steps)
     
     rng = jax.random.PRNGKey(42)
     state = updater.init(rng, init_graphs)
@@ -438,9 +463,10 @@ def train_and_evaluate(
     evaluater.init_loss_lists(eval_splits)
 
     # start at step 1 (or state.step + 1 if state was restored)
+    # state['state'] is initialized to 0 if no checkpoint was loaded
     initial_step = int(state['step']) + 1
     
-    # # Begin training loop.
+    ## Begin training loop.
     logging.info('Starting training.')
     # time_logger = Time_logger(config)
 
@@ -456,24 +482,15 @@ def train_and_evaluate(
             #time_logger.log_eta(step)
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
         
-        # evaluate model on train, test and validation data
-        if step % config.eval_every_steps == 0 or is_last_step:
-            eval_loss = evaluater.evaluate_model(state, datasets, eval_splits)
-            for split in eval_splits:
-                logging.info(f'MSE {split}: {eval_loss[split]}')
-            evaluater.save_losses(eval_loss, eval_splits, step)
+        early_stop = evaluater.update(state, datasets, eval_splits)
             
-            if step > config.early_stopping_steps:
-                if evaluater.check_early_stopping():
-                    logging.info(f'Loss converged at step {step}, stopping early.')
-                    break
+        if early_stop:
+            logging.info(f'Loss converged at step {step}, stopping early.')
+            break
 
         if step==config.num_train_steps_max:
             logging.info('Reached maximum number of steps without early stopping.')
 
-        if step % config.checkpoint_every_steps == 0:
-            evaluater.checkpoint_losses()
-            evaluater.checkpoint_best_state()
 
     # # save parameters of best model
     # index = np.argmin(loss_queue)
