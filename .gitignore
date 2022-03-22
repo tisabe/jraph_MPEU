@@ -9,3 +9,4 @@ log.txt
 output_slurm
 *.out
 *venv/
+scripts/plots
