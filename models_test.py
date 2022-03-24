@@ -174,12 +174,24 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertEqual(int(jnp.sum(nodes_embedded)), sum_nodes_expected)
 
     def test_set2set(self):
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
         latent_size = 64
-        num_passes = 1
-        batch_size = 32
+        num_passes = 10
+        batch_size = 2
         set2set = Set2Set(latent_size, num_passes, batch_size)
         net = hk.without_apply_rng(hk.transform(set2set))
-        params = net.init(init_rng, init_graphs)
+
+        num_nodes = 10
+        segment_ids = jnp.array([0,0,0,0,0,1,1,1,1,1])
+
+        data = jnp.ones((num_nodes, latent_size))
+        params = net.init(init_rng, data, segment_ids)
+
+        print(params)
+        pred = net.apply(params, data, segment_ids)
+        print(pred)
 
 if __name__ == '__main__':
     unittest.main()

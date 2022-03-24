@@ -24,6 +24,8 @@ class Set2Set:
         
         self.q_star = jnp.zeros((batch_size, 2*latent_size))
         self.num_passes = num_passes
+        self.latent_size = latent_size
+        self.batch_size = batch_size
 
     def __call__(self, 
         data: jnp.ndarray,
@@ -32,10 +34,13 @@ class Set2Set:
         indices_are_sorted: bool = False,
         unique_indices: bool = False
     ):
-        self.lstm = hk.LSTM(latent_size)
-        self.next_state = lstm.initial_state(batch_size)
-        m_i = data
-        for i in range(self.num_passes):
+        mlp = hk.nets.MLP((self.latent_size, self.latent_size), 
+                activation=shifted_softplus)
+        self.lstm = hk.LSTM(self.latent_size)
+        self.next_state = self.lstm.initial_state(self.batch_size)
+
+        m_i = mlp(data) # apply multi-layer perceptron, batch-dimension are the nodes
+        for _ in range(self.num_passes):
             q, self.next_state = self.lstm(self.q_star, self.next_state)
             q_i = q[segment_ids,:] # for each node i, gather the representing q_i
             e_i = jnp.sum(jnp.multiply(m_i, q_i), axis=-1)
@@ -49,7 +54,7 @@ class Set2Set:
                     indices_are_sorted, unique_indices)
             self.q_star = jnp.concatenate((q, r), axis=-1)
 
-        return q_star
+        return self.q_star
 
 
 def get_edge_embedding_fn(latent_size, k_max, delta, mu_min):
