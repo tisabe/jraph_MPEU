@@ -25,11 +25,11 @@ def main(args):
                 print(f'Reading step {i}')
             key_value_pairs = row.key_value_pairs
             key_val_list.append(key_value_pairs)
-            data = row.data
-            senders = data['senders']
-            receivers = data['receivers']
-            edges = data['edges']
-            edges_all = np.concatenate((edges_all, np.array(edges)))
+            #data = row.data
+            #senders = data['senders']
+            #receivers = data['receivers']
+            #edges = data['edges']
+            #edges_all = np.concatenate((edges_all, np.array(edges)))
     
     
     key_df = pd.DataFrame(key_val_list)
