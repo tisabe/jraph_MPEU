@@ -178,7 +178,7 @@ class TestHelperFunctions(unittest.TestCase):
         rng, init_rng = jax.random.split(rng)
 
         latent_size = 64
-        num_passes = 10
+        num_passes = 2
         batch_size = 2
         set2set = Set2Set(latent_size, num_passes, batch_size)
         net = hk.without_apply_rng(hk.transform(set2set))
@@ -189,9 +189,47 @@ class TestHelperFunctions(unittest.TestCase):
         data = jnp.ones((num_nodes, latent_size))
         params = net.init(init_rng, data, segment_ids)
 
-        print(params)
+        #print(params)
         pred = net.apply(params, data, segment_ids)
-        print(pred)
+        #print(pred)
+
+    def test_set2set_integration(self):
+        """Test integrating set2set into a GraphNetwork. """
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        latent_size = 64
+        num_passes = 2
+        batch_size = 2
+        set2set = Set2Set(latent_size, num_passes, batch_size)
+
+        g_update = lambda nodes, edges, globals: nodes
+        net_fn = jraph.GraphNetwork(
+                update_edge_fn=None,
+                update_node_fn=None,
+                update_global_fn=g_update,
+                aggregate_nodes_for_globals_fn=set2set)
+        n_node = 10
+        n_edge = 4
+        test_graph = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node)),
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0,0,1,2]),
+            receivers=jnp.array([1,2,0,0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+        print(test_graph)
+        graphs = jraph.batch([test_graph]*batch_size)
+
+        net = hk.without_apply_rng(hk.transform(net_fn))
+        params = net.init(init_rng, graphs) # create weights etc. for the model
+        
+        graph_pred = net.apply(params, graphs)
+        prediction = graph_pred.globals
+        print(prediction)
+
 
 if __name__ == '__main__':
     unittest.main()
