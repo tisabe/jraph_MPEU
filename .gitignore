@@ -8,3 +8,4 @@ log.txt
 *.slurm
 *.out
 */venv
+*venv

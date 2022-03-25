@@ -151,9 +151,9 @@ class DataReader:
             yield graph
 
 
-def get_datasets(config: ml_collections.ConfigDict
-) -> Tuple[Dict[str, Iterable[jraph.GraphsTuple]], Dict[str, Sequence[jraph.GraphsTuple]], float, float]:
-    '''Return a dict with a dataset for each split (training, validation, testing),
+def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
+        Dict[str, Iterable[jraph.GraphsTuple]], Dict[str, Sequence[jraph.GraphsTuple]], float, float]:
+    """Return a dict with a dataset for each split (training, validation, testing),
     in normalized and in raw form/labels. Also return the mean and standard deviation.
 
     Each dataset is an iterator that yields batches of graphs.
@@ -163,7 +163,7 @@ def get_datasets(config: ml_collections.ConfigDict
     The raw dataset is just a dict with lists of graphs.
 
     The graphs have their regression label as a global feature attached.
-    '''
+    """
     # data will be split into normaized data for regression and raw data for analyzing later
     graphs_list, labels_list = asedb_to_graphslist(config.data_file, 
         label_str=config.label_str, selection=config.selection,

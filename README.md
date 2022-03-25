@@ -12,18 +12,16 @@ Only tested on Python 3.7.3
 
 Python library requirements:  
 Jax (only GPU version has been tested)  
-tensorflow  
-spektral  
-numpy  
-flax  
-jraph  
-haiku  
-optax  
+tensorflow
+spektral
+numpy
+jraph
+dm-haiku
+optax 
 pandas  
-tqdm  
-sklearn  
-pickle  
-ase  
+tqdm
+sklearn
+ase
 
 If any other libraries are missing, just pip install them, the above list might not be complete.
 
