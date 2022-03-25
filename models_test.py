@@ -1,3 +1,11 @@
+"""Test our GNN Models.
+
+
+Right now we have a test with 0/1s on a graph but we only use self edges
+since otherwise the complexity means it's hard to figure out what the right
+answer is on paper to check we're getting the right answer.
+"""
+
 import numpy as np
 import jax
 import jax.numpy as jnp
