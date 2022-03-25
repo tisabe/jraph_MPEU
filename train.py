@@ -500,4 +500,4 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
-    return evaluater.best_state
+    return evaluater, lowest_val_loss
