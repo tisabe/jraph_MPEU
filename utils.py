@@ -2,15 +2,14 @@ import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
-import haiku as hk
-import functools
-import optax
 from ast import literal_eval
-import sklearn
 import pandas
-
-import time
+import ml_collections
 import logging
+
+import os
+import time
+import json
 
 from typing import Dict, Generator, Mapping, Tuple, NamedTuple
 
@@ -36,6 +35,13 @@ def str_to_array_float(str_array):
     str_array = str_array.replace('[ ', '[')
     str_array = str_array.replace(' ', ',')
     return np.array(literal_eval(str_array))
+
+
+def save_config(config: ml_collections.ConfigDict, workdir: str):
+    config_dict = vars(config)['_fields']
+    with open(os.path.join(workdir, 'config.txt'), 'w') as file:
+        for key in config_dict:
+            file.write(f'{key}: {str(config_dict[key])}\n')
 
 
 def dist_matrix(position_matrix):
@@ -372,11 +378,20 @@ class Time_logger:
     def __init__(self, config):
         self.start = time.time()
         self.step_max = config.num_train_steps_max
+        self.time_limit = config.time_limit
 
     def log_eta(self, step):
         time_elapsed = time.time() - self.start
         eta = int(time_elapsed * (self.step_max/step - 1))
         logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')
+
+    def get_time_stop(self):
+        """Return whether the time is over the time limit."""
+        time_elapsed = time.time() - self.start
+        if self.time_limit is not None:
+            return (time_elapsed/3600) > self.time_limit
+        else:
+            return False
 
 
 

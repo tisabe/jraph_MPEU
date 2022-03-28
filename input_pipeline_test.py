@@ -4,12 +4,14 @@ import jraph
 import numpy as np
 import ase.db
 import pandas as pd
+import ml_collections
 
 from input_pipeline import (
     DataReader,
     ase_row_to_jraph,
     asedb_to_graphslist,
-    atoms_to_nodes_list
+    atoms_to_nodes_list,
+    get_dataset_single
 )
 from utils import add_labels_to_graphs
 
@@ -148,7 +150,7 @@ class TestHelperFunctions(unittest.TestCase):
             n_edge=None, edges=None, senders=None, receivers=None, globals=None)
         graphs = [graph0, graph1, graph2]
         graphs, num_classes = atoms_to_nodes_list(graphs)
-        print(graphs)
+        
         nodes0_expected = np.array([0,0,0,1])
         nodes1_expected = np.array([0,0,0,0,0,0,1,1])
         nodes2_expected = np.array([0,0,0,0,1,2])
@@ -159,6 +161,22 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_array_equal(nodes1_expected, nodes1)
         np.testing.assert_array_equal(nodes2_expected, nodes2)
         self.assertEqual(num_classes, 3)
+
+    def test_get_dataset_single(self):
+        config = ml_collections.ConfigDict()
+        config.data_file = 'QM9/qm9_graphs.db'
+        config.label_str = 'U0'
+        config.limit_data = 200
+        config.selection = None
+        # aggregation type needs to be set to determine which normalization is used
+        config.aggregation_readout_type = 'sum'
+
+        dataset, mean, std = get_dataset_single(config)
+        self.assertIsInstance(std, float)
+        self.assertIsInstance(mean, float)
+        self.assertEqual(config.limit_data, len(dataset))
+        for graph in dataset:
+            self.assertIsInstance(graph, jraph.GraphsTuple)
 
 
 if __name__ == '__main__':

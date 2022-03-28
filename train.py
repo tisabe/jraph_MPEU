@@ -304,6 +304,27 @@ def create_model(config: ml_collections.ConfigDict):
     return GNN(config)
 
 
+def cosine_warm_restarts(
+    init_value: float,
+    decay_steps: int,
+    multiplier: int=1
+) -> Callable[[int], float]:
+    '''Return a function that implements a cosine schedule with warm restarts.
+    For more details see: https://arxiv.org/abs/1608.03983'''
+
+    if not decay_steps > 0:
+        raise ValueError('The cosine_decay_schedule requires positive decay_steps!')
+
+    def schedule(count):
+        # TODO: implement multiplier
+        num_restarts = count // decay_steps + 1
+        count_since_restart = count % decay_steps
+        cosine = 0.5 * (1 + jnp.cos(jnp.pi * count_since_restart / decay_steps))
+        return init_value * cosine
+
+    return schedule
+
+
 def create_optimizer(
         config: ml_collections.ConfigDict) -> optax.GradientTransformation:
     """Create an Optax optimizer object."""
@@ -315,9 +336,9 @@ def create_optimizer(
                 decay_rate=config.decay_rate,
                 staircase=True)
     elif config.schedule == 'cosine_decay':
-        lr = optax.cosine_decay_schedule(
-                init_value=config.init_lr, 
-                decay_steps=1e6)
+        lr = cosine_warm_restarts(
+            init_value=config.init_lr, 
+            decay_steps=config.transition_steps)
     else:
         raise ValueError(f'Unsupported schedule: {config.schedule}.')
 
@@ -445,6 +466,9 @@ def train_and_evaluate(
     logging.info('Loading datasets.')
     datasets, datasets_raw, mean, std = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
+
+    # save the config in txt for later inspection
+    save_config(config, workdir)
 
     init_graphs = next(datasets['train'])
     # Initialize globals in graph to zero. Don't want to give the model
