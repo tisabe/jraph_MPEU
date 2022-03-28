@@ -29,7 +29,8 @@ from models import GNN
 from utils import (
     Time_logger,
     replace_globals,
-    get_valid_mask
+    get_valid_mask,
+    save_config
 )
 from input_pipeline import (
     get_datasets,
