@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 import jraph
 import haiku as hk
+import optax
 
 from absl import flags
 import ml_collections
@@ -229,6 +230,35 @@ class TestHelperFunctions(unittest.TestCase):
         graph_pred = net.apply(params, graphs)
         prediction = graph_pred.globals
         print(prediction)
+
+    def test_set2set_fit(self):
+        """Test the set2set function by generating artificial sets and training
+        on properties of these sets"""
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        latent_size = 64
+        num_passes = 2
+        batch_size = 32
+        set2set = Set2Set(latent_size, num_passes, batch_size)
+
+        net = hk.without_apply_rng(hk.transform(net_fn))
+        params = net.init(init_rng, example_batch) # create weights etc. for the model
+
+        step_size = 1e-3
+        opt_init, opt_update, get_params = optax.adam(step_size)
+        opt_state = opt_init(params)
+        
+        def loss(x, y):
+            # batched loss function
+            return jnp.mean(jnp.abs(x - y), axis=1)
+
+        @jax.jit
+        def update(params, x, y, opt_state):
+            """ Compute the gradient for a batch and update the parameters """
+            value, grads = jax.value_and_grad(loss)(params, x, y)
+            opt_state = opt_update(0, grads, opt_state)
+            return get_params(opt_state), opt_state, value
 
 
 if __name__ == '__main__':
