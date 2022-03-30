@@ -10,6 +10,7 @@ import ml_collections
 from ml_collections import config_flags
 
 import unittest
+from functools import partial
 
 from models import (
     GNN, 
@@ -221,7 +222,7 @@ class TestHelperFunctions(unittest.TestCase):
             n_edge=jnp.array([n_edge]),
             globals=None
         )
-        print(test_graph)
+        #print(test_graph)
         graphs = jraph.batch([test_graph]*batch_size)
 
         net = hk.without_apply_rng(hk.transform(net_fn))
@@ -229,7 +230,7 @@ class TestHelperFunctions(unittest.TestCase):
         
         graph_pred = net.apply(params, graphs)
         prediction = graph_pred.globals
-        print(prediction)
+        #print(prediction)
 
     def test_set2set_fit(self):
         """Test the set2set function by generating artificial sets and training
@@ -240,26 +241,88 @@ class TestHelperFunctions(unittest.TestCase):
         latent_size = 64
         num_passes = 2
         batch_size = 32
-        set2set = Set2Set(latent_size, num_passes, batch_size)
-
-        net = hk.without_apply_rng(hk.transform(net_fn))
-        params = net.init(init_rng, example_batch) # create weights etc. for the model
-
-        step_size = 1e-3
-        opt_init, opt_update, get_params = optax.adam(step_size)
-        opt_state = opt_init(params)
+        num_nodes = 256
+        output_size = 1
+        # define the network
         
-        def loss(x, y):
-            # batched loss function
-            return jnp.mean(jnp.abs(x - y), axis=1)
+        class Module:
+            def __init__(self, latent_size, num_passes, batch_size, output_size):
+                self.latent_size = latent_size
+                self.num_passes = num_passes
+                self.batch_size = batch_size
+                self.output_size = output_size
 
-        @jax.jit
-        def update(params, x, y, opt_state):
-            """ Compute the gradient for a batch and update the parameters """
-            value, grads = jax.value_and_grad(loss)(params, x, y)
-            opt_state = opt_update(0, grads, opt_state)
-            return get_params(opt_state), opt_state, value
+            def __call__(self, 
+                data: jnp.ndarray,
+                segment_ids: jnp.ndarray,
+                num_segments: int
+            ):
+                set2set = Set2Set(self.latent_size, self.num_passes, 
+                        self.batch_size)
+                linear = hk.Linear(self.output_size)
 
+                qstar = set2set(data, segment_ids, num_segments=num_segments, 
+                        indices_are_sorted=None,
+                        unique_indices=None)
+                out = linear(qstar)
+                return out
+
+        rng, data_rng = jax.random.split(rng)
+        data = jax.random.normal(data_rng, (num_nodes, 1))
+        segment_ids = jnp.linspace(0, batch_size-1, num_nodes, dtype='int32')
+
+        net_fn = Module(latent_size, num_passes, batch_size, output_size)
+        net = hk.without_apply_rng(hk.transform(net_fn))
+        params = net.init(init_rng, data, segment_ids, num_segments=batch_size
+        ) # create weights etc. for the model
+
+        step_size = 1e-4
+        opt_init, opt_update = optax.adam(step_size)
+        opt_state = opt_init(params)
+
+        def get_random_segment_ids(N, batch_size, key):
+            assert(N >= batch_size)
+            segment_ids = jnp.arange(0, batch_size, dtype='int32')
+            num_ids_left = N - batch_size
+            ids_add = jax.random.uniform(key, (num_ids_left,))*batch_size
+            ids_add = jnp.array(ids_add, dtype='int32')
+            return jnp.concatenate([segment_ids, ids_add], axis=0)
+        
+        @partial(jax.jit, static_argnums=(4,))
+        def train_step(params, opt_state, data, segment_ids, num_segments):
+            def loss_fn(params, data, segment_ids):
+                pred = net.apply(params, data, segment_ids, num_segments)
+                target = jax.ops.segment_max(data, segment_ids, num_segments)
+                return jnp.mean(jnp.abs(pred - target))
+            # compute gradient function and gradients
+            grad_fn = jax.value_and_grad(loss_fn)
+            loss, grads = grad_fn(params, data, segment_ids)
+            # update the params with gradient
+            updates, opt_state = opt_update(grads, opt_state, params)
+            params = optax.apply_updates(params, updates)
+
+            return params, opt_state, loss
+
+        num_steps = 100000
+        for i in range(num_steps):
+            # generate new data at every step
+            rng, data_rng = jax.random.split(rng)
+            data = jax.random.normal(data_rng, (num_nodes, 1))
+            segment_ids = get_random_segment_ids(num_nodes, batch_size, data_rng)
+
+            params, opt_state, loss = train_step(
+                    params, opt_state, data, segment_ids, batch_size)
+            if i%1000 == 0:
+                print(loss)
+
+        # generate a final example
+        rng, data_rng = jax.random.split(rng)
+        data = jax.random.normal(data_rng, (num_nodes, 1))
+        segment_ids = get_random_segment_ids(num_nodes, batch_size, data_rng)
+        
+        pred = net.apply(params, data, segment_ids, batch_size)
+        print(f'targets: {jax.ops.segment_max(data, segment_ids)[:,0]}')
+        print(f'prediction: {pred[:,0]}')
 
 if __name__ == '__main__':
     unittest.main()
