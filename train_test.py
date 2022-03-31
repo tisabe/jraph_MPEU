@@ -35,7 +35,7 @@ class TestTrain(unittest.TestCase):
         self.assertEqual(state['step'], 0)
         self.assertIsInstance(state['rng'], type(jax.random.PRNGKey(0)))
         self.assertIsInstance(opt_state, tuple)
-        
+
     def test_numerical_stability(self):
         """Test the minimum losses after 100 steps up to 5 decimal places.
         

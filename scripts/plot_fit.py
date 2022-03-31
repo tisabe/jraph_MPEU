@@ -14,7 +14,7 @@ def plot_fit(predictions, splits, folder):
     fig, ax = plt.subplots(2)
 
     marker_size = 0.3
-    
+
     for split in splits:
         df_post = predictions[split]
 
@@ -31,7 +31,7 @@ def plot_fit(predictions, splits, folder):
 
         ax[0].scatter(df_post['x'].to_numpy(), df_post['y'].to_numpy(), s=marker_size, label=split)
         ax[1].scatter(df_post['x'].to_numpy(), error, s=marker_size, label=split)
-        
+
     #ax.axline((0,0), slope=1, color='red', label='x=y')
     ax[0].set_title('Model regression performance')
     ax[0].set_ylabel('prediction')
@@ -70,7 +70,7 @@ def main(args):
 
     splits = ['train', 'validation', 'test']
 
-    ### plot predictions fit
+    # plot predictions fit
     try:
         predictions_path = folder+'/predictions.pkl'
         with open(predictions_path, 'rb') as f:
@@ -79,7 +79,7 @@ def main(args):
     except FileNotFoundError:
         print(f'Did not find {predictions_path}, skipping fit plot.')
     
-    ### plot learning curves
+    # plot learning curves
     try:
         metrics_path = folder+'/metrics.pkl'
         with open(metrics_path, 'rb') as f:

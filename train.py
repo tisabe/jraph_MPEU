@@ -91,6 +91,7 @@ class Updater:
 
 class CheckpointingUpdater:
     """A didactic checkpointing wrapper around an Updater.
+
     A more mature checkpointing implementation might:
     - Use np.savez() to store the core data instead of pickle.
     - Not block JAX async dispatch.
@@ -141,7 +142,32 @@ class CheckpointingUpdater:
 
 
 class Evaluater:
-    """A class to evaluate the model with, save and checkpoint loss metrics."""
+    """A class to evaluate the model with, save and checkpoint loss metrics.
+    
+    Args:
+        net: network function, made by haiku.Transform, has a .apply function
+        loss_fn: callable that computes loss using model parameters, input graph
+            and a function that applies the network to the graph
+        checkpoint_dir: directory to store checkpoints, metrics and best state in
+        checkpoint_every_n: after how many steps a new checkpoint should be saved
+        eval_every_n: after how many steps the model should be evaluated
+
+    Intended use case:
+        After initializing the evaluater with:
+
+        evaluater = Evaluater(net, loss_fn,
+            os.path.join(workdir, 'checkpoints'),
+            config.checkpoint_every_steps,
+            config.eval_every_steps)
+
+        and once the splits to evaluate on are known, calling:
+
+        evaluater.init_loss_lists(eval_splits)
+
+        In the main training loop only the update function needs to be called:
+
+        early_stop = evaluater.update(state, datasets, eval_splits)
+    """
     def __init__(self, net, loss_fn, checkpoint_dir: str,
             checkpoint_every_n: int, eval_every_n: int):
         self._net_init = net.init
@@ -179,7 +205,7 @@ class Evaluater:
         return mean_loss
 
     def evaluate_split(
-            self, 
+            self,
             state: dict,
             graphs: Sequence[jraph.GraphsTuple],
             batch_size: int) -> float:
@@ -197,15 +223,15 @@ class Evaluater:
             datasets: Dict[str, Iterable[jraph.GraphsTuple]],
             splits: Iterable[str]) -> Dict[str, float]:
         """Return mean loss for every split in splits."""
-        eval_loss = {}
+        loss_dict = {}
         for split in splits:
-            eval_loss[split] = self.evaluate_split(state, 
+            loss_dict[split] = self.evaluate_split(state, 
                     datasets[split].data, datasets[split].batch_size)
-            if split=='validation':
-                if self.best_state is None or eval_loss[split] < self.lowest_val_loss:
+            if split == 'validation':
+                if self.best_state is None or loss_dict[split] < self.lowest_val_loss:
                     self.best_state = state.copy()
-                    self.lowest_val_loss = eval_loss[split]
-        return eval_loss
+                    self.lowest_val_loss = loss_dict[split]
+        return loss_dict
 
     def init_loss_lists(self, splits):
         """Initialize a dict to save evaluation losses in."""
@@ -221,7 +247,9 @@ class Evaluater:
             self.early_stopping_queue = self._metrics_dict['queue']
     
     def save_losses(self, loss_dict, splits, step):
-        """Append values in loss_dict to the object values in self.loss_dict for all splits.
+        """Append values in loss_dict to the object values in self.loss_dict 
+        for all splits.
+
         Also create the local early stopping queue."""
         for split in splits:
             self.loss_dict[split].append([step, loss_dict[split]])
@@ -232,11 +260,11 @@ class Evaluater:
         """Check the early stopping criterion. If the newest validaiton loss in 
         self.early_stopping_queue is higher than the zeroth one return True for early stopping.
         Otherwise, delete the zeroth element in queue and return False for no early stopping."""
-        queue = self.early_stopping_queue # abbreviation
-        if queue[-1] > queue[0]: # check for early stopping condition
+        queue = self.early_stopping_queue  # abbreviation
+        if queue[-1] > queue[0]:  # check for early stopping condition
             return True
         else:
-            queue.pop(0) # Note: also modifies self.early_stopping_queue
+            queue.pop(0)  # Note: also modifies self.early_stopping_queue
             return False
     
     def checkpoint_losses(self):
@@ -376,7 +404,7 @@ def predict_split(
         preds_batch_valid = preds_batch[mask]
         # Update predictions list.
         preds = np.concatenate((preds, preds_batch_valid), axis=0)
-    
+
     return preds
 
 
@@ -393,16 +421,14 @@ def init_state(
     logging.info('Initializing network.')
     rng, init_rng = jax.random.split(rng)
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
-    
+
     net_fn = create_model(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
-    
+
     # Create the optimizer
     optimizer = create_optimizer(config)
 
     def loss_fn(params, graphs, net_apply):
-        # curr_state = state.replace(params=params)
-
         labels = graphs.globals
         graphs = replace_globals(graphs)
 
@@ -425,7 +451,7 @@ def init_state(
             os.path.join(workdir, 'checkpoints'),
             config.checkpoint_every_steps,
             config.eval_every_steps)
-    
+
     rng = jax.random.PRNGKey(42)
     state = updater.init(rng, init_graphs)
 
@@ -434,7 +460,7 @@ def init_state(
 
 def restore_loss_curve(dir, splits, std):
     """Load the loss curve as a dictionary.
-    
+
     TODO: Refactor.
     """
     loss_dict = {}
