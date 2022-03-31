@@ -17,15 +17,12 @@ eps_vw which is size k_max. The network then outputs an edge vector e_vw(0)
 of size C (latent_size).
 """
 
-from sys import getallocatedblocks
 import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
 import haiku as hk
 import ml_collections
-
-from typing import Optional
 
 
 # Define the shifted softplus activation function.
@@ -36,7 +33,7 @@ LOG2 = jnp.log(2)
 
 def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     """Continuous and shifted version of relu activation function.
-    
+
     The function is: log(exp(x) + 1) - log(2)
     This implementation is from PB Jorgensen while SchNet uses
     log(0.5*exp(x)+0.5).
@@ -48,43 +45,8 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     return jnp.logaddexp(x, 0) - LOG2
 
 
-def get_set2set_fn(init_graph, latent_size, num_passes):
-    """Return the set2set function.
-    
-    TODO(Tim): To be cleaned up on a different branch.
-
-    It has the same call signature as jraph.segment_sum, so it can be used as
-    aggregation function in a jraph.GraphNetwork."""
-    lstm = hk.LSTM((batch_size, latent_size))
-    q_star = jnp.zeros((batch_size, latent_size))
-
-    lstm_init = lstm.initial_state(batch_size)
-    next_state = lstm_init
-
-    def set2set(data: jnp.ndarray,
-            segment_ids: jnp.ndarray,
-            num_segments: Optional[int] = None,
-            indices_are_sorted: bool = False,
-            unique_indices: bool = False):
-        m_i = data
-        for i in range(num_passes):
-            q, next_state = lstm(q_star, next_state)
-            e_i = jnp.sum(jnp.multiply(m_i, q), axis=-1)
-            a_i = jraph.segment_softmax(e_i, 
-                segment_ids, num_segments, 
-                indices_are_sorted, unique_indices)
-            r = jraph.segment_sum(
-                jnp.multiply(a_i, m_i), 
-                segment_ids, num_segments, 
-                indices_are_sorted, unique_indices)
-            q_star = jnp.concatenate((q, r), axis=-1)
-
-        return q_star
-    return set2set
-
-
 def get_edge_embedding_fn(
-        latent_size: int, k_max: int, delta: float , mu_min: float):
+        latent_size: int, k_max: int, delta: float, mu_min: float):
     """Return the edge embedding function.
 
     The distance between nodes gets passed into radial basis functions to
@@ -231,29 +193,29 @@ def get_edge_update_fn(latent_size: int, hk_init):
         # Concatenate the sending node feature vector with the receiving node
         # feature vector and the edge vector for the edge connecting the
         # sending and receiving node.
-        edge_node_concat = jnp.concatenate(
-            [sent_attributes, received_attributes, 
+        edge_node_concat = jnp.concatenate([
+            sent_attributes, received_attributes,
             edge_message['edges']], axis=-1)
         # Edge update network. First network is FC input size 3C (or 2C+k_max
         # for first iteration), output size 2C with shifted softplus
         # activation. Second network is FC, input 2C, output C, identity as
         # actiavtion (e.g. linear network).
-        net_edge = hk.Sequential(
-            [hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
+        net_edge = hk.Sequential([
+            hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
             shifted_softplus,
             hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
-        
+
         edge_message['edges'] = net_edge(edge_node_concat)
 
         # Then, compute edge-wise messages. The input is the edge feature
         # vector. See Figure 1 middle figure for details. The edge feature
         # vector gets passed through two FC layers with shifted softplus.
         # Dimensionality doesn't change at all from input to output here.
-        net_message_edge = hk.Sequential(
-            [hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-                shifted_softplus,
+        net_message_edge = hk.Sequential([
             hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-                shifted_softplus])
+            shifted_softplus,
+            hk.Linear(latent_size, with_bias=False, w_init=hk_init),
+            shifted_softplus])
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
         net_message_node = hk.Linear(
@@ -323,7 +285,7 @@ def get_readout_global_fn():
             global_attributes) -> jnp.ndarray:
         """Global readout function for graph net.
 
-        Returns the aggregated node features, using the aggregation function 
+        Returns the aggregated node features, using the aggregation function
         defined in config.
 
         Args:
@@ -339,7 +301,7 @@ def get_readout_global_fn():
 
 def get_readout_node_update_fn(latent_size, hk_init):
     """Return readout node update function.
-    
+
     This is a wrapper function for the readout_node_update_fn.
 
     Args:
@@ -347,8 +309,9 @@ def get_readout_node_update_fn(latent_size, hk_init):
         hk_init: The weight initializer for the the readout NN.
     """
     def readout_node_update_fn(
-        nodes, sent_attributes,
-        received_attributes, global_attributes) -> jnp.ndarray:
+            nodes, sent_attributes,
+            received_attributes, global_attributes
+    ) -> jnp.ndarray:
         """Node update function for readout phase in graph net.
 
         Note: In future iterations we might want to include the
@@ -413,7 +376,7 @@ class GNN:
         Returns:
             Returns the same graphs as the input.
         """
-        # Add a global paramater for graph classification. 
+        # Add a global paramater for graph classification.
         # graphs.n_node.shape[0] is the batch dimension. We intiialize the
         # globals of the graph to zero, we don't use this, but we could in
         # the future if we wanted to give each graph a global input label.

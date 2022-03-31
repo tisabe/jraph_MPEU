@@ -247,19 +247,22 @@ class Evaluater:
             self.early_stopping_queue = self._metrics_dict['queue']
     
     def save_losses(self, loss_dict, splits, step):
-        """Append values in loss_dict to the object values in self.loss_dict 
-        for all splits.
+        """Append values in loss_dict to self.loss_dict for all splits.
 
-        Also create the local early stopping queue."""
+        Also create the local early stopping queue.
+        """
         for split in splits:
             self.loss_dict[split].append([step, loss_dict[split]])
             if split == 'validation':
                 self.early_stopping_queue.append(loss_dict[split])
 
     def check_early_stopping(self):
-        """Check the early stopping criterion. If the newest validaiton loss in 
-        self.early_stopping_queue is higher than the zeroth one return True for early stopping.
-        Otherwise, delete the zeroth element in queue and return False for no early stopping."""
+        """Check the early stopping criterion. 
+        
+        If the newest validaiton loss in self.early_stopping_queue is higher 
+        than the zeroth one return True for early stopping. Otherwise, delete 
+        the zeroth element in queue and return False for no early stopping.
+        """
         queue = self.early_stopping_queue  # abbreviation
         if queue[-1] > queue[0]:  # check for early stopping condition
             return True
@@ -534,7 +537,8 @@ def train_and_evaluate(
             #time_logger.log_eta(step)
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
-        # Get evaluation on full training dataset, checkpoint if needed and
+        # Get evaluation on all splits of the data (train/validation/test), 
+        # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits)
 
