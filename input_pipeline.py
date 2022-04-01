@@ -1,18 +1,18 @@
 """Functions to import data and engineer data into expected graph format.
 
 The functions in this file interface with the ase.db to make lists of jraph
-graphs, where the labels are standardized and the nodes have the right numbers 
+graphs, where the labels are standardized and the nodes have the right numbers
 as input features.
 """
 
 from xmlrpc.client import Boolean
-import ml_collections
-from absl import logging
-
+import random
 from typing import Dict, Iterable, Sequence, Tuple
+
+from absl import logging
+import ml_collections
 import jraph
 import sklearn.model_selection
-import random
 import numpy as np
 import ase.db
 import ase
@@ -42,16 +42,16 @@ def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
     return graph
 
 def asedb_to_graphslist(
-        file: str, label_str: str, 
+        file: str, label_str: str,
         selection: str = None, limit=None) -> Tuple[
             Sequence[jraph.GraphsTuple], list]:
     """Return a list of graphs, by loading rows from local ase database at file."""
     graphs = []
     labels = []
-    db = ase.db.connect(file)
+    ase_db = ase.db.connect(file)
     count = 0
     #print(f'Selection: {selection}')
-    for _, row in enumerate(db.select(selection=selection, limit=limit)):
+    for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
         if len(graph.edges) == 0: # do not include graphs without edges
             continue
@@ -65,7 +65,7 @@ def asedb_to_graphslist(
 def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
         Sequence[jraph.GraphsTuple], int]:
     """Encodes the atomic numbers of nodes in a graph in compact fashion.
-    
+
     Return graphs with atomic numbers as graph-nodes turned into
     nodes with atomic numbers as classes. This gets rid of atomic numbers that
     are not present in the dataset.
@@ -100,7 +100,16 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
 
 
 class DataReader:
-    """Data reader class."""
+    """Data reader class.
+
+    Returns batches of graphs as a generator. The graphs are batched
+    dynamically with jraph.dynamically_batch. The generator can either loop
+    (for training data) or end after one pass through the dataest (for
+    evaluation).
+    After evaluation in non-loop mode, the generator can no longer be used,
+    and we suggest making a new DataReader Object, by initializing it
+    with the old data property.
+    """
     def __init__(
             self, data: Sequence[jraph.GraphsTuple],
             batch_size: int, repeat: Boolean, seed: int = None):
@@ -119,7 +128,7 @@ class DataReader:
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
         self.batch_generator = jraph.dynamically_batch(
-            self._generator, 
+            self._generator,
             self.budget.n_node,
             self.budget.n_edge,
             self.budget.n_graph)
@@ -129,16 +138,6 @@ class DataReader:
 
     def __next__(self):
         return next(self.batch_generator)
-
-    def _reset(self):
-        """Reset the generator object."""
-        # TODO(Tim): Right now it does not work.
-        self._generator = self._make_generator()
-        self.batch_generator = jraph.dynamically_batch(
-            self._generator,
-            self.budget.n_node,
-            self.budget.n_edge,
-            self.budget.n_graph)
 
     def _make_generator(self):
         random.seed(a=self.seed)
@@ -221,27 +220,27 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
 
     # Define iterators and generators.
     reader_train = DataReader(
-        data=train_set, 
+        data=train_set,
         batch_size=config.batch_size,
         repeat=True,
         seed=config.seed)
     reader_val = DataReader(
-        data=val_set, 
+        data=val_set,
         batch_size=config.batch_size,
         repeat=False)
     reader_test = DataReader(
-        data=test_set, 
+        data=test_set,
         batch_size=config.batch_size,
         repeat=False)
 
     dataset = {
-        'train': reader_train, 
-        'validation': reader_val, 
+        'train': reader_train,
+        'validation': reader_val,
         'test': reader_test}
 
     dataset_raw = {
-        'train': train_raw, 
-        'validation': val_raw, 
+        'train': train_raw,
+        'validation': val_raw,
         'test': test_raw}
 
     return dataset, dataset_raw, mean, std
