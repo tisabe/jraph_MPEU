@@ -19,9 +19,10 @@ from models import (
     GNN,
     shifted_softplus,
     get_edge_update_fn,
-    get_edge_embedding_fn
+    get_edge_embedding_fn,
+    get_node_embedding_fn,
+    get_node_update_fn
 )
-from models import get_node_embedding_fn
 
 
 class TestModelFunctions(unittest.TestCase):
@@ -217,7 +218,44 @@ class TestModelFunctions(unittest.TestCase):
         sum_nodes_expected = min(max_atomic_number-1, len(nodes))
         self.assertEqual(int(jnp.sum(nodes_embedded)), sum_nodes_expected)
 
-    # TODO (Tim): Add test node update function
+    def test_node_update_fn(self):
+        '''Test the node update function.
+
+        This is equation 9 in PB Jorgensen paper.
+        '''
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        latent_size = 16
+        hk_init = hk.initializers.Identity()
+        node_update_fn = get_node_update_fn(latent_size, hk_init)
+
+        num_nodes = 10
+        nodes = jnp.ones((num_nodes, latent_size))
+        sent_message = {
+            'edges': None,
+            'messages': jnp.ones((num_nodes, latent_size))*2
+        }
+        received_message = {
+            'edges': None,
+            'messages': jnp.ones((num_nodes, latent_size))*3
+        }
+        global_attributes = None
+
+        node_update_fn = hk.transform(node_update_fn)
+        node_update_fn = hk.without_apply_rng(node_update_fn)
+        params = node_update_fn.init(
+            init_rng,
+            nodes, sent_message, received_message, global_attributes
+        )
+
+        nodes_updated = node_update_fn.apply(
+            params,
+            nodes, sent_message, received_message, global_attributes
+        )
+        np.testing.assert_allclose(
+            nodes_updated,
+            shifted_softplus(received_message['messages']) + nodes)
 
 if __name__ == '__main__':
     unittest.main()
