@@ -71,8 +71,6 @@ class TestModelFunctions(unittest.TestCase):
         node_update_fn
         readout_global_fn
         readout_node_update_fn
-
-        TODO (Tim): test non-self edges
         """
         n_node = 10
         n_edge = 4
@@ -119,6 +117,107 @@ class TestModelFunctions(unittest.TestCase):
 
         np.testing.assert_array_equal(prediction.shape, (1, 1))
         self.assertAlmostEqual(label, prediction[0, 0], places=5)
+
+    def test_GNN_standard_graph_output(self):
+        """Test the output of the GNN with a graph with representative edges.
+
+        The graph consists of 3 nodes and 4 edges:
+        o <-> o <- o
+         --------->  (this edge goes from node 0 to node 2).
+        Each node has its index as a feature, e.g. node 1's feature is [1].
+        The edge features go from 1 to 4.
+        The weight matrices are initialized to all constant values of
+        1 / latent_size, to make the analytical result easier to calculate.
+        """
+        self.config.latent_size = 16
+        latent_size = self.config.latent_size
+        self.config.delta = 10
+        self.config.k_max = 16
+        self.config.message_passing_steps = 1
+        self.config.max_atomic_number = 5
+        self.config.hk_init = hk.initializers.Constant(1 / latent_size)
+        self.config.aggregation_message_type = 'sum'
+        self.config.aggregation_readout_type = 'sum'
+
+        n_node = 10
+        n_edge = 4
+        init_graphs = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0, 0, 1, 2]),
+            receivers=jnp.array([1, 2, 0, 0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+
+        n_node = jnp.array([3])
+        n_edge = jnp.array([4])
+        node_features = jnp.array([0, 1, 2])
+        edge_features = jnp.array([1, 2, 3, 4])
+        senders = jnp.array([0, 1, 2, 0])
+        receivers = jnp.array([1, 0, 1, 2])
+
+        graph = jraph.GraphsTuple(
+            nodes=node_features,
+            edges=edge_features,
+            senders=senders,
+            receivers=receivers,
+            n_node=n_node,
+            n_edge=n_edge,
+            globals=None
+        )
+
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        net_fn = GNN(self.config)
+        net = hk.without_apply_rng(hk.transform(net_fn))
+        # Create weights for the model
+        params = net.init(init_rng, init_graphs)
+
+        graph_pred = net.apply(params, graph)
+        prediction = graph_pred.globals
+
+        # Here, we calculate the expected result, starting with the embeddings.
+        nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
+        edge_embedding_fn = get_edge_embedding_fn(
+            latent_size,
+            self.config.k_max,
+            self.config.delta,
+            self.config.mu_min)
+        edges_embedded = edge_embedding_fn(edge_features)['edges']
+        edges_embedded = np.array(edges_embedded)
+
+        # The updated edges.
+        edge_factor = (np.sum(edges_embedded, axis=-1) + 2)/latent_size
+        edge_factor = shifted_softplus(edge_factor)*2
+        edge_factor = np.array(edge_factor)
+
+        edge_updated = jnp.ones((int(n_edge), latent_size))
+        for i in range(int(n_edge)):
+            edge_updated = edge_updated.at[i].set(
+                edge_updated[i] * float(edge_factor[i]))
+
+        # The edge-wise message.
+        messages = shifted_softplus(edge_updated)
+        messages = shifted_softplus(messages)/latent_size
+
+        # Node-wise message
+        message_node = jnp.zeros((int(n_node), latent_size))
+        message_node = message_node.at[0].set(messages[1])
+        message_node = message_node.at[1].set(messages[0] + messages[2])
+        message_node = message_node.at[2].set(messages[3])
+
+        # State-transition
+        nodes_updated = nodes_embedded + shifted_softplus(message_node)
+
+        # Readout
+        nodes_readout = shifted_softplus(nodes_updated[:, 0])/2
+        prediction_expected = jnp.sum(nodes_readout)
+
+        np.testing.assert_array_equal(edge_updated, graph_pred.edges['edges'])
+        self.assertEqual(prediction_expected, prediction)
 
 
     def test_edge_update_fn(self):

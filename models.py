@@ -159,7 +159,7 @@ def get_edge_update_fn(latent_size: int, hk_init):
     Note: Figure 1 activations and equation 7 has a inconsistency. This
         was brought up to PB Jorgensen. In Figure 1 it's the identity function
         for the second activation. In Equation 7 it's the softplus actiavtion
-        again. PB Jorgensen said their is a mistake in Equation 7 and it should
+        again. PB Jorgensen said there is a mistake in Equation 7 and it should
         be the identity function.
 
 
