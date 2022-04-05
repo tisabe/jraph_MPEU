@@ -1,6 +1,8 @@
 """Main training loop/update function."""
 
 import os
+import functools
+import pickle
 from typing import (
     Callable,
     Dict,
@@ -10,6 +12,7 @@ from typing import (
     Any,
     Mapping
 )
+
 from absl import logging
 import jax
 import jax.numpy as jnp
@@ -18,14 +21,12 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
-import functools
-import pickle
 import pandas as pd
 
 # import custom functions
 from models import GNN
 from utils import (
-    Time_logger,
+    #Time_logger,
     replace_globals,
     get_valid_mask,
     save_config
@@ -117,8 +118,8 @@ class CheckpointingUpdater:
                 self._checkpoint_dir,
                 max(self._checkpoint_paths()))
             logging.info('Loading checkpoint from %s', checkpoint)
-        with open(checkpoint, 'rb') as f:
-            state = pickle.load(f)
+        with open(checkpoint, 'rb') as state_file:
+            state = pickle.load(state_file)
             return state
 
     def update(self, state, data):
@@ -134,8 +135,8 @@ class CheckpointingUpdater:
                                 'checkpoint_{:07d}.pkl'.format(step))
             checkpoint_state = jax.device_get(state)
             logging.info('Serializing experiment state to %s', path)
-            with open(path, 'wb') as f:
-                pickle.dump(checkpoint_state, f)
+            with open(path, 'wb') as state_file:
+                pickle.dump(checkpoint_state, state_file)
 
         return state, metrics
 
@@ -188,12 +189,12 @@ class Evaluater:
         if os.path.exists(metrics_path):
             # load metrics, if they have been saved before
             logging.info('Loading metrics from %s', metrics_path)
-            with open(metrics_path, 'rb') as f:
-                self._metrics_dict = pickle.load(f)
+            with open(metrics_path, 'rb') as metrics_file:
+                self._metrics_dict = pickle.load(metrics_file)
             self._loaded_metrics = True
             # load best state and lowest loss
-            with open(best_state_path, 'rb') as f:
-                best_state_dict = pickle.load(f)
+            with open(best_state_path, 'rb') as state_file:
+                best_state_dict = pickle.load(state_file)
                 self.best_state = best_state_dict['state']
                 self.lowest_val_loss = best_state_dict['loss']
         else:
@@ -278,8 +279,8 @@ class Evaluater:
         metrics_dict['queue'] = self.early_stopping_queue
         # save metrics
         path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
-        with open(path, 'wb') as f:
-            pickle.dump(metrics_dict, f)
+        with open(path, 'wb') as metrics_file:
+            pickle.dump(metrics_dict, metrics_file)
 
     def checkpoint_best_state(self):
         """Save/keep track of the lowest loss and associated state."""
@@ -288,8 +289,8 @@ class Evaluater:
                            'loss': self.lowest_val_loss}
         path = os.path.join(self._checkpoint_dir,
                             'best_state.pkl')
-        with open(path, 'wb') as f:
-            pickle.dump(state_loss_dict, f)
+        with open(path, 'wb') as state_file:
+            pickle.dump(state_loss_dict, state_file)
 
     def update(self, state, datasets, eval_splits):
         """Does evaluation, checkpointing and checks for early stopping.
@@ -314,14 +315,16 @@ class Evaluater:
         return early_stop
 
 
-def make_result_csv(x, y, path):
+def make_result_csv(predictions, labels, path):
     """Print predictions x versus labels y in a csv at path.
 
     TODO: Want to refactor this function.
     """
-    dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
-    df = pd.DataFrame(data=dict_res)
-    df.to_csv(path)
+    dict_res = {
+        'x': np.array(predictions).flatten(),
+        'y': np.array(labels).flatten()}
+    result_df = pd.DataFrame(data=dict_res)
+    result_df.to_csv(path)
 
 
 def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
@@ -341,7 +344,6 @@ def create_model(config: ml_collections.ConfigDict):
 def cosine_warm_restarts(
         init_value: float,
         decay_steps: int,
-        multiplier: int = 1
 ) -> Callable[[int], float]:
     '''Return a function that implements a cosine schedule with warm restarts.
     For more details see: https://arxiv.org/abs/1608.03983'''
@@ -351,7 +353,6 @@ def cosine_warm_restarts(
 
     def schedule(count):
         # TODO: implement multiplier
-        num_restarts = count // decay_steps + 1
         count_since_restart = count % decay_steps
         cosine = 0.5 * (1 + jnp.cos(jnp.pi * count_since_restart / decay_steps))
         return init_value * cosine
@@ -364,20 +365,20 @@ def create_optimizer(
     """Create an Optax optimizer object."""
     # TODO: consider including gradient clipping
     if config.schedule == 'exponential_decay':
-        lr = optax.exponential_decay(
+        learning_rate = optax.exponential_decay(
             init_value=config.init_lr,
             transition_steps=config.transition_steps,
             decay_rate=config.decay_rate,
             staircase=True)
     elif config.schedule == 'cosine_decay':
-        lr = cosine_warm_restarts(
+        learning_rate = cosine_warm_restarts(
             init_value=config.init_lr,
             decay_steps=config.transition_steps)
     else:
         raise ValueError(f'Unsupported schedule: {config.schedule}.')
 
     if config.optimizer == 'adam':
-        return optax.adam(learning_rate=lr)
+        return optax.adam(learning_rate=learning_rate)
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 
@@ -392,7 +393,6 @@ def predict_split(
     TODO: Might want to refactor this so that training is is one file and
     eval is in another file.
     """
-    # TODO: put this in evaluater
     preds = np.array([])
     reader_new = DataReader(
         data=dataset_raw,
@@ -459,8 +459,7 @@ def init_state(
         config.checkpoint_every_steps,
         config.eval_every_steps)
 
-    rng = jax.random.PRNGKey(42)
-    state = updater.init(rng, init_graphs)
+    state = updater.init(init_rng, init_graphs)
 
     return updater, state, evaluater
 
@@ -480,7 +479,7 @@ def restore_loss_curve(ckpt_dir, splits, std):
     return loss_dict
 
 
-def save_loss_curve(loss_dict, dir, splits, std):
+def save_loss_curve(loss_dict, ckpt_dir, splits, std):
     """Save the loss curve from the loss dictionary.
 
     TODO: Refactor.
@@ -491,7 +490,7 @@ def save_loss_curve(loss_dict, dir, splits, std):
         loss_split[:, 1] = loss_split[:, 1]*std
         # save the loss curves
         np.savetxt(
-            f'{dir}/{split}_loss.csv',
+            f'{ckpt_dir}/{split}_loss.csv',
             np.array(loss_split), delimiter=',')
 
 
@@ -500,7 +499,7 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, datasets_raw, mean, std = get_datasets(config)
+    datasets, _, _, _ = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection
