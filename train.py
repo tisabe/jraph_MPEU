@@ -2,13 +2,11 @@
 
 import os
 from typing import (
-    NamedTuple, 
-    Callable, 
-    Dict, 
-    Iterable, 
-    Sequence, 
+    Callable,
+    Dict,
+    Iterable,
+    Sequence,
     Tuple,
-    Optional,
     Any,
     Mapping
 )
@@ -45,7 +43,7 @@ class Updater:
     """
 
     def __init__(self, net, loss_fn,
-                optimizer: optax.GradientTransformation):
+                 optimizer: optax.GradientTransformation):
         self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
@@ -98,9 +96,9 @@ class CheckpointingUpdater:
     - Automatically garbage collect old checkpoints.
     """
     def __init__(self,
-                inner: Updater,
-                checkpoint_dir: str,
-                checkpoint_every_n: int):
+                 inner: Updater,
+                 checkpoint_dir: str,
+                 checkpoint_every_n: int):
         self._inner = inner
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_every_n = checkpoint_every_n
@@ -115,8 +113,9 @@ class CheckpointingUpdater:
             os.makedirs(self._checkpoint_dir, exist_ok=True)
             return self._inner.init(rng, data)
         else:
-            checkpoint = os.path.join(self._checkpoint_dir,
-                                max(self._checkpoint_paths()))
+            checkpoint = os.path.join(
+                self._checkpoint_dir,
+                max(self._checkpoint_paths()))
             logging.info('Loading checkpoint from %s', checkpoint)
         with open(checkpoint, 'rb') as f:
             state = pickle.load(f)
@@ -143,7 +142,7 @@ class CheckpointingUpdater:
 
 class Evaluater:
     """A class to evaluate the model with, save and checkpoint loss metrics.
-    
+
     Args:
         net: network function, made by haiku.Transform, has a .apply function
         loss_fn: callable that computes loss using model parameters, input graph
@@ -168,12 +167,14 @@ class Evaluater:
 
         early_stop = evaluater.update(state, datasets, eval_splits)
     """
-    def __init__(self, net, loss_fn, checkpoint_dir: str,
+    def __init__(
+            self, net, loss_fn, checkpoint_dir: str,
             checkpoint_every_n: int, eval_every_n: int):
         self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
         self.val_queue = []
+        self.loss_dict = {}
         self.best_state = None # save the state with lowest validation error in best state
         self.lowest_val_loss = None
         self._checkpoint_dir = checkpoint_dir
@@ -181,8 +182,9 @@ class Evaluater:
         self._eval_every_n = eval_every_n
         # load loss curve if metrics file exists in checkpoint_dir
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
-        best_state_path = os.path.join(self._checkpoint_dir, 
-                'best_state.pkl')
+        best_state_path = os.path.join(
+            self._checkpoint_dir,
+            'best_state.pkl')
         if os.path.exists(metrics_path):
             # load metrics, if they have been saved before
             logging.info('Loading metrics from %s', metrics_path)
@@ -210,23 +212,23 @@ class Evaluater:
             graphs: Sequence[jraph.GraphsTuple],
             batch_size: int) -> float:
         """Return mean loss for all graphs in graphs."""
-        
-        reader = DataReader(data=graphs, 
-            batch_size=batch_size, repeat=False)
-        
+
+        reader = DataReader(
+            data=graphs, batch_size=batch_size, repeat=False)
+
         loss_list = [self._evaluate_step(state, batch) for batch in reader]
         return np.mean(loss_list)
 
     def evaluate_model(
-            self, 
+            self,
             state: Dict,
             datasets: Dict[str, Iterable[jraph.GraphsTuple]],
             splits: Iterable[str]) -> Dict[str, float]:
         """Return mean loss for every split in splits."""
         loss_dict = {}
         for split in splits:
-            loss_dict[split] = self.evaluate_split(state, 
-                    datasets[split].data, datasets[split].batch_size)
+            loss_dict[split] = self.evaluate_split(
+                state, datasets[split].data, datasets[split].batch_size)
             if split == 'validation':
                 if self.best_state is None or loss_dict[split] < self.lowest_val_loss:
                     self.best_state = state.copy()
@@ -235,7 +237,7 @@ class Evaluater:
 
     def init_loss_lists(self, splits):
         """Initialize a dict to save evaluation losses in."""
-        self.loss_dict = {}
+
         if not self._loaded_metrics:
             for split in splits:
                 self.loss_dict[split] = []
@@ -245,7 +247,7 @@ class Evaluater:
             for split in splits:
                 self.loss_dict[split] = self._metrics_dict[split]
             self.early_stopping_queue = self._metrics_dict['queue']
-    
+
     def save_losses(self, loss_dict, splits, step):
         """Append values in loss_dict to self.loss_dict for all splits.
 
@@ -257,10 +259,10 @@ class Evaluater:
                 self.early_stopping_queue.append(loss_dict[split])
 
     def check_early_stopping(self):
-        """Check the early stopping criterion. 
-        
-        If the newest validaiton loss in self.early_stopping_queue is higher 
-        than the zeroth one return True for early stopping. Otherwise, delete 
+        """Check the early stopping criterion.
+
+        If the newest validaiton loss in self.early_stopping_queue is higher
+        than the zeroth one return True for early stopping. Otherwise, delete
         the zeroth element in queue and return False for no early stopping.
         """
         queue = self.early_stopping_queue  # abbreviation
@@ -269,7 +271,7 @@ class Evaluater:
         else:
             queue.pop(0)  # Note: also modifies self.early_stopping_queue
             return False
-    
+
     def checkpoint_losses(self):
         """Save metrics to a dictionary at checkpoint."""
         metrics_dict = self.loss_dict.copy()
@@ -282,10 +284,10 @@ class Evaluater:
     def checkpoint_best_state(self):
         """Save/keep track of the lowest loss and associated state."""
         # save best state
-        state_loss_dict = {'state': self.best_state, 
-                'loss': self.lowest_val_loss}
-        path = os.path.join(self._checkpoint_dir, 
-                'best_state.pkl')
+        state_loss_dict = {'state': self.best_state,
+                           'loss': self.lowest_val_loss}
+        path = os.path.join(self._checkpoint_dir,
+                            'best_state.pkl')
         with open(path, 'wb') as f:
             pickle.dump(state_loss_dict, f)
 
@@ -314,7 +316,7 @@ class Evaluater:
 
 def make_result_csv(x, y, path):
     """Print predictions x versus labels y in a csv at path.
-    
+
     TODO: Want to refactor this function.
     """
     dict_res = {'x': np.array(x).flatten(), 'y': np.array(y).flatten()}
@@ -337,9 +339,9 @@ def create_model(config: ml_collections.ConfigDict):
 
 
 def cosine_warm_restarts(
-    init_value: float,
-    decay_steps: int,
-    multiplier: int=1
+        init_value: float,
+        decay_steps: int,
+        multiplier: int = 1
 ) -> Callable[[int], float]:
     '''Return a function that implements a cosine schedule with warm restarts.
     For more details see: https://arxiv.org/abs/1608.03983'''
@@ -363,13 +365,13 @@ def create_optimizer(
     # TODO: consider including gradient clipping
     if config.schedule == 'exponential_decay':
         lr = optax.exponential_decay(
-                init_value=config.init_lr, 
-                transition_steps=config.transition_steps, 
-                decay_rate=config.decay_rate,
-                staircase=True)
+            init_value=config.init_lr,
+            transition_steps=config.transition_steps,
+            decay_rate=config.decay_rate,
+            staircase=True)
     elif config.schedule == 'cosine_decay':
         lr = cosine_warm_restarts(
-            init_value=config.init_lr, 
+            init_value=config.init_lr,
             decay_steps=config.transition_steps)
     else:
         raise ValueError(f'Unsupported schedule: {config.schedule}.')
@@ -392,7 +394,8 @@ def predict_split(
     """
     # TODO: put this in evaluater
     preds = np.array([])
-    reader_new = DataReader(data=dataset_raw, 
+    reader_new = DataReader(
+        data=dataset_raw,
         batch_size=config.batch_size, repeat=False)
 
     for graphs in reader_new:
@@ -448,12 +451,13 @@ def init_state(
 
     updater = Updater(net, loss_fn, optimizer)
     updater = CheckpointingUpdater(
-            updater, os.path.join(workdir, 'checkpoints'),
-            config.checkpoint_every_steps)
-    evaluater = Evaluater(net, loss_fn,
-            os.path.join(workdir, 'checkpoints'),
-            config.checkpoint_every_steps,
-            config.eval_every_steps)
+        updater, os.path.join(workdir, 'checkpoints'),
+        config.checkpoint_every_steps)
+    evaluater = Evaluater(
+        net, loss_fn,
+        os.path.join(workdir, 'checkpoints'),
+        config.checkpoint_every_steps,
+        config.eval_every_steps)
 
     rng = jax.random.PRNGKey(42)
     state = updater.init(rng, init_graphs)
@@ -461,16 +465,17 @@ def init_state(
     return updater, state, evaluater
 
 
-def restore_loss_curve(dir, splits, std):
+def restore_loss_curve(ckpt_dir, splits, std):
     """Load the loss curve as a dictionary.
 
     TODO: Refactor.
     """
     loss_dict = {}
     for split in splits:
-        loss_split = np.loadtxt(f'{dir}/{split}_loss.csv', 
+        loss_split = np.loadtxt(
+            f'{ckpt_dir}/{split}_loss.csv',
             delimiter=',', ndmin=2)
-        loss_split[:,1] = loss_split[:,1]/std
+        loss_split[:, 1] = loss_split[:, 1]/std
         loss_dict[split] = loss_split.tolist()
     return loss_dict
 
@@ -483,9 +488,10 @@ def save_loss_curve(loss_dict, dir, splits, std):
     for split in splits:
         loss_split = np.array(loss_dict[split])
         # convert loss column to eV
-        loss_split[:,1] = loss_split[:,1]*std
+        loss_split[:, 1] = loss_split[:, 1]*std
         # save the loss curves
-        np.savetxt(f'{dir}/{split}_loss.csv', 
+        np.savetxt(
+            f'{dir}/{split}_loss.csv',
             np.array(loss_split), delimiter=',')
 
 
@@ -515,7 +521,7 @@ def train_and_evaluate(
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.
     initial_step = int(state['step']) + 1
- 
+
     # Begin training loop.
     logging.info('Starting training.')
     # time_logger = Time_logger(config)
@@ -537,7 +543,7 @@ def train_and_evaluate(
             #time_logger.log_eta(step)
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
-        # Get evaluation on all splits of the data (train/validation/test), 
+        # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits)
