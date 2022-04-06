@@ -1,3 +1,7 @@
+import os
+import time
+import json
+
 import jax
 import jax.numpy as jnp
 import jraph
@@ -6,10 +10,6 @@ from ast import literal_eval
 import pandas
 import ml_collections
 import logging
-
-import os
-import time
-import json
 
 from typing import Dict, Generator, Mapping, Tuple, NamedTuple
 
@@ -38,10 +38,28 @@ def str_to_array_float(str_array):
 
 
 def save_config(config: ml_collections.ConfigDict, workdir: str):
+    """"Save the config in a human and machine-readable json file.
+
+    File will be saved as config.json at workdir directory.
+    """
     config_dict = vars(config)['_fields']
-    with open(os.path.join(workdir, 'config.txt'), 'w') as file:
-        for key in config_dict:
-            file.write(f'{key}: {str(config_dict[key])}\n')
+    with open(os.path.join(workdir, 'config.json'), 'w') as config_file:
+        json.dump(config_dict, config_file, indent=4, separators=(',', ': '))
+
+
+def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
+    """Convert a dict with parameter fields to a ml_collections.ConfigDict."""
+    config = ml_collections.ConfigDict()
+    for key in config_dict.keys():
+        config[key] = config_dict[key]
+    return config
+
+
+def load_config(workdir: str) -> ml_collections.ConfigDict:
+    """Load and return a config from the directory workdir."""
+    with open(os.path.join(workdir, 'config.json'), 'r') as config_file:
+        config_dict = json.load(config_file)
+    return dict_to_config(config_dict)
 
 
 def dist_matrix(position_matrix):
