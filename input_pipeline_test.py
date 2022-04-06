@@ -11,51 +11,64 @@ from input_pipeline import (
     ase_row_to_jraph,
     asedb_to_graphslist,
     atoms_to_nodes_list,
-    get_dataset_single
 )
 from utils import add_labels_to_graphs
 
-class TestHelperFunctions(unittest.TestCase):
+class TestPipelineFunctions(unittest.TestCase):
     def test_DataReader_no_repeat(self):
-        n = 20 # number of graphs
-        graph = jraph.GraphsTuple(nodes=np.asarray([0,1,2,3,4]),
-                      edges=np.ones((6,2)),
-                      senders=np.array([0, 1]), 
-                      receivers=np.array([2, 2]),
-                      n_node=np.asarray([5]),
-                      n_edge=np.asarray([6]),
-                      globals=None)
-        graphs = [graph] * n
-        labels = [i for i in range(n)]
+        """Test the DataReader without repeating."""
+
+        num_graphs = 20 # number of graphs
+        graph = jraph.GraphsTuple(
+            nodes=np.asarray([0, 1, 2, 3, 4]),
+            edges=np.ones((6, 2)),
+            senders=np.array([0, 1]),
+            receivers=np.array([2, 2]),
+            n_node=np.asarray([5]),
+            n_edge=np.asarray([6]),
+            globals=None)
+        graphs = [graph] * num_graphs
+        labels = range(num_graphs)
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
 
         reader = DataReader(graphs, batch_size, False, 42)
-        print('This should not loop')
-        for batch in reader:
-            print(batch.globals)
-        # TODO: quantify test
+        expected_batches = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 0],
+            [9, 10, 11, 12, 13, 14, 15, 16, 17, 0],
+            [18, 19, 0, 0, 0, 0, 0, 0, 0, 0]
+        ]
+        for batch, expected_batch in zip(reader, expected_batches):
+            np.testing.assert_array_equal(batch.globals, expected_batch)
 
     def test_DataReader_repeat(self):
-        n = 20 # number of graphs
-        graph = jraph.GraphsTuple(nodes=np.asarray([0,1,2,3,4]),
-                      edges=np.ones((6,2)),
-                      senders=np.array([0, 1]), 
-                      receivers=np.array([2, 2]),
-                      n_node=np.asarray([5]),
-                      n_edge=np.asarray([6]),
-                      globals=None)
-        graphs = [graph] * n
-        labels = [i for i in range(n)]
+        """Test the DataReader repeating and shuffling."""
+
+        num_graphs = 20 # number of graphs
+        graph = jraph.GraphsTuple(
+            nodes=np.asarray([0, 1, 2, 3, 4]),
+            edges=np.ones((6, 2)),
+            senders=np.array([0, 1]),
+            receivers=np.array([2, 2]),
+            n_node=np.asarray([5]),
+            n_edge=np.asarray([6]),
+            globals=None)
+        graphs = [graph] * num_graphs
+        labels = range(num_graphs)
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
-
+        num_batches = 3  # Number of batches to query and test
         reader = DataReader(graphs, batch_size, True, 42)
-        print('This should loop and shuffle')
-        print(next(reader).globals)
-        print(next(reader).globals)
-        print(next(reader).globals)
-        # TODO: quantify test
+        labels_repeat_sum = 0
+
+        for _ in range(num_batches):
+            graphs = next(reader)
+            labels_batch = graphs.globals
+            labels_repeat_sum += np.sum(labels_batch)
+
+        # Check that the accumulated sum of labels is larger than the sum of
+        # original labels. This can only be true if the reader is looping.
+        self.assertTrue(labels_repeat_sum > np.sum(labels))
 
     def test_ase_row_to_jraph(self):
         db = ase.db.connect('matproj/mp_graphs.db')
@@ -95,12 +108,12 @@ class TestHelperFunctions(unittest.TestCase):
                     key_value_pairs = row.key_value_pairs
                     self.assertIsInstance(key_value_pairs, dict)
                     # check that all the keys are the same
-                    if i==0:
+                    if i == 0:
                         keys_list0 = key_value_pairs.keys()
                         #print(keys_list0)
                     else:
                         self.assertCountEqual(key_value_pairs.keys(), keys_list0)
-        return 0 
+        return 0
 
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
@@ -120,19 +133,19 @@ class TestHelperFunctions(unittest.TestCase):
                     self.assertIsInstance(key_value_pairs, dict)
                     self.assertIsInstance(data, dict)
                     # check that all the keys are the same
-                    if i==0:
+                    if i == 0:
                         keys_list0 = key_value_pairs.keys()
                         print(keys_list0)
                         #print(data)
                     else:
                         self.assertCountEqual(key_value_pairs.keys(), keys_list0)
                         self.assertCountEqual(data.keys(), data_keys_expected)
-                    if len(data.edges)==0:
+                    if len(data.edges) == 0:
                         count_no_edges += 1
                         print(row.toatoms())
                 print(f'Number of graphs with zero edges: {count_no_edges}')
         return 0
-    
+
     def test_atoms_to_nodes_list(self):
         '''Example: atomic numbers as nodes before:
         [1 1 1 6] Methane
@@ -142,18 +155,21 @@ class TestHelperFunctions(unittest.TestCase):
         [0 0 0 1]
         [0 0 0 0 0 0 1 1]
         [0 0 0 0 1 2]'''
-        graph0 = jraph.GraphsTuple(n_node=[4], nodes=np.array([1,1,1,6]),
-            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
-        graph1 = jraph.GraphsTuple(n_node=[8], nodes=np.array([1,1,1,1,1,1,6,6]),
-            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
-        graph2 = jraph.GraphsTuple(n_node=[6], nodes=np.array([1,1,1,1,6,8]),
-            n_edge=None, edges=None, senders=None, receivers=None, globals=None)
+        graph0 = jraph.GraphsTuple(
+            n_node=[4], nodes=np.array([1, 1, 1, 6]), n_edge=None, edges=None,
+            senders=None, receivers=None, globals=None)
+        graph1 = jraph.GraphsTuple(
+            n_node=[8], nodes=np.array([1, 1, 1, 1, 1, 1, 6, 6]), n_edge=None,
+            edges=None, senders=None, receivers=None, globals=None)
+        graph2 = jraph.GraphsTuple(
+            n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
+            edges=None, senders=None, receivers=None, globals=None)
         graphs = [graph0, graph1, graph2]
         graphs, num_classes = atoms_to_nodes_list(graphs)
-        
-        nodes0_expected = np.array([0,0,0,1])
-        nodes1_expected = np.array([0,0,0,0,0,0,1,1])
-        nodes2_expected = np.array([0,0,0,0,1,2])
+
+        nodes0_expected = np.array([0, 0, 0, 1])
+        nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])
+        nodes2_expected = np.array([0, 0, 0, 0, 1, 2])
         nodes0 = graphs[0].nodes
         nodes1 = graphs[1].nodes
         nodes2 = graphs[2].nodes
@@ -162,23 +178,6 @@ class TestHelperFunctions(unittest.TestCase):
         np.testing.assert_array_equal(nodes2_expected, nodes2)
         self.assertEqual(num_classes, 3)
 
-    def test_get_dataset_single(self):
-        config = ml_collections.ConfigDict()
-        config.data_file = 'QM9/qm9_graphs.db'
-        config.label_str = 'U0'
-        config.limit_data = 200
-        config.selection = None
-        # aggregation type needs to be set to determine which normalization is used
-        config.aggregation_readout_type = 'sum'
-
-        dataset, mean, std = get_dataset_single(config)
-        self.assertIsInstance(std, float)
-        self.assertIsInstance(mean, float)
-        self.assertEqual(config.limit_data, len(dataset))
-        for graph in dataset:
-            self.assertIsInstance(graph, jraph.GraphsTuple)
-
 
 if __name__ == '__main__':
     unittest.main()
-
