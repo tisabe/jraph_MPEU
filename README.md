@@ -11,17 +11,7 @@ All this code is experimental, run at your own risk!
 Only tested on Python 3.7.3
 
 ## Python library requirements:  
-Jax (only GPU version has been tested)  
-tensorflow
-spektral
-numpy
-jraph
-dm-haiku
-optax 
-pandas  
-tqdm
-sklearn
-ase
+See requirements.txt. Only GPU version of JAX has been tested.
 
 If any other libraries are missing, just pip install them, the above list might not be complete.
 
@@ -29,7 +19,6 @@ We use:
 - Optax for the training optimizer.
 - Jraph for the graph neural network.
 - Haiku for the fully connected neural networks (used to compute edge/message updates and for the readout function).
-- Flax for the training loop (it keeps track of the training state and works well with Optax).
 
 
 ## How to get this running:  
