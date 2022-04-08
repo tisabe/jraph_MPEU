@@ -69,7 +69,8 @@ class Updater:
         """Updates the state using some data and returns metrics."""
         #rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
-        loss, grad = jax.value_and_grad(self._loss_fn)(params, data, self._net_apply)
+        (loss, mae), grad = jax.value_and_grad(
+            self._loss_fn, has_aux=True)(params, data, self._net_apply)
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
         params = optax.apply_updates(params, updates)
@@ -204,8 +205,8 @@ class Evaluater:
     def _evaluate_step(
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
         """Calculate the mean loss for a batch of graphs."""
-        mean_loss = self._loss_fn(state['params'], graphs, self._net_apply)
-        return mean_loss
+        (mean_loss, (mae)) = self._loss_fn(state['params'], graphs, self._net_apply)
+        return [mean_loss, mae]
 
     def evaluate_split(
             self,
@@ -218,7 +219,7 @@ class Evaluater:
             data=graphs, batch_size=batch_size, repeat=False)
 
         loss_list = [self._evaluate_step(state, batch) for batch in reader]
-        return np.mean(loss_list)
+        return np.mean(loss_list, axis=0)
 
     def evaluate_model(
             self,
@@ -231,9 +232,9 @@ class Evaluater:
             loss_dict[split] = self.evaluate_split(
                 state, datasets[split].data, datasets[split].batch_size)
             if split == 'validation':
-                if self.best_state is None or loss_dict[split] < self.lowest_val_loss:
+                if self.best_state is None or loss_dict[split][0] < self.lowest_val_loss:
                     self.best_state = state.copy()
-                    self.lowest_val_loss = loss_dict[split]
+                    self.lowest_val_loss = loss_dict[split][0]
         return loss_dict
 
     def init_loss_lists(self, splits):
@@ -257,7 +258,7 @@ class Evaluater:
         for split in splits:
             self.loss_dict[split].append([step, loss_dict[split]])
             if split == 'validation':
-                self.early_stopping_queue.append(loss_dict[split])
+                self.early_stopping_queue.append(loss_dict[split][0])
 
     def check_early_stopping(self):
         """Check the early stopping criterion.
@@ -446,8 +447,9 @@ def init_state(
         # TODO: make different loss functions available in config
         loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
+        mae = jnp.sum(jnp.abs((predictions - labels)*mask))
 
-        return mean_loss
+        return mean_loss, mae
 
     updater = Updater(net, loss_fn, optimizer)
     updater = CheckpointingUpdater(
