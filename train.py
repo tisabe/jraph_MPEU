@@ -69,7 +69,7 @@ class Updater:
         """Updates the state using some data and returns metrics."""
         #rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
-        (loss, mae), grad = jax.value_and_grad(
+        (loss, _), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, data, self._net_apply)
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
@@ -447,7 +447,8 @@ def init_state(
         # TODO: make different loss functions available in config
         loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
-        mae = jnp.sum(jnp.abs((predictions - labels)*mask))
+        absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
+        mae = absolute_error /jnp.sum(mask)
 
         return mean_loss, mae
 
