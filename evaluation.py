@@ -63,26 +63,51 @@ def get_predictions(dataset, net, params):
         preds_batch, mask = predict_batch(graph)
         # get only the valid, unmasked predictions
         preds_valid = preds_batch[mask]
-        print(preds_valid)
         preds = np.concatenate([preds, preds_valid], axis=0)
 
     return preds
 
 
+def mean_absolute_error(predictions, targets):
+    """Return the MAE, or mean absolute distance between prediction and target.
+    """
+    return np.mean(np.abs(predictions - targets))
+
+
 def main(args):
     workdir = args.folder
-
-    print('Loading datasets.')
-    dataset, dataset_raw, mean, std = load_data(workdir)
-    data_list = dataset['validation'].data
+    # TODO: print scaled MAE, MSE etc., different splits
     print('Loading model.')
     net, params = load_model(workdir)
-    print('Predicting.')
-    preds = get_predictions(data_list, net, params)
-    targets = [graph.globals[0] for graph in data_list]
-    print(np.shape(preds))
-    print(np.shape(targets))
-    plt.scatter(targets, preds)
+    print('Loading datasets.')
+    dataset, dataset_raw, mean, std = load_data(workdir)
+    splits = dataset.keys()
+
+    fig, ax = plt.subplots(2)
+    marker_size = 0.3
+
+    for split in splits:
+        data_list = dataset[split].data
+        print(f'Predicting {split} data.')
+        preds = get_predictions(data_list, net, params)
+        targets = [graph.globals[0] for graph in data_list]
+        # scale the predictions and targets using the std
+        preds = preds*float(std)
+        targets = np.array(targets)*float(std)
+        error = np.abs(preds - targets)
+        mae = mean_absolute_error(preds, targets)
+        print(f'Number of graphs: {len(preds)}')
+        print(f'MAE: {mae} eV')
+        ax[0].scatter(targets, preds, s=marker_size, label=split)
+        ax[1].scatter(targets, error, s=marker_size, label=split)
+
+    ax[0].set_title('Model regression performance')
+    ax[0].set_ylabel('prediction')
+    ax[1].set_xlabel('target')
+    ax[1].set_ylabel('error')
+    ax[0].legend()
+    ax[1].legend()
+    ax[1].set_yscale('log')
     plt.show()
 
 
@@ -91,7 +116,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Show regression plot and loss curve.')
     parser.add_argument(
-        '-f', '-F', type=str, dest='folder', default='results/qm9/default',
+        '-f', '-F', type=str, dest='folder', default='results/qm9/test_eval',
         help='input directory name')
     args = parser.parse_args()
     main(args)
