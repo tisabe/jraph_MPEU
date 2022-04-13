@@ -21,7 +21,6 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
-import pandas as pd
 
 # import custom functions
 from models import GNN
@@ -182,6 +181,7 @@ class Evaluater:
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_every_n = checkpoint_every_n
         self._eval_every_n = eval_every_n
+        self._loss_scalar = 1.0
         # load loss curve if metrics file exists in checkpoint_dir
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         best_state_path = os.path.join(
@@ -201,6 +201,16 @@ class Evaluater:
         else:
             self._loaded_metrics = False
 
+    def set_loss_scalar(self, scalar):
+        """Set a scalar to multiply the saved losses with.
+
+        This scalar will be multiplied with both MSE loss and MAE, the intended
+        usecase is to use the standard deviation of the dataset, if the dataset
+        has been normalized, to scale the saved losses back to the original
+        value.
+        """
+        self._loss_scalar = scalar
+
     def checkpoint_best_state(self):
         """Save/keep track of the lowest loss and associated state."""
         state_loss_dict = {'state': self.best_state,
@@ -215,7 +225,7 @@ class Evaluater:
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
         """Calculate the mean loss for a batch of graphs."""
         (mean_loss, (mae)) = self._loss_fn(state['params'], graphs, self._net_apply)
-        return [mean_loss, mae]
+        return [mean_loss*self._loss_scalar, mae*self._loss_scalar]
 
     def evaluate_split(
             self,
@@ -236,7 +246,7 @@ class Evaluater:
             datasets: Dict[str, Iterable[jraph.GraphsTuple]],
             splits: Iterable[str]) -> Dict[str, float]:
         """Return mean loss for every split in splits.
-        
+
         Also save a checkpoint of the best state, so it is not lost if loss
         decreases, but training stops before the next checkpoint."""
         loss_dict = {}
@@ -306,7 +316,7 @@ class Evaluater:
         if step % self._eval_every_n == 0:
             eval_loss = self.evaluate_model(state, datasets, eval_splits)
             for split in eval_splits:
-                logging.info(f'MSE {split}: {eval_loss[split]}')
+                logging.info(f'MSE/MAE {split}: {eval_loss[split]}')
             self.save_losses(eval_loss, eval_splits, step)
             early_stop = self.check_early_stopping()
         else:
@@ -317,18 +327,6 @@ class Evaluater:
             self.checkpoint_best_state()
 
         return early_stop
-
-
-def make_result_csv(predictions, labels, path):
-    """Print predictions x versus labels y in a csv at path.
-
-    TODO: Want to refactor this function.
-    """
-    dict_res = {
-        'x': np.array(predictions).flatten(),
-        'y': np.array(labels).flatten()}
-    result_df = pd.DataFrame(data=dict_res)
-    result_df.to_csv(path)
 
 
 def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
@@ -384,38 +382,6 @@ def create_optimizer(
     if config.optimizer == 'adam':
         return optax.adam(learning_rate=learning_rate)
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
-
-
-def predict_split(
-        state: Dict,
-        dataset_raw: Sequence[jraph.GraphsTuple],
-        config: ml_collections.ConfigDict) -> Sequence[float]:
-    """Combine predictions into a list that's returned.
-
-    Use the MPNN from the state variable and feed in the dataset_raw graphs.
-
-    TODO: Might want to refactor this so that training is is one file and
-    eval is in another file.
-    """
-    preds = np.array([])
-    reader_new = DataReader(
-        data=dataset_raw,
-        batch_size=config.batch_size, repeat=False)
-
-    for graphs in reader_new:
-        labels = graphs.globals
-        graphs = replace_globals(graphs)
-
-        mask = get_valid_mask(labels, graphs)
-        # Apply the MPNN on the input graphs.
-        pred_graphs = state.apply_fn(state.params, graphs)
-        preds_batch = pred_graphs.globals
-        # Throw away all padding labels
-        preds_batch_valid = preds_batch[mask]
-        # Update predictions list.
-        preds = np.concatenate((preds, preds_batch_valid), axis=0)
-
-    return preds
 
 
 def init_state(
@@ -505,7 +471,7 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, _, _ = get_datasets(config)
+    datasets, _, _, std = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection
@@ -522,6 +488,7 @@ def train_and_evaluate(
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
+    evaluater.set_loss_scalar(std)
 
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.

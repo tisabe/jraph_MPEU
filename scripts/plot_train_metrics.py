@@ -14,7 +14,7 @@ def plot_curve(metrics_dict, splits, folder):
 
     for split in splits:
         loss = np.array(metrics_dict[split])
-        ax.plot(loss[:, 0], loss[:, 1], label=split)      
+        ax.plot(loss[:, 0], loss[:, 1], label=split)
 
     ax.legend()
     ax.set_xlabel('gradient step')

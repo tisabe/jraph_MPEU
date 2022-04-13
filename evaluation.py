@@ -68,12 +68,6 @@ def get_predictions(dataset, net, params):
     return preds
 
 
-def mean_absolute_error(predictions, targets):
-    """Return the MAE, or mean absolute distance between prediction and target.
-    """
-    return np.mean(np.abs(predictions - targets))
-
-
 def main(args):
     workdir = args.folder
     # TODO: print scaled MAE, MSE etc., different splits
@@ -95,8 +89,10 @@ def main(args):
         preds = preds*float(std)
         targets = np.array(targets)*float(std)
         error = np.abs(preds - targets)
-        mae = mean_absolute_error(preds, targets)
+        mae = np.mean(error)
+        mse = np.mean(np.square(error))
         print(f'Number of graphs: {len(preds)}')
+        print(f'MSE: {mse} eV')
         print(f'MAE: {mae} eV')
         ax[0].scatter(targets, preds, s=marker_size, label=split)
         ax[1].scatter(targets, error, s=marker_size, label=split)
