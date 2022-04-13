@@ -201,6 +201,15 @@ class Evaluater:
         else:
             self._loaded_metrics = False
 
+    def checkpoint_best_state(self):
+        """Save/keep track of the lowest loss and associated state."""
+        state_loss_dict = {'state': self.best_state,
+                           'loss': self.lowest_val_loss}
+        path = os.path.join(self._checkpoint_dir,
+                            'best_state.pkl')
+        with open(path, 'wb') as state_file:
+            pickle.dump(state_loss_dict, state_file)
+
     @functools.partial(jax.jit, static_argnums=0)
     def _evaluate_step(
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
@@ -226,7 +235,10 @@ class Evaluater:
             state: Dict,
             datasets: Dict[str, Iterable[jraph.GraphsTuple]],
             splits: Iterable[str]) -> Dict[str, float]:
-        """Return mean loss for every split in splits."""
+        """Return mean loss for every split in splits.
+        
+        Also save a checkpoint of the best state, so it is not lost if loss
+        decreases, but training stops before the next checkpoint."""
         loss_dict = {}
         for split in splits:
             loss_dict[split] = self.evaluate_split(
@@ -235,6 +247,7 @@ class Evaluater:
                 if self.best_state is None or loss_dict[split][0] < self.lowest_val_loss:
                     self.best_state = state.copy()
                     self.lowest_val_loss = loss_dict[split][0]
+                    self.checkpoint_best_state()
         return loss_dict
 
     def init_loss_lists(self, splits):
@@ -282,16 +295,6 @@ class Evaluater:
         path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         with open(path, 'wb') as metrics_file:
             pickle.dump(metrics_dict, metrics_file)
-
-    def checkpoint_best_state(self):
-        """Save/keep track of the lowest loss and associated state."""
-        # save best state
-        state_loss_dict = {'state': self.best_state,
-                           'loss': self.lowest_val_loss}
-        path = os.path.join(self._checkpoint_dir,
-                            'best_state.pkl')
-        with open(path, 'wb') as state_file:
-            pickle.dump(state_loss_dict, state_file)
 
     def update(self, state, datasets, eval_splits):
         """Does evaluation, checkpointing and checks for early stopping.
