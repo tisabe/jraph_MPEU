@@ -1,31 +1,18 @@
-import argparse
+"""Plot the train metrics saved after evaluating during the training.
 
-import numpy as np
-import pandas
-import matplotlib.pyplot as plt
-import matplotlib
-from scipy.stats import gaussian_kde
-from sklearn.metrics import r2_score
+Plot MSE and MAE. In training MSE is optimized, but MSE will be the final
+metric. Both metrics have been scaled back to the real un-normalized value,
+using the standard deviation of the labels."""
+
+import argparse
 import pickle
 
-
-def plot_curve(metrics_dict, splits, folder):
-    fig, ax = plt.subplots()
-
-    for split in splits:
-        loss = np.array(metrics_dict[split])
-        ax.plot(loss[:, 0], loss[:, 1], label=split)
-
-    ax.legend()
-    ax.set_xlabel('gradient step')
-    ax.set_ylabel('MSE (eV^2), standardized')
-    plt.yscale('log')
-    plt.show()
-    plt.savefig(folder+'/curve.png')
+import matplotlib.pyplot as plt
 
 
-def main(args):
-    folder = args.file
+def main(args_parsed):
+    """Plot training curves."""
+    folder = args_parsed.file
 
     splits = ['train', 'validation', 'test']
 
@@ -35,19 +22,25 @@ def main(args):
         #metrics_path = 'results/mp/cutoff/lowlr/checkpoints/metrics.pkl'
         with open(metrics_path, 'rb') as metrics_file:
             metrics_dict = pickle.load(metrics_file)
-        
-        fig, ax = plt.subplots()
+
+        _, ax = plt.subplots(2)
 
         for split in splits:
             metrics = metrics_dict[split]
-            loss = [row[1][1] for row in metrics]
+            loss_mse = [row[1][0] for row in metrics]
+            loss_mae = [row[1][1] for row in metrics]
             step = [int(row[0]) for row in metrics]
-            ax.plot(step, loss, label=split)
+            ax[0].plot(step, loss_mae, label=split)
+            ax[1].plot(step, loss_mse, label=split)
 
-        ax.legend()
-        ax.set_xlabel('gradient step')
-        ax.set_ylabel('MAE (eV), standardized')
-        plt.yscale('log')
+        ax[0].legend()
+        ax[1].legend()
+        ax[0].set_xlabel('gradient step')
+        ax[1].set_xlabel('gradient step')
+        ax[0].set_ylabel('MSE (eV)')
+        ax[1].set_ylabel('MAE (eV)')
+        ax[0].set_yscale('log')
+        ax[1].set_yscale('log')
         plt.show()
         plt.savefig(folder+'/curve.png')
     except FileNotFoundError:
