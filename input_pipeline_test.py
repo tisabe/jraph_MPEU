@@ -1,10 +1,9 @@
+"""Test the functions of the input_pipeline_test.py module."""
+
 import unittest
-import jax
 import jraph
 import numpy as np
 import ase.db
-import pandas as pd
-import ml_collections
 
 from input_pipeline import (
     DataReader,
@@ -15,6 +14,52 @@ from input_pipeline import (
 from utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
+    """Testing class."""
+    def test_get_cutoff_val(self):
+        """Test getting the cutoff types and values from the datasets."""
+        db_names = [
+            'matproj/mp_graphs.db',
+            'matproj/mp_graphs_knn.db',
+            'QM9/qm9_graphs.db'
+        ]
+        for db_name in db_names:
+            first_row = None
+            db = ase.db.connect(db_name)
+            for i, row in enumerate(db.select(limit=10)):
+                if i == 0:
+                    first_row = row
+            cutoff_type = row['cutoff_type']
+            cutoff_val = row['cutoff_val']
+            print(f'db name: {db_name}, cutoff type: {cutoff_type}, \
+                cutoff val: {cutoff_val}')
+
+    def test_asedb_to_graphslist(self):
+        """Test converting an asedb to a list of jraph.GraphsTuple.
+
+        Note: for this test, the Materials Project data has to be downloaded
+        beforehand, using the scipt get_matproj.py, and converted to graphs
+        using asedb_to_graphs.py. The database has to be located at
+        matproj/mp_graphs.db relative to the path of this test.
+
+        Test case:
+            file: matroj/mp_graphs.db
+            label_str: delta_e
+            selection: None
+            limit: 100
+        """
+
+        file_str = 'matproj/mp_graphs.db'
+        label_str = 'delta_e'
+        selection = 'delta_e<0'
+        limit = 100
+        graphs, labels = asedb_to_graphslist(
+            file_str, label_str, selection, limit)
+        _ = [self.assertIsInstance(graph, jraph.GraphsTuple) for graph in graphs]
+        # assert that the selection worked
+        _ = [self.assertFalse(label == 0) for label in labels]
+        _ = [self.assertTrue(label < 0) for label in labels]
+        self.assertEqual(limit, len(graphs))
+
     def test_DataReader_no_repeat(self):
         """Test the DataReader without repeating."""
 
@@ -117,7 +162,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
-        files = ['matproj/mp_graphs_knn.db', 'QM9/qm9_graphs.db']
+        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db']
         limit = 100 # maximum number of entries that are read
         if not limit is None:
             print(f'Testing {limit} graphs. To test all graphs, change limit to None.')

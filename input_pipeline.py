@@ -181,7 +181,7 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
 
     The graphs have their regression label as a global feature attached.
     """
-    # Data will be split into normaized data for regression and raw data for
+    # Data will be split into normalized data for regression and raw data for
     # analyzing later
     graphs_list, labels_list = asedb_to_graphslist(
         config.data_file,
