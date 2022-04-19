@@ -86,8 +86,8 @@ def main(args):
         preds = get_predictions(data_list, net, params)
         targets = [graph.globals[0] for graph in data_list]
         # scale the predictions and targets using the std
-        preds = preds*float(std)
-        targets = np.array(targets)*float(std)
+        preds = preds*float(std) + mean
+        targets = np.array(targets)*float(std) + mean
         error = np.abs(preds - targets)
         mae = np.mean(error)
         mse = np.mean(np.square(error))
@@ -105,6 +105,7 @@ def main(args):
     ax[1].legend()
     ax[1].set_yscale('log')
     plt.show()
+    plt.savefig(workdir+'/fit.png')
 
 
 
