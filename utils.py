@@ -138,8 +138,8 @@ def get_knn_adj_from_dist(distance_matrix, k):
     return senders, receivers
 
 
-def normalize_targets_config(inputs, outputs, config):
-    '''return normalized outputs, based on which aggregation function is saved in config.
+def normalize_targets(inputs, outputs, aggregation_type):
+    '''return normalized outputs, based on aggregation type.
     Also return mean and standard deviation for later rescaling.
     Inputs, i.e. graphs, are used to get number of atoms, for atom-wise scaling.'''
     outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
@@ -147,19 +147,19 @@ def normalize_targets_config(inputs, outputs, config):
     for i in range(len(outputs)):
         n_atoms[i] = inputs[i].n_node[0]
     
-    if config.aggregation_readout_type=='sum':
+    if aggregation_type=='sum':
         scaled_targets = np.array(outputs)/n_atoms
     else:
         scaled_targets = outputs
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
-    if config.aggregation_readout_type=='sum':
+    if aggregation_type=='sum':
         return (outputs - (mean*n_atoms))/std, mean, std
     else:
         return (scaled_targets - mean)/std, mean, std
 
-def scale_targets_config(inputs, outputs, mean, std, config):
+def scale_targets(inputs, outputs, mean, std, aggregation_type):
     '''Return scaled targets. Inverse of normalize_targets, 
     scales targets back to the original size.
     Args:
@@ -167,11 +167,12 @@ def scale_targets_config(inputs, outputs, mean, std, config):
         outputs: 1D-array of normalized target values
         mean: mean of original targets
         std: standard deviation of original targets
+        aggregation_type: type of aggregation function
     Returns:
         numpy.array of scaled target values 
     '''
     outputs = np.reshape(outputs, len(outputs))
-    if config.aggregation_message_type == 'sum':
+    if aggregation_type == 'sum':
         n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
         for i in range(len(outputs)):
             n_atoms[i] = inputs[i].n_node

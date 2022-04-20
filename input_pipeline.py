@@ -19,7 +19,7 @@ import ase
 
 from utils import (
     estimate_padding_budget_for_batch_size,
-    normalize_targets_config,
+    normalize_targets,
     add_labels_to_graphs,
 )
 
@@ -193,7 +193,7 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
     config.max_atomic_number = num_classes
     labels_raw = labels_list
 
-    labels_list, mean, std = normalize_targets_config(
+    labels_list, mean, std = normalize_targets(
         graphs_list, labels_list, config)
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)

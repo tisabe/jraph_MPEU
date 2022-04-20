@@ -105,8 +105,7 @@ class TestUtilsFunctions(unittest.TestCase):
         np.testing.assert_array_equal(np.array(expected_senders), senders)
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
-    def test_normalize_targets_avg(self):
-        #print("testing normalization")
+    def test_normalize_targets_mean(self):
         n = 10 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -117,10 +116,8 @@ class TestUtilsFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
-            #print(graphs[i])
-            #print(labels[i])
-        
-        config.AVG_READOUT = True
+
+        aggregation_type = 'mean'
         expected_targets = np.zeros(n)
         expected_mean = 0
         expected_std = 0
@@ -136,14 +133,13 @@ class TestUtilsFunctions(unittest.TestCase):
             expected_targets[i] = (labels[i] - expected_mean)/expected_std
         
         # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels)
+        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
 
         np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
     
     def test_normalize_targets_sum(self):
-        #print("testing normalization")
         n = 1000 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -157,10 +153,7 @@ class TestUtilsFunctions(unittest.TestCase):
             graphs.append(graph)
             labels.append(np.float32(jax.random.uniform(subkey)))
         
-        #print(n_nodes)
-        #print(labels)
-        
-        config.AVG_READOUT = False
+        aggregation_type = 'sum'
         expected_targets = np.zeros(n)
         expected_mean = 0
         expected_std = 0
@@ -176,21 +169,13 @@ class TestUtilsFunctions(unittest.TestCase):
             expected_targets[i] = (labels[i] - graphs[i].n_node*expected_mean)/expected_std
         
         # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels)
-
-        #print(expected_targets)
-        #print(targets)
-        #print("Expected mean: {}".format(expected_mean))
-        #print("Actual mean: {}".format(mean))
-        print(expected_std)
-        print(std)
+        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
 
         np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, float(expected_mean))
         np.testing.assert_almost_equal(std, expected_std)
     
-    def test_scale_targets_avg(self):
-        #print("testing normalization")
+    def test_scale_targets_mean(self):
         n = 10 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -201,12 +186,10 @@ class TestUtilsFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
-            #print(graphs[i])
-            #print(labels[i])
-        
-        config.AVG_READOUT = True
-        outputs, mean, std = normalize_targets(graphs, labels)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+
+        aggregation_type = 'mean'
+        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 
     def test_scale_targets_sum(self):
@@ -222,13 +205,12 @@ class TestUtilsFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             n_atoms.append(graph.n_node)
             graphs.append(graph)
-            #print(graphs[i])
-            #print(labels[i])
+            
         labels = np.random.randint(low=0, high=10, size=(n,1)).astype(np.float32)
         
-        config.AVG_READOUT = False
-        outputs, mean, std = normalize_targets(graphs, labels)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+        aggregation_type = 'sum'
+        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
         
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 
