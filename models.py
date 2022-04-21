@@ -64,7 +64,7 @@ class Set2Set:
         indices_are_sorted: bool = False,
         unique_indices: bool = False
     ):
-        mlp = hk.nets.MLP((self.latent_size, self.latent_size), 
+        mlp = hk.nets.MLP((self.latent_size, self.latent_size),
                 activation=shifted_softplus)
         self.lstm = hk.LSTM(self.latent_size)
         self.next_state = self.lstm.initial_state(self.batch_size)
@@ -74,13 +74,13 @@ class Set2Set:
             q, self.next_state = self.lstm(self.q_star, self.next_state)
             q_i = q[segment_ids,:] # for each node i, gather the representing q_i
             e_i = jnp.sum(jnp.multiply(m_i, q_i), axis=-1)
-            a_i = jraph.segment_softmax(e_i, 
-                    segment_ids, num_segments, 
+            a_i = jraph.segment_softmax(e_i,
+                    segment_ids, num_segments,
                     indices_are_sorted, unique_indices)
             a_i = jnp.reshape(a_i, (-1,1))
             r = jraph.segment_sum(
-                    jnp.multiply(a_i, m_i), 
-                    segment_ids, num_segments, 
+                    jnp.multiply(a_i, m_i),
+                    segment_ids, num_segments,
                     indices_are_sorted, unique_indices)
             self.q_star = jnp.concatenate((q, r), axis=-1)
 
@@ -404,6 +404,11 @@ class GNN:
             self.aggregation_readout_fn = jraph.segment_sum
         elif self.config.aggregation_readout_type == 'mean':
             self.aggregation_readout_fn = jraph.segment_mean
+        elif self.config.aggregation_readout_type == 'set2set':
+            self.aggregation_readout_fn = Set2Set(
+                config.latent_size,
+                config.num_passes,
+                config.batch_size)
         else:
             raise ValueError(
                 f'Aggregation type {self.config.aggregation_readout_type} '

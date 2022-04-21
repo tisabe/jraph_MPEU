@@ -375,7 +375,12 @@ class TestModelFunctions(unittest.TestCase):
         
         graph_pred = net.apply(params, graphs)
         prediction = graph_pred.globals
-        #print(prediction)
+
+        # test jitted function
+        net_apply_jit = jax.jit(net.apply)
+        graph_pred = net_apply_jit(params, graphs)
+        prediction = graph_pred.globals
+        print(type(prediction))
 
     def test_set2set_fit(self):
         """Test the set2set function by generating artificial sets and training
