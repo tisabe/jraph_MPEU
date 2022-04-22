@@ -7,8 +7,48 @@ from ase.neighborlist import NeighborList
 
 import sys
 import argparse
-from ast import literal_eval
 import warnings
+
+
+def get_graph_fc(atoms: Atoms):
+    """Return the graph features, with fully connected edges.
+
+    Turn the ase.Atoms object into graph features, i.e. nodes and edges.
+    The edges will be fully connected, so every node is connected to every other node.
+    """
+    if np.any(atoms.get_pbc()):
+        #raise Exception('Received Atoms object with periodic boundary conditions. ' +
+        #    'Fully connected graph cannot be generated.')
+        raise Exception('PBC not allowed for fully connected graph.')
+    nodes = [] # initialize arrays, to be filled in loop later
+    senders = []
+    receivers = []
+    edges = []
+    atom_numbers = atoms.get_atomic_numbers() # get array of atomic numbers
+    atom_positions = atoms.get_positions(wrap=False)
+    n_atoms = len(atoms)
+
+    for i in range(n_atoms):
+        nodes.append(atom_numbers[i])
+        for j in range(n_atoms):
+            # get all edges except self edges
+            if (i != j):
+                i_pos = atom_positions[i]
+                j_pos = atom_positions[j]
+                dist_vec = i_pos - j_pos
+                dist = np.sqrt(np.dot(dist_vec, dist_vec))
+
+                senders.append(j)
+                receivers.append(i)
+                edges.append(dist)
+
+    return (
+        np.array(nodes),
+        atom_positions,
+        np.array(edges),
+        np.array(senders),
+        np.array(receivers)
+    )
 
 
 def get_graph_cutoff(atoms: Atoms, cutoff):
@@ -37,7 +77,7 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     unitcell = atoms.get_cell()
     
     for ii in range(len(atoms)):
-            nodes.append(atom_numbers[ii])
+        nodes.append(atom_numbers[ii])
 
     for ii in range(len(atoms)):
         neighbor_indices, offset = neighborhood.get_neighbors(ii)
@@ -162,6 +202,8 @@ def main(args):
             elif args.cutoff_type == 'knearest':
                 cutoff = int(cutoff)
                 nodes, atom_positions, edges, senders, receivers = get_graph_knearest(atoms, cutoff)
+            elif args.cutoff_type == 'fc':
+                nodes, atom_positions, edges, senders, receivers = get_graph_fc(atoms)
             else:
                 raise ValueError(f'Cutoff type {args.cutoff_type} not recognised.')
             data = {'senders': senders, 'receivers': receivers, 'edges': edges}

@@ -107,37 +107,6 @@ def set_diag_high(mat, value=9999.9):
     return fill_diagonal(mat, value)
 
 
-def get_cutoff_adj_from_dist(distance_matrix, cutoff):
-    '''Return the adjacency matrix in the form of senders and receivers from a distance matrix and a cutoff.'''
-
-    distance_matrix = set_diag_high(distance_matrix) # set diagonal to delete self-edges
-    assert(len(np.shape(distance_matrix)) == 2) # distance matrix cannot be batched
-
-    bool_dist = distance_matrix < cutoff
-    senders, receivers = jnp.nonzero(bool_dist)
-
-    return senders, receivers
-
-
-def get_knn_adj_from_dist(distance_matrix, k):
-    '''Return the adjacency matrix with k-nearest neighbours in form of senders and receivers from a distance matrix'''
-
-    distance_matrix = set_diag_high(distance_matrix)  # set diagonal to delete self-edges
-
-    n_pos = len(distance_matrix)
-    k = min([n_pos-1, k]) # function should return all neighbours if k >= number of neighbours-1 in graph
-    # so the number of neighbours is always smaller than number of positions, since self edges are not included
-    tops, nn = jax.lax.top_k(-1*distance_matrix, k)
-
-    rows = jnp.linspace(0, n_pos, num=k * n_pos, endpoint=False)
-    rows = jnp.int16(jnp.floor(rows))
-    nn = nn.flatten()
-    receivers = rows
-    senders = nn
-
-    return senders, receivers
-
-
 def normalize_targets(inputs, outputs, aggregation_type):
     '''return normalized outputs, based on aggregation type.
     Also return mean and standard deviation for later rescaling.
@@ -146,7 +115,7 @@ def normalize_targets(inputs, outputs, aggregation_type):
     n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
     for i in range(len(outputs)):
         n_atoms[i] = inputs[i].n_node[0]
-    
+
     if aggregation_type=='sum':
         scaled_targets = np.array(outputs)/n_atoms
     else:
