@@ -94,7 +94,8 @@ def main(args):
         print(f'Number of graphs: {len(preds)}')
         print(f'MSE: {mse} eV')
         print(f'MAE: {mae} eV')
-        ax[0].scatter(targets, preds, s=marker_size, label=split)
+        label_string = f'{split} \nMAE: {mae:9.3f} eV'
+        ax[0].scatter(targets, preds, s=marker_size, label=label_string)
         ax[1].scatter(targets, error, s=marker_size, label=split)
 
     ax[0].set_title('Model regression performance')
