@@ -20,6 +20,7 @@ class TestPipelineFunctions(unittest.TestCase):
         db_names = [
             'matproj/mp_graphs.db',
             'matproj/mp_graphs_knn.db',
+            'aflow/graphs_cutoff_6A.db',
             'QM9/qm9_graphs.db'
         ]
         for db_name in db_names:
@@ -141,7 +142,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_dbs_raw(self):
         '''Test the raw ase databases without graph features.'''
-        files = ['matproj/matproj.db', 'QM9/qm9.db']
+        files = ['matproj/matproj.db', 'QM9/qm9.db', ]
         limit = 100 # maximum number of entries that are read
         if not limit is None:
             print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
@@ -162,7 +163,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_dbs_graphs(self):
         '''Test the ase databases with graph features.'''
-        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db']
+        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db', 'aflow/graphs_cutoff_6A.db']
         limit = 100 # maximum number of entries that are read
         if not limit is None:
             print(f'Testing {limit} graphs. To test all graphs, change limit to None.')

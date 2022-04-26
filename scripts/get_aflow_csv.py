@@ -9,8 +9,7 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'enthalpy_formation_atom(*),Egap(*),'
-    '$Egap_type(!metal),' # filters
+    'enthalpy_formation_atom(*),Egap(*),Egap_type(*),'
     'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
