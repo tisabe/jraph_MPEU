@@ -11,7 +11,7 @@ def get_config() -> ml_collections.ConfigDict():
     config = cfg.get_config() # inherit from default config
     
     # data split settings
-    config.data_file = 'matproj/mp_graphs_knn.db'
+    config.data_file = 'matproj/mp_graphs.db'
     config.label_str = 'delta_e' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing

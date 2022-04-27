@@ -1,12 +1,15 @@
+"""Test the functions in the utils module."""
+
+import tempfile
+from typing import Generator, Mapping, Tuple
+import unittest
+
 import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
 import haiku as hk
 import ml_collections
-
-from typing import Generator, Mapping, Tuple
-import unittest
 
 from utils import *
 
@@ -21,84 +24,23 @@ def get_random_graph(key) -> jraph.GraphsTuple:
                       globals=None)
     return graph
 
-class TestHelperFunctions(unittest.TestCase):
-    def test_save_config(self):
+class TestUtilsFunctions(unittest.TestCase):
+    def test_save_and_load_config(self):
+        self.test_dir = tempfile.TemporaryDirectory()
         config = ml_collections.ConfigDict()
         config.a = 1
         config.b = 0.1
         config.c = 'c'
-        config.array = [0,1,3]
-        save_config(config, 'results_test')
+        config.array = [0, 1, 3]
+        save_config(config, self.test_dir.name)
+
+        config_loaded = load_config(self.test_dir.name)
+        self.assertEqual(config_loaded.a, config.a)
+        self.assertEqual(config_loaded.b, config.b)
+        self.assertEqual(config_loaded.c, config.c)
 
 
-
-    def test_k_nn_print(self):
-        position_matrix = np.array([[0, 0], [1, 1], [2, 2], [2, 3]])*1.0
-        euclidian_distance = dist_matrix(position_matrix)
-
-        #print(euclidian_distance)
-
-        senders, receivers = get_knn_adj_from_dist(euclidian_distance, 5)
-        #print(senders)
-        #print(receivers)
-
-
-    def test_k_nn_random(self):
-        num_nodes = 5
-        dimensions = 3
-        k = 3
-        position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
-        distances = dist_matrix(position_matrix)
-        #print(distances)
-        senders, receivers = get_knn_adj_from_dist(distances, k)
-
-        expected_senders = []
-        expected_receivers = []
-
-        for row in range(num_nodes):
-            idx_list = []
-            last_idx = 0
-            for ik in range(k):
-                min_val_last = 9999.9  # temporary last saved minimum value, initialized to high value
-                for col in range(num_nodes):
-                    if col == row or (col in idx_list):
-                        continue    # do nothing on the diagonal, or if column has already been included
-                    else:
-                        val = distances[row, col]
-                        if val < min_val_last:
-                            min_val_last = val
-                            last_idx = col
-                idx_list.append(last_idx)
-                expected_senders.append(last_idx)
-                expected_receivers.append(row)
-
-        np.testing.assert_array_equal(np.array(expected_senders), senders)
-        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
-
-    def test_get_cutoff_adj_from_dist_random(self):
-        num_nodes = 10
-        dimensions = 3
-        cutoff = 0.7
-        position_matrix = np.random.rand(num_nodes, dimensions)
-        distances = dist_matrix(position_matrix)
-
-        senders, receivers = get_cutoff_adj_from_dist(distances, cutoff)
-
-        expected_senders = []
-        expected_receivers = []
-
-        for sender in range(num_nodes):
-            for receiver in range(num_nodes):
-                if not (sender == receiver):
-                    if distances[sender, receiver] < cutoff:
-                        expected_senders.append(sender)
-                        expected_receivers.append(receiver)
-
-        np.testing.assert_array_equal(np.array(expected_senders), senders)
-        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
-
-    def test_normalize_targets_avg(self):
-        #print("testing normalization")
+    def test_normalize_targets_mean(self):
         n = 10 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -109,10 +51,8 @@ class TestHelperFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
-            #print(graphs[i])
-            #print(labels[i])
-        
-        config.AVG_READOUT = True
+
+        aggregation_type = 'mean'
         expected_targets = np.zeros(n)
         expected_mean = 0
         expected_std = 0
@@ -128,14 +68,13 @@ class TestHelperFunctions(unittest.TestCase):
             expected_targets[i] = (labels[i] - expected_mean)/expected_std
         
         # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels)
+        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
 
         np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
     
     def test_normalize_targets_sum(self):
-        #print("testing normalization")
         n = 1000 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -149,10 +88,7 @@ class TestHelperFunctions(unittest.TestCase):
             graphs.append(graph)
             labels.append(np.float32(jax.random.uniform(subkey)))
         
-        #print(n_nodes)
-        #print(labels)
-        
-        config.AVG_READOUT = False
+        aggregation_type = 'sum'
         expected_targets = np.zeros(n)
         expected_mean = 0
         expected_std = 0
@@ -168,21 +104,13 @@ class TestHelperFunctions(unittest.TestCase):
             expected_targets[i] = (labels[i] - graphs[i].n_node*expected_mean)/expected_std
         
         # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels)
-
-        #print(expected_targets)
-        #print(targets)
-        #print("Expected mean: {}".format(expected_mean))
-        #print("Actual mean: {}".format(mean))
-        print(expected_std)
-        print(std)
+        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
 
         np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
         np.testing.assert_almost_equal(mean, float(expected_mean))
         np.testing.assert_almost_equal(std, expected_std)
     
-    def test_scale_targets_avg(self):
-        #print("testing normalization")
+    def test_scale_targets_mean(self):
         n = 10 # number of graphs and labels to generate
         graphs = []
         labels = []
@@ -193,12 +121,10 @@ class TestHelperFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             graphs.append(graph)
             labels.append(jax.random.uniform(subkey))
-            #print(graphs[i])
-            #print(labels[i])
-        
-        config.AVG_READOUT = True
-        outputs, mean, std = normalize_targets(graphs, labels)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+
+        aggregation_type = 'mean'
+        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 
     def test_scale_targets_sum(self):
@@ -214,13 +140,12 @@ class TestHelperFunctions(unittest.TestCase):
             graph = get_random_graph(key)
             n_atoms.append(graph.n_node)
             graphs.append(graph)
-            #print(graphs[i])
-            #print(labels[i])
+            
         labels = np.random.randint(low=0, high=10, size=(n,1)).astype(np.float32)
         
-        config.AVG_READOUT = False
-        outputs, mean, std = normalize_targets(graphs, labels)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std)
+        aggregation_type = 'sum'
+        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
+        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
         
         np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
 

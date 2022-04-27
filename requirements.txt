@@ -1,0 +1,11 @@
+jax
+tensorflow  
+spektral  
+numpy  
+jraph  
+dm-haiku  
+optax  
+pandas  
+tqdm  
+sklearn 
+ase
