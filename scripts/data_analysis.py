@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import numpy as np
 import ase.db
@@ -10,9 +11,13 @@ import matplotlib.pyplot as plt
 
 def main(args):
     file = args.file
+    folder = file.replace('.db', '')  # make a name for the plot output folder
+    folder = 'scripts/plots/'+folder
+    Path(folder).mkdir(parents=True, exist_ok=True)
     limit = args.limit
     key = args.key
 
+    num_nodes = []
     num_senders = []
     num_receivers = []
     num_edges = []
@@ -25,10 +30,12 @@ def main(args):
                 print(f'Reading step {i}')
             key_value_pairs = row.key_value_pairs
             key_val_list.append(key_value_pairs)
-            #data = row.data
+            data = row.data
+            num_nodes.append(row.natoms)
             #senders = data['senders']
             #receivers = data['receivers']
-            #edges = data['edges']
+            edges = data['edges']
+            num_edges.append(len(edges))
             #edges_all = np.concatenate((edges_all, np.array(edges)))
     
     
@@ -36,14 +43,17 @@ def main(args):
     print(key_df.head())
     print(key_df.describe())
     key_y = key_df.get(key).to_numpy()
-    plt.hist(key_y, bins=1000, log=True)
+    plt.hist(key_y, bins=100, log=True)
     plt.show()
-    plt.savefig('scripts/plots/key_hist.png')
+    plt.savefig(folder+'/key_hist.png')
     
-    # print(edges_all.shape)
-    # plt.hist(edges_all, bins=1000, log=True)
-    # plt.show()
-    # plt.savefig('scripts/plots/edges_hist.png')
+    fig, ax = plt.subplots(2, 1)
+    ax[0].hist(num_nodes, bins=100, log=True)
+    ax[0].set_xlabel('Number of nodes')
+    ax[1].hist(num_edges, bins=100, log=True)
+    ax[1].set_xlabel('Number of edges')
+    plt.show()
+    plt.savefig(folder+'/graph_stat_hist.png')
 
 
 
