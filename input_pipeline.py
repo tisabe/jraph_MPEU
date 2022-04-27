@@ -42,9 +42,12 @@ def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
     return graph
 
 def asedb_to_graphslist(
-        file: str, label_str: str,
-        selection: str = None, limit=None) -> Tuple[
-            Sequence[jraph.GraphsTuple], list]:
+        file: str,
+        label_str: str,
+        selection: str = None,
+        num_edges_max: int = None,
+        limit: int = None
+    ) -> Tuple[Sequence[jraph.GraphsTuple], list]:
     """Return a list of graphs, by loading rows from local ase database at file."""
     graphs = []
     labels = []
@@ -53,7 +56,12 @@ def asedb_to_graphslist(
     #print(f'Selection: {selection}')
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
-        if len(graph.edges) == 0: # do not include graphs without edges
+        n_edge = int(graph.n_edge)
+        if num_edges_max is not None:
+            if n_edge > num_edges_max:  # do not include graphs with too many edges 
+                # TODO: test this 
+                continue
+        if n_edge == 0:  # do not include graphs without edges
             continue
         graphs.append(graph)
         label = row.key_value_pairs[label_str]
@@ -122,7 +130,7 @@ class DataReader:
 
         self.budget = estimate_padding_budget_for_batch_size(
             self.data, batch_size,
-            num_estimation_graphs=100)
+            num_estimation_graphs=1000)
 
         # This makes this thing complicated. From outside of DataReader
         # we interface with this batch generator, but this batch_generator
@@ -187,6 +195,7 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         config.data_file,
         label_str=config.label_str,
         selection=config.selection,
+        num_edges_max=config.num_edges_max,
         limit=config.limit_data)
     # Convert the atomic numbers in nodes to classes and set number of classes.
     graphs_list, num_classes = atoms_to_nodes_list(graphs_list)

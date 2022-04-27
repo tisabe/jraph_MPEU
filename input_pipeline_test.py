@@ -54,7 +54,7 @@ class TestPipelineFunctions(unittest.TestCase):
         selection = 'delta_e<0'
         limit = 100
         graphs, labels = asedb_to_graphslist(
-            file_str, label_str, selection, limit)
+            file=file_str, label_str=label_str, selection=selection, limit=limit)
         _ = [self.assertIsInstance(graph, jraph.GraphsTuple) for graph in graphs]
         # assert that the selection worked
         _ = [self.assertFalse(label == 0) for label in labels]

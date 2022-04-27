@@ -39,6 +39,7 @@ def get_config() -> ml_collections.ConfigDict():
     # data selection parameters
     config.selection = None
     config.limit_data = None
+    config.num_edges_max = None
 
     # MPNN hyperparameters
     config.message_passing_steps = 3

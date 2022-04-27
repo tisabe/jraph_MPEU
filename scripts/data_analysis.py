@@ -55,6 +55,12 @@ def main(args):
     plt.show()
     plt.savefig(folder+'/graph_stat_hist.png')
 
+    fig, ax = plt.subplots()
+    ax.scatter(num_nodes, num_edges)
+    ax.set_xlabel('Number of nodes')
+    ax.set_ylabel('Number of edges')
+    plt.show()
+    plt.savefig(folder+'/edges_per_node.png')
 
 
 if __name__ == "__main__":
