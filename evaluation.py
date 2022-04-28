@@ -106,7 +106,7 @@ def main(args):
     ax[1].legend()
     ax[1].set_yscale('log')
     plt.show()
-    plt.savefig(workdir+'/fit.png')
+    fig.savefig(workdir+'/fit.png')
 
 
 

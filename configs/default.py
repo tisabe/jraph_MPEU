@@ -1,17 +1,15 @@
-
-'''Define the default hyperparameters for model and training.
-'''
+"""Define the default hyperparameters for model and training."""
 
 import ml_collections
 
 def get_config() -> ml_collections.ConfigDict():
-    '''Get hyperparameter configuration. Returns a ml_collections.ConfigDict() object.
-    '''
+    """Get hyperparameter configuration.
+    Returns a ml_collections.ConfigDict() object."""
     config = ml_collections.ConfigDict()
 
     # rng init
     config.seed = 42
-    
+
     # Optimizer
     config.optimizer = 'adam'
     config.schedule = 'exponential_decay'
@@ -54,7 +52,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.mu_min = 0.0
     # Node embedding parameters
     config.max_atomic_number = 5
-    
+
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
     return config

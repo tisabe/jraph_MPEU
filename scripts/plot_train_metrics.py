@@ -23,7 +23,7 @@ def main(args_parsed):
         with open(metrics_path, 'rb') as metrics_file:
             metrics_dict = pickle.load(metrics_file)
 
-        _, ax = plt.subplots(2)
+        fig, ax = plt.subplots(2)
 
         for split in splits:
             metrics = metrics_dict[split]
@@ -42,7 +42,7 @@ def main(args_parsed):
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
         plt.show()
-        plt.savefig(folder+'/curve.png')
+        fig.savefig(folder+'/curve.png')
     except FileNotFoundError:
         print(f'Did not find {metrics_path}, skipping curve plot.')
 
