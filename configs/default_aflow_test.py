@@ -11,5 +11,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.data_file = 'aflow/graphs_cutoff_6A.db'
     config.selection = None
     config.label_str = 'enthalpy_formation_atom'
+    config.num_edges_max = None
 
     return config
