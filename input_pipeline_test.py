@@ -29,8 +29,8 @@ class TestPipelineFunctions(unittest.TestCase):
             for i, row in enumerate(db.select(limit=10)):
                 if i == 0:
                     first_row = row
-            cutoff_type = row['cutoff_type']
-            cutoff_val = row['cutoff_val']
+            cutoff_type = first_row['cutoff_type']
+            cutoff_val = first_row['cutoff_val']
             print(f'db name: {db_name}, cutoff type: {cutoff_type}, \
                 cutoff val: {cutoff_val}')
 
@@ -53,12 +53,17 @@ class TestPipelineFunctions(unittest.TestCase):
         label_str = 'delta_e'
         selection = 'delta_e<0'
         limit = 100
-        graphs, labels = asedb_to_graphslist(
+        graphs, labels, indices = asedb_to_graphslist(
             file=file_str, label_str=label_str, selection=selection, limit=limit)
         _ = [self.assertIsInstance(graph, jraph.GraphsTuple) for graph in graphs]
-        # assert that the selection worked
+        # Assert that the selection worked.
         _ = [self.assertFalse(label == 0) for label in labels]
         _ = [self.assertTrue(label < 0) for label in labels]
+        # Check that all indices are unique.
+        self.assertTrue(len(indices) == len(set(indices)))
+        # Check that there are as many graphs as requested.
+        # This only works if no graphs were left out because of missing edges
+        # or too many edges.
         self.assertEqual(limit, len(graphs))
 
     def test_DataReader_no_repeat(self):
@@ -117,6 +122,7 @@ class TestPipelineFunctions(unittest.TestCase):
         self.assertTrue(labels_repeat_sum > np.sum(labels))
 
     def test_ase_row_to_jraph(self):
+        """Test conversion from ase row to jraph.Graphstuple."""
         db = ase.db.connect('matproj/mp_graphs.db')
         row = db.get('mp_id=mp-1001')
         atomic_numbers = row.toatoms().get_atomic_numbers()

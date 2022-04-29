@@ -8,7 +8,6 @@ the model can be built using the config.json.
 import pickle
 import argparse
 
-from absl import logging
 import haiku as hk
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,18 +69,19 @@ def get_predictions(dataset, net, params):
 
 def main(args):
     workdir = args.folder
-    # TODO: print scaled MAE, MSE etc., different splits
     print('Loading model.')
     net, params = load_model(workdir)
     print('Loading datasets.')
-    dataset, dataset_raw, mean, std = load_data(workdir)
+    dataset, indices, mean, std = load_data(workdir)
     splits = dataset.keys()
+    indices_all = []
 
     fig, ax = plt.subplots(2)
     marker_size = 0.3
 
     for split in splits:
         data_list = dataset[split].data
+        indices_all += indices[split]
         print(f'Predicting {split} data.')
         preds = get_predictions(data_list, net, params)
         targets = [graph.globals[0] for graph in data_list]
@@ -95,9 +95,15 @@ def main(args):
         print(f'MSE: {mse} eV')
         print(f'MAE: {mae} eV')
         label_string = f'{split} \nMAE: {mae:9.3f} eV'
-        ax[0].scatter(targets, preds, s=marker_size, label=label_string)
-        ax[1].scatter(targets, error, s=marker_size, label=split)
 
+        ax[0].scatter(targets, preds, s=marker_size, label=label_string, picker=True)
+        ax[1].scatter(targets, error, s=marker_size, label=split, picker=True)
+
+    # define an event on mouseclick, that prints the identifier of the point
+    def onpick(event):
+        ind = event.ind
+        print(ind)
+        print(f'Identifier: {indices_all[int(ind)]}')
     ax[0].set_title('Model regression performance')
     ax[0].set_ylabel('prediction')
     ax[1].set_xlabel('target')
@@ -105,6 +111,8 @@ def main(args):
     ax[0].legend()
     ax[1].legend()
     ax[1].set_yscale('log')
+    fig.canvas.mpl_connect('pick_event', onpick)
+
     plt.show()
     fig.savefig(workdir+'/fit.png')
 

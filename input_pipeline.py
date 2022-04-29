@@ -47,28 +47,56 @@ def asedb_to_graphslist(
         selection: str = None,
         num_edges_max: int = None,
         limit: int = None
-    ) -> Tuple[Sequence[jraph.GraphsTuple], list]:
-    """Return a list of graphs, by loading rows from local ase database at file."""
+    ) -> Tuple[Sequence[jraph.GraphsTuple], list, list]:
+    """Return a list of graphs, by loading rows from local ase database.
+
+    Args:
+        file: string, location of ase database
+        label_str: string, name of the property to fit the model
+        selection: string, filter for the database
+        num_edges_max: int, maximum number of edges for an individual graph
+        limit: int, maximum number of intries that are pulled
+            Note: if num_edges_max filters out graphs that have too many edges,
+            fewer graphs than limit might be returned
+
+    Returns:
+        graphs: list of jraph.GraphsTuple
+        labels: list of labels for regression in order of graphs
+        indices: identifiers of the graph in order of graphs,
+            e.g. for materials project data: mp-id
+    """
     graphs = []
     labels = []
+    indices = []
+    # These are the possible index names with the datasets:
+    # QM9, MaterialsProject, Aflow
+    # If a new dataset is added, add a different index here
+    # TODO: maybe make this more user-friendly
+    possible_index_names = ['index', 'mp_id', 'auid']
     ase_db = ase.db.connect(file)
-    count = 0
-    #print(f'Selection: {selection}')
+
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
+        # do not include graphs with too many edges, if specified
         if num_edges_max is not None:
-            if n_edge > num_edges_max:  # do not include graphs with too many edges 
-                # TODO: test this 
+            if n_edge > num_edges_max:
+                # TODO: test this
                 continue
         if n_edge == 0:  # do not include graphs without edges
             continue
         graphs.append(graph)
         label = row.key_value_pairs[label_str]
         labels.append(label)
-        count += 1
-
-    return graphs, labels
+        # Loop over possible index names and find out which one is used
+        index = None
+        for name in possible_index_names:
+            try:
+                index = str(row[name])
+            except AttributeError:
+                continue
+        indices.append(index)
+    return graphs, labels, indices
 
 def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
         Sequence[jraph.GraphsTuple], int]:
@@ -191,7 +219,7 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
     """
     # Data will be split into normalized data for regression and raw data for
     # analyzing later
-    graphs_list, labels_list = asedb_to_graphslist(
+    graphs_list, labels_list, indices = asedb_to_graphslist(
         config.data_file,
         label_str=config.label_str,
         selection=config.selection,
@@ -200,30 +228,28 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
     # Convert the atomic numbers in nodes to classes and set number of classes.
     graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
     config.max_atomic_number = num_classes
-    labels_raw = labels_list
 
     labels_list, mean, std = normalize_targets(
         graphs_list, labels_list, config)
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
-    graphs_raw = add_labels_to_graphs(graphs_list, labels_raw)
 
     # Split the graphs into three splits using the fractions defined in config.
     (
         train_set,
         val_and_test_set,
-        train_raw,
-        val_and_test_raw) = sklearn.model_selection.train_test_split(
-            graphs_list, graphs_raw,
+        train_indices,
+        val_and_test_indices) = sklearn.model_selection.train_test_split(
+            graphs_list, indices,
             test_size=config.test_frac+config.val_frac,
             random_state=0)
 
     (
         val_set,
         test_set,
-        val_raw,
-        test_raw) = sklearn.model_selection.train_test_split(
-            val_and_test_set, val_and_test_raw,
+        val_indices,
+        test_indices) = sklearn.model_selection.train_test_split(
+            val_and_test_set, val_and_test_indices,
             test_size=config.test_frac/(config.test_frac+config.val_frac),
             random_state=1)
 
@@ -247,9 +273,9 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         'validation': reader_val,
         'test': reader_test}
 
-    dataset_raw = {
-        'train': train_raw,
-        'validation': val_raw,
-        'test': test_raw}
+    indices = {
+        'train': train_indices,
+        'validation': val_indices,
+        'test': test_indices}
 
-    return dataset, dataset_raw, mean, std
+    return dataset, indices, mean, std
