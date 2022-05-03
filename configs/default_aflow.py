@@ -10,7 +10,8 @@ def get_config() -> ml_collections.ConfigDict():
 
     config.data_file = 'aflow/graphs_cutoff_6A.db'
     config.selection = 'natoms<80'
-    config.label_str = 'enthalpy_formation_atom'
+    #config.label_str = 'enthalpy_formation_atom'
+    config.label_str = 'Egap'
     config.num_edges_max = 13_000
     config.init_lr = 1e-5
 

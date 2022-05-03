@@ -70,7 +70,6 @@ def get_predictions(dataset, net, params):
 
 def main(args):
     workdir = args.folder
-    # TODO: print scaled MAE, MSE etc., different splits
     print('Loading model.')
     net, params = load_model(workdir)
     print('Loading datasets.')
@@ -98,15 +97,20 @@ def main(args):
         ax[0].scatter(targets, preds, s=marker_size, label=label_string)
         ax[1].scatter(targets, error, s=marker_size, label=split)
 
+    # plot x = y regression lines
+    x = np.linspace(*ax[0].get_xlim())
+    ax[0].plot(x, x, '--', alpha=0.2, color='grey')
     ax[0].set_title('Model regression performance')
-    ax[0].set_ylabel('prediction')
-    ax[1].set_xlabel('target')
-    ax[1].set_ylabel('error')
+    ax[0].set_ylabel('prediction (eV)', fontsize=12)
+    ax[1].set_xlabel('target (eV)', fontsize=12)
+    ax[1].set_ylabel('error (eV)', fontsize=12)
     ax[0].legend()
     ax[1].legend()
     ax[1].set_yscale('log')
+    plt.tight_layout()
+
     plt.show()
-    fig.savefig(workdir+'/fit.png')
+    fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)
 
 
 

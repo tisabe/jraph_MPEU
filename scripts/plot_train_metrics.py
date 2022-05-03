@@ -35,14 +35,16 @@ def main(args_parsed):
 
         ax[0].legend()
         ax[1].legend()
-        ax[0].set_xlabel('gradient step')
-        ax[1].set_xlabel('gradient step')
-        ax[0].set_ylabel('MSE (eV)')
-        ax[1].set_ylabel('MAE (eV)')
+        ax[0].set_xlabel('gradient step', fontsize=12)
+        ax[1].set_xlabel('gradient step',fontsize=12)
+        ax[0].set_ylabel('MSE (eV)', fontsize=12)
+        ax[1].set_ylabel('MAE (eV)', fontsize=12)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
+        plt.tight_layout()
+        
         plt.show()
-        fig.savefig(folder+'/curve.png')
+        fig.savefig(folder+'/curve.png', bbox_inches='tight', dpi=600)
     except FileNotFoundError:
         print(f'Did not find {metrics_path}, skipping curve plot.')
 
