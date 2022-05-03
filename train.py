@@ -484,6 +484,12 @@ def train_and_evaluate(
     # Create the training state.
     updater, state, evaluater = init_state(config, init_graphs, workdir)
 
+    # calculate and print parameter size
+    params = state['params']
+    num_params = hk.data_structures.tree_size(params)
+    byte_size = hk.data_structures.tree_bytes(params)
+    logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
+
     # Decide on splits of data on which to evaluate.
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
