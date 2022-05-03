@@ -37,30 +37,36 @@ def main(args):
             edges = data['edges']
             num_edges.append(len(edges))
             #edges_all = np.concatenate((edges_all, np.array(edges)))
-    
-    
+
+
     key_df = pd.DataFrame(key_val_list)
     print(key_df.head())
     print(key_df.describe())
     key_y = key_df.get(key).to_numpy()
-    plt.hist(key_y, bins=100, log=True)
+    fig, ax = plt.subplots()
+    ax.hist(key_y, bins=100, log=True)
+    ax.set_xlabel(f'{key} (probably eV)', fontsize=12)
+    ax.set_ylabel('Number of graphs', fontsize=12)
+    plt.tight_layout()
     plt.show()
-    plt.savefig(folder+'/key_hist.png')
-    
+    fig.savefig(folder+f'/{key}_hist.png', bbox_inches='tight', dpi=600)
+
     fig, ax = plt.subplots(2, 1)
     ax[0].hist(num_nodes, bins=100, log=True)
-    ax[0].set_xlabel('Number of nodes')
+    ax[0].set_xlabel('Number of nodes', fontsize=12)
     ax[1].hist(num_edges, bins=100, log=True)
-    ax[1].set_xlabel('Number of edges')
+    ax[1].set_xlabel('Number of edges', fontsize=12)
+    plt.tight_layout()
     plt.show()
-    plt.savefig(folder+'/graph_stat_hist.png')
+    fig.savefig(folder+'/graph_stat_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
     ax.scatter(num_nodes, num_edges)
-    ax.set_xlabel('Number of nodes')
-    ax.set_ylabel('Number of edges')
+    ax.set_xlabel('Number of nodes', fontsize=12)
+    ax.set_ylabel('Number of edges', fontsize=12)
+    plt.tight_layout()
     plt.show()
-    plt.savefig(folder+'/edges_per_node.png')
+    fig.savefig(folder+'/edges_per_node.png', bbox_inches='tight', dpi=600)
 
 
 if __name__ == "__main__":
