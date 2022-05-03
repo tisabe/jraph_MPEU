@@ -70,7 +70,7 @@ def main(args):
             # get property dict
             prop_dict = {
                 'auid': row['auid'],
-                'enthalpy_formation_atom': row['enthalpy_formation_atom'],
+                'enthalpy_atom': row['enthalpy_atom'],
                 'Egap': row['Egap'],
             }
 
