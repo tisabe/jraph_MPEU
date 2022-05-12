@@ -1,14 +1,11 @@
 """Test the functions in the utils module."""
 
 import tempfile
-from typing import Generator, Mapping, Tuple
 import unittest
 
 import jax
-import jax.numpy as jnp
 import jraph
 import numpy as np
-import haiku as hk
 import ml_collections
 
 from utils import *
@@ -25,6 +22,16 @@ def get_random_graph(key) -> jraph.GraphsTuple:
     return graph
 
 class TestUtilsFunctions(unittest.TestCase):
+    def test_config_iterator(self):
+        # TODO: Quantify test
+        config = ml_collections.ConfigDict()
+        config.list = [1, 2]
+        config.list2 = ['d', 'e', 'f']
+        config.single = ['c']
+        iterator = Config_iterator(config)
+        for config in iterator:
+            print(config)
+
     def test_save_and_load_config(self):
         self.test_dir = tempfile.TemporaryDirectory()
         config = ml_collections.ConfigDict()

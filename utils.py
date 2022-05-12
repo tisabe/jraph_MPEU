@@ -10,8 +10,34 @@ from ast import literal_eval
 import pandas
 import ml_collections
 import logging
+from sklearn.model_selection import ParameterGrid
 
 from typing import Dict, Generator, Mapping, Tuple, NamedTuple
+
+
+def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
+    """Convert a dict with parameter fields to a ml_collections.ConfigDict."""
+    config = ml_collections.ConfigDict()
+    for key in config_dict.keys():
+        config[key] = config_dict[key]
+    return config
+
+
+class Config_iterator:
+    """Constructs an iterator for all combinations of elements in config.
+
+    Essentially gives all the elements for a grid search.
+    """
+    def __init__(self, config: ml_collections.config_dict):
+        config_dict = vars(config)['_fields']
+        self.grid = iter(list(ParameterGrid(config_dict)))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        config = dict_to_config(next(self.grid))
+        return config
 
 def str_to_array(str_array):
     '''Return a numpy array converted from a single string, representing an array.'''
@@ -45,14 +71,6 @@ def save_config(config: ml_collections.ConfigDict, workdir: str):
     config_dict = vars(config)['_fields']
     with open(os.path.join(workdir, 'config.json'), 'w') as config_file:
         json.dump(config_dict, config_file, indent=4, separators=(',', ': '))
-
-
-def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
-    """Convert a dict with parameter fields to a ml_collections.ConfigDict."""
-    config = ml_collections.ConfigDict()
-    for key in config_dict.keys():
-        config[key] = config_dict[key]
-    return config
 
 
 def load_config(workdir: str) -> ml_collections.ConfigDict:
