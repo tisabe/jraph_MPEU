@@ -9,7 +9,6 @@ import pickle
 import argparse
 import os
 
-from collections import defaultdict
 from absl import logging
 import haiku as hk
 import matplotlib.pyplot as plt
@@ -98,7 +97,7 @@ def load_inference_file(workdir, redo=False):
             # scale the predictions and targets using the std
             preds = preds*float(std) + mean
             targets = np.array(targets)*float(std) + mean
-        
+
             inference_dict[split] = {}
             inference_dict[split]['preds'] = preds
             inference_dict[split]['targets'] = targets
@@ -114,15 +113,17 @@ def load_inference_file(workdir, redo=False):
 
 
 def main(args):
+    """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
     workdir = args.folder
-    
+
     inference_dict = load_inference_file(workdir, redo=args.redo)
 
     fig, ax = plt.subplots(2)
     marker_size = 0.3
 
     splits = inference_dict.keys()
+    units = input("Type units of prediction and target: ")
     for split in splits:
         preds = inference_dict[split]['preds']
         targets = inference_dict[split]['targets']
@@ -130,20 +131,20 @@ def main(args):
         mae = np.mean(error)
         mse = np.mean(np.square(error))
         print(f'Number of graphs: {len(preds)}')
-        print(f'MSE: {mse} eV')
-        print(f'MAE: {mae} eV')
-        label_string = f'{split} \nMAE: {mae:9.3f} eV'
+        print(f'MSE: {mse} {units}')
+        print(f'MAE: {mae} {units}')
+        label_string = f'{split} \nMAE: {mae:9.3f} {units}'
         ax[0].scatter(targets, preds, s=marker_size, label=label_string)
         ax[1].scatter(targets, error, s=marker_size, label=split)
 
-    units = input("Type units of prediction and target: ")
     # plot x = y regression lines
-    x = np.linspace(*ax[0].get_xlim())
-    ax[0].plot(x, x, '--', alpha=0.2, color='grey')
+    x_ref = np.linspace(*ax[0].get_xlim())
+    ax[0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[0].set_title('Model regression performance')
     ax[0].set_ylabel(f'prediction ({units})', fontsize=12)
     ax[1].set_xlabel(f'target ({units})', fontsize=12)
-    ax[1].set_ylabel(f'error ({units})', fontsize=12)
+    ax[1].set_ylabel(f'abs. error ({units})', fontsize=12)
+    ax[0].set_aspect('equal')
     ax[0].legend()
     ax[1].legend()
     ax[1].set_yscale('log')
@@ -163,5 +164,5 @@ if __name__ == "__main__":
     parser.add_argument(
         '--redo', dest='redo', action='store_true'
     )
-    args = parser.parse_args()
-    main(args)
+    args_main = parser.parse_args()
+    main(args_main)
