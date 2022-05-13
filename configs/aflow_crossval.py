@@ -21,7 +21,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.loss_type = ['MSE']
 
     # Training hyperparameters
-    config.batch_size = [16, 32, 64, 128]
+    config.batch_size = [32, 64, 128]
     config.num_train_steps_max = [10_000_000]
     config.log_every_steps = [10_000]
     config.eval_every_steps = [50_000]
