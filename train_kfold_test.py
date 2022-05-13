@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from train_crossval import (
+from train_kfold import (
     get_data_indices_ith_fold
 )
 
