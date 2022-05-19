@@ -10,3 +10,4 @@ output_slurm
 *.out
 *venv/
 scripts/plots
+*.egg*
