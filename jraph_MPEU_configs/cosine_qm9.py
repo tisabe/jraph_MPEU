@@ -1,12 +1,12 @@
 """Define the default hyperparameters for model and training."""
 
 import ml_collections
-from . import default as cfg
+from jraph_MPEU_configs.default import get_config as cfg
 
 def get_config() -> ml_collections.ConfigDict():
     """Get hyperparameter configuration.
     Returns a ml_collections.ConfigDict() object."""
-    config = cfg.get_config()  # inherit from default config
+    config = cfg()  # inherit from default config
 
     # Optimizer
     config.schedule = 'cosine_decay'
