@@ -1,18 +1,19 @@
+"""Module to define utility functions used in training, evaluation and data
+processing."""
+
 import os
 import time
 import json
+from ast import literal_eval
+import logging
+from typing import NamedTuple
 
-import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
-from ast import literal_eval
-import pandas
 import ml_collections
-import logging
 from sklearn.model_selection import ParameterGrid
 
-from typing import Dict, Generator, Mapping, Tuple, NamedTuple
 
 
 def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
@@ -108,46 +109,31 @@ def dist_matrix(position_matrix):
     return jnp.sqrt(distance_matrix)
 
 
-def fill_diagonal(a, val):
-    '''Set all elements of the main diagonal in matrix a to val.
-    a can have batch dimensions.
-
-    Jax numpy version of fill_diagonal in numpy. See:
-    https://github.com/google/jax/issues/2680#issuecomment-804269672'''
-    # TODO: more docstring
-    assert a.ndim >= 2
-    i, j = jnp.diag_indices(min(a.shape[-2:]))
-    return a.at[..., i, j].set(val)
-
-
-def set_diag_high(mat, value=9999.9):
-    '''Set the values on diagonal of matrix mat to a high value (default 9999.9). '''
-    return fill_diagonal(mat, value)
-
-
 def normalize_targets(inputs, outputs, aggregation_type):
-    '''return normalized outputs, based on aggregation type.
+    """Return normalized outputs, based on aggregation type.
+
     Also return mean and standard deviation for later rescaling.
-    Inputs, i.e. graphs, are used to get number of atoms, for atom-wise scaling.'''
+    Inputs, i.e. graphs, are used to get number of atoms,
+    for atom-wise scaling."""
     outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
     n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
     for i in range(len(outputs)):
         n_atoms[i] = inputs[i].n_node[0]
 
-    if aggregation_type=='sum':
+    if aggregation_type == 'sum':
         scaled_targets = np.array(outputs)/n_atoms
     else:
         scaled_targets = outputs
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
-    if aggregation_type=='sum':
+    if aggregation_type == 'sum':
         return (outputs - (mean*n_atoms))/std, mean, std
     else:
         return (scaled_targets - mean)/std, mean, std
 
 def scale_targets(inputs, outputs, mean, std, aggregation_type):
-    '''Return scaled targets. Inverse of normalize_targets, 
+    '''Return scaled targets. Inverse of normalize_targets,
     scales targets back to the original size.
     Args:
         inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
@@ -156,7 +142,7 @@ def scale_targets(inputs, outputs, mean, std, aggregation_type):
         std: standard deviation of original targets
         aggregation_type: type of aggregation function
     Returns:
-        numpy.array of scaled target values 
+        numpy.array of scaled target values
     '''
     outputs = np.reshape(outputs, len(outputs))
     if aggregation_type == 'sum':
@@ -168,109 +154,12 @@ def scale_targets(inputs, outputs, mean, std, aggregation_type):
         return (outputs * std) + mean
 
 
-index_to_str = ['A','B','C','mu','alpha','homo','lumo','gap',
-    'r2','zpve','U0','U','H','G','Cv',
-    'U0_atom','U_atom','H_atom','G_atom']
-
-def get_data_df_csv(file_str, label_str="U0", include_no_edge_graphs=False):
-    '''Import data from a pandas.DataFrame saved as csv. 
-    Return as inputs, outputs (e.g. train_inputs, train_outputs).
-
-    Graphs will have one label, specified by label_str.
-
-    If include_no_edge_graphs=False (default), graphs without edges will be skipped.
-    Otherwise, they will be included (which might break the GNN).
-    '''
-    df = pandas.read_csv(file_str)
-    inputs = []
-    outputs = []
-    auids = []
-
-    label_index = index_to_str.index(label_str)
-    # iterate over rows in dataframe and append inputs and outputs
-    for index, row in df.iterrows():
-        nodes = str_to_array_replace(row['nodes'])
-        auid = row['auid']
-        senders = str_to_array_replace(row['senders'])
-        receivers = str_to_array_replace(row['receivers'])
-        edges = str_to_array_float(row['edges'])
-        labels = str_to_array_float(row['label'])
-        label = labels[label_index]
-
-        if (not len(edges)==0) or include_no_edge_graphs:
-            graph = jraph.GraphsTuple(
-                n_node=np.asarray([len(nodes)]),
-                n_edge=np.asarray([len(senders)]),
-                nodes=nodes, edges=edges,
-                globals=None,
-                senders=np.asarray(senders), receivers=np.asarray(receivers))
-            inputs.append(graph)
-            outputs.append(label)
-            auids.append(auid)
-
-    return inputs, outputs, auids
-
-
-def get_atomization_energies_QM9(graphs, labels, label_str):
-    '''Return the atomization energies in the QM9 dataset by subtracting
-    reference energies from atomref_QM9.txt.
-    
-    Args:
-        graphs: list of jraph.GraphsTuple
-        labels: list of labels (regression targets)
-        label_str: name of the label, one of the attributes in atomref_QM9.txt
-
-    '''
-    ref_energies_df = pandas.read_csv('atomref_QM9.txt')
-    outputs = []
-
-    reference_energies_available = ['U0','U','H','G','Cv']
-    
-    if label_str in reference_energies_available:
-        for graph, label in zip(graphs, labels):
-            # sum up the reference energies for the specific graph
-            atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
-            outputs.append(label - atomic_energy)
-        return outputs
-    else:
-        for graph, label in zip(graphs, labels):
-            outputs.append(label)
-        return outputs
-
-
-def get_original_energies_QM9(graphs, labels, label_str):
-    '''Return the original energies in the QM9 dataset by adding
-    reference energies from atomref_QM9.txt.
-    
-    Args:
-        graphs: list of jraph.GraphsTuple
-        labels: list of labels (regression targets)
-        label_str: name of the label, one of the attributes in atomref_QM9.txt
-
-    '''
-    ref_energies_df = pandas.read_csv('atomref_QM9.txt')
-    outputs = []
-
-    reference_energies_available = ['U0','U','H','G','Cv']
-    
-    if label_str in reference_energies_available:
-        for graph, label in zip(graphs, labels):
-            # sum up the reference energies for the specific graph
-            atomic_energy = sum(ref_energies_df[label_str][graph.nodes])
-            outputs.append(label + atomic_energy)
-        return outputs
-    else:
-        for graph, label in zip(graphs, labels):
-            outputs.append(label)
-        return outputs
-
-
-def _nearest_bigger_power_of_two(x: int) -> int:
-    """Computes the nearest power of two greater than x for padding."""
-    y = 2
-    while y < x:
-        y *= 2
-    return y
+def _nearest_bigger_power_of_two(num: int) -> int:
+    """Computes the nearest power of two greater than num for padding."""
+    base = 2
+    while base < num:
+        base *= 2
+    return base
 
 
 def pad_graph_to_nearest_power_of_two(
@@ -313,7 +202,7 @@ def get_graphs_tuple_size(graph: jraph.GraphsTuple):
         n_edge=np.sum(graph.n_edge),
         n_graph=np.shape(graph.n_node)[0])
 
-  
+
 def estimate_padding_budget_for_batch_size(
         dataset,
         batch_size: int,
@@ -359,11 +248,11 @@ def estimate_padding_budget_for_batch_size(
 
 
 def add_labels_to_graphs(graphs, labels):
-    '''Return a list of jraph.GraphsTuple with the labels as globals.'''
+    """Return a list of jraph.GraphsTuple with the labels as globals."""
     graphs_with_globals = []
     for graph, label in zip(graphs, labels):
         graph_new = graph
-        graph_new = graph_new._replace(globals = np.array([label]))
+        graph_new = graph_new._replace(globals=np.array([label]))
         graphs_with_globals.append(graph_new)
     return graphs_with_globals
 
@@ -378,18 +267,26 @@ def get_valid_mask(
         labels: jnp.ndarray,
         graphs: jraph.GraphsTuple
 ) -> jnp.ndarray:
+    """Return a boolean mask of batched graphsTuple graphs.
+
+    Returned array has shape [total_num_graphs, 1], values are True for real
+    graphs and False for padding graphs.
+    TODO: remove labels from arguments here and everywhere this is used.
+    """
     graph_mask = jraph.get_graph_padding_mask(graphs)
 
     return jnp.expand_dims(graph_mask, 1)
 
 
 class Time_logger:
+    """Class to keep track of time spent per gradient step. WIP"""
     def __init__(self, config):
         self.start = time.time()
         self.step_max = config.num_train_steps_max
         self.time_limit = config.time_limit
 
     def log_eta(self, step):
+        """Log the estimated time of arrival, with the maximum number of steps."""
         time_elapsed = time.time() - self.start
         eta = int(time_elapsed * (self.step_max/step - 1))
         logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')

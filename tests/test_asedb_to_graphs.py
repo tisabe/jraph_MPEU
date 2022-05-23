@@ -6,7 +6,7 @@ import numpy as np
 import jax.numpy as jnp
 from ase import Atoms
 
-from asedb_to_graphs import (
+from jraph_MPEU.input_pipeline import (
     get_graph_fc,
     get_graph_cutoff,
     get_graph_knearest
@@ -41,7 +41,9 @@ def dist_matrix(position_matrix):
 
 
 class TestGraphsFunctions(unittest.TestCase):
+    """Unit tests for graph conversion functions."""
     def test_graph_fc(self):
+        """Test if fully connected graphs are correctly generated."""
         atoms = Atoms('H5')
         num_nodes = 5
         dimensions = 3
@@ -58,7 +60,7 @@ class TestGraphsFunctions(unittest.TestCase):
 
         for receiver in range(num_nodes):
             for sender in range(num_nodes):
-                if (sender != receiver):
+                if sender != receiver:
                     expected_edges.append(distances[sender, receiver])
                     expected_senders.append(sender)
                     expected_receivers.append(receiver)
@@ -71,8 +73,8 @@ class TestGraphsFunctions(unittest.TestCase):
 
 
     def test_catch_fc_with_pbc(self):
-        """Test that trying to make a fully connected graph from atoms with periodic 
-        boundary conditions raises an exception."""
+        """Test that trying to make a fully connected graph from atoms with
+        periodic boundary conditions raises an exception."""
         atoms = Atoms('H5', pbc=True)
         num_nodes = 5
         dimensions = 3
@@ -85,6 +87,8 @@ class TestGraphsFunctions(unittest.TestCase):
 
 
     def test_k_nn_random(self):
+        """Test generating a k-nearest neighbor graph rom random atomic
+        positions."""
         atoms = Atoms('H5')
         num_nodes = 5
         dimensions = 3
@@ -102,11 +106,14 @@ class TestGraphsFunctions(unittest.TestCase):
         for row in range(num_nodes):
             idx_list = []
             last_idx = 0
-            for ik in range(k):
-                min_val_last = 9999.9  # temporary last saved minimum value, initialized to high value
+            for _ in range(k):
+                # temporary last saved minimum value, initialized to high value
+                min_val_last = 9999.9
                 for col in range(num_nodes):
                     if col == row or (col in idx_list):
-                        continue    # do nothing on the diagonal, or if column has already been included
+                        # do nothing on the diagonal,
+                        # or if column has already been included
+                        continue
                     else:
                         val = distances[row, col]
                         if val < min_val_last:
@@ -116,8 +123,8 @@ class TestGraphsFunctions(unittest.TestCase):
                 expected_senders.append(last_idx)
                 expected_receivers.append(row)
 
-        for s, r in zip(expected_senders, expected_receivers):
-            expected_edges.append(distances[s, r])
+        for i_s, i_r in zip(expected_senders, expected_receivers):
+            expected_edges.append(distances[i_s, i_r])
 
         np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
         np.testing.assert_array_equal(pos, position_matrix)
@@ -126,6 +133,8 @@ class TestGraphsFunctions(unittest.TestCase):
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
     def test_get_cutoff_adj_from_dist_random(self):
+        """Test generating a graph with constant cutoff from random
+        atomic positions."""
         atoms = Atoms('H4')
         num_nodes = 4
         dimensions = 3
@@ -142,7 +151,7 @@ class TestGraphsFunctions(unittest.TestCase):
 
         for sender in range(num_nodes):
             for receiver in range(num_nodes):
-                if not (sender == receiver):
+                if not sender == receiver:
                     if distances[sender, receiver] < cutoff:
                         expected_edges.append(distances[sender, receiver])
                         expected_senders.append(sender)

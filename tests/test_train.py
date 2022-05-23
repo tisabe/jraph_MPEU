@@ -10,10 +10,10 @@ import unittest
 import numpy as np
 import jax
 
-import train
-from input_pipeline import get_datasets
-from configs import test_numerics as cfg_num
-from configs import default_test as cfg
+from jraph_MPEU import train
+from jraph_MPEU.input_pipeline import get_datasets
+from jraph_MPEU_configs import test_numerics as cfg_num
+from jraph_MPEU_configs import default_test as cfg
 
 class TestTrain(unittest.TestCase):
     """Test train.py methods and classes."""

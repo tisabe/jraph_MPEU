@@ -15,7 +15,7 @@ import haiku as hk
 
 import ml_collections
 
-from models import (
+from jraph_MPEU.models import (
     GNN,
     shifted_softplus,
     get_edge_update_fn,

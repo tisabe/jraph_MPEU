@@ -23,14 +23,14 @@ import optax
 import haiku as hk
 
 # import custom functions
-from models import GNN
-from utils import (
+from jraph_MPEU.models import GNN
+from jraph_MPEU.utils import (
     #Time_logger,
     replace_globals,
     get_valid_mask,
     save_config
 )
-from input_pipeline import (
+from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )

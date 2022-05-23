@@ -5,13 +5,13 @@ import jraph
 import numpy as np
 import ase.db
 
-from input_pipeline import (
+from jraph_MPEU.input_pipeline import (
     DataReader,
     ase_row_to_jraph,
     asedb_to_graphslist,
     atoms_to_nodes_list,
 )
-from utils import add_labels_to_graphs
+from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
