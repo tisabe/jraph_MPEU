@@ -2,12 +2,12 @@
 Test numerical stability with this config."""
 
 import ml_collections
-from configs import default as cfg
+from jraph_MPEU_configs.default import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     """Get hyperparameter configuration.
     Returns a ml_collections.ConfigDict() object."""
-    config = cfg.get_config() # inherit from default config
+    config = get_config_super() # inherit from default config
 
     # Training hyperparameters
     config.num_train_steps_max = 20

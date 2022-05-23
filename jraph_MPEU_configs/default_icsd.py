@@ -1,12 +1,12 @@
 """Define the default hyperparameters for model and training."""
 
 import ml_collections
-from configs import default_aflow as cfg
+from jraph_MPEU_configs.default_aflow import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     """Get hyperparameter configuration.
     Returns a ml_collections.ConfigDict() object."""
-    config = cfg.get_config() # inherit from default mp config
+    config = get_config_super() # inherit from default mp config
 
     config.data_file = 'aflow/icsd_energies_graphs_6A.db'
     #config.selection = 'natoms<80'
