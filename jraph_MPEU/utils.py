@@ -264,14 +264,12 @@ def replace_globals(graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
 
 
 def get_valid_mask(
-        labels: jnp.ndarray,
         graphs: jraph.GraphsTuple
 ) -> jnp.ndarray:
     """Return a boolean mask of batched graphsTuple graphs.
 
     Returned array has shape [total_num_graphs, 1], values are True for real
     graphs and False for padding graphs.
-    TODO: remove labels from arguments here and everywhere this is used.
     """
     graph_mask = jraph.get_graph_padding_mask(graphs)
 

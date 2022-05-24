@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jax
 
-from models import GNN
-from utils import (
+from jraph_MPEU.models import GNN
+from jraph_MPEU.utils import (
     load_config,
     get_valid_mask
 )
-from input_pipeline import (
+from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader
 )
@@ -52,10 +52,7 @@ def get_predictions(dataset, net, params):
         data=dataset, batch_size=32, repeat=False)
     @jax.jit
     def predict_batch(graphs):
-        labels = graphs.globals
-        #graphs = replace_globals(graphs)
-
-        mask = get_valid_mask(labels, graphs)
+        mask = get_valid_mask(graphs)
         pred_graphs = net.apply(params, graphs)
         predictions = pred_graphs.globals
         return predictions, mask

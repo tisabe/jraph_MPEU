@@ -408,7 +408,7 @@ def init_state(
         labels = graphs.globals
         graphs = replace_globals(graphs)
 
-        mask = get_valid_mask(labels, graphs)
+        mask = get_valid_mask(graphs)
         pred_graphs = net_apply(params, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
