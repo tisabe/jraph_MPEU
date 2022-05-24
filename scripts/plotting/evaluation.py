@@ -10,21 +10,17 @@ import argparse
 import os
 
 from absl import logging
-import haiku as hk
 import matplotlib.pyplot as plt
 import numpy as np
 import jax
 
 from jraph_MPEU.models import (
-    GNN,
     load_model,
 )
 from jraph_MPEU.utils import (
-    load_config,
     get_valid_mask,
 )
 from jraph_MPEU.input_pipeline import (
-    get_datasets,
     DataReader,
     load_data
 )
