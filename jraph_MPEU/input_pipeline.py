@@ -287,7 +287,7 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
             nodes[i] = num_list.index(num)
         graph._replace(nodes=nodes)
 
-    return graphs, len(num_list)
+    return graphs, num_list
 
 
 class DataReader:
@@ -381,7 +381,10 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         num_edges_max=config.num_edges_max,
         limit=config.limit_data)
     # Convert the atomic numbers in nodes to classes and set number of classes.
-    graphs_list, num_classes = atoms_to_nodes_list(graphs_list)
+    graphs_list, num_list = atoms_to_nodes_list(graphs_list)
+    # TODO: save num list for later access
+    
+    num_classes = len(num_list)
     config.max_atomic_number = num_classes
     labels_raw = labels_list
 
