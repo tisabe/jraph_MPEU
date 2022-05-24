@@ -49,7 +49,7 @@ def get_graph_fc(atoms: Atoms):
         nodes.append(atom_numbers[i])
         for j in range(n_atoms):
             # get all edges except self edges
-            if (i != j):
+            if i != j:
                 i_pos = atom_positions[i]
                 j_pos = atom_positions[j]
                 dist_vec = i_pos - j_pos
@@ -78,7 +78,7 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     edges = []
     atom_numbers = atoms.get_atomic_numbers() # get array of atomic numbers
 
-    # divide cutoff by 2, because ASE defines two atoms as neighbours 
+    # divide cutoff by 2, because ASE defines two atoms as neighbours
     # when their spheres of radii r overlap
     radii = [cutoff/2] * len(atoms) # make a list with length len(atoms)
     neighborhood = NeighborList(
@@ -92,20 +92,20 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
         atom_positions = atoms.get_positions(wrap=False)
 
     unitcell = atoms.get_cell()
-    
-    for ii in range(len(atoms)):
-        nodes.append(atom_numbers[ii])
 
-    for ii in range(len(atoms)):
-        neighbor_indices, offset = neighborhood.get_neighbors(ii)
-        for jj, offs in zip(neighbor_indices, offset):
-            ii_pos = atom_positions[ii]
-            jj_pos = atom_positions[jj] + np.dot(offs, unitcell)
-            dist_vec = ii_pos - jj_pos
+    for i in range(len(atoms)):
+        nodes.append(atom_numbers[i])
+
+    for i in range(len(atoms)):
+        neighbor_indices, offset = neighborhood.get_neighbors(i)
+        for j, offs in zip(neighbor_indices, offset):
+            i_pos = atom_positions[i]
+            j_pos = atom_positions[j] + np.dot(offs, unitcell)
+            dist_vec = i_pos - j_pos
             dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
-            senders.append(jj)
-            receivers.append(ii)
+            senders.append(j)
+            receivers.append(i)
             edges.append(dist)
 
     if len(edges) == 0:
@@ -121,8 +121,7 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     )
 
 def get_graph_knearest(
-    atoms: Atoms, num_neighbors, initial_radius=3.0
-):
+        atoms: Atoms, num_neighbors, initial_radius=3.0):
     '''Return the graph features, with knearest adjacency.
     Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
 
@@ -130,10 +129,11 @@ def get_graph_knearest(
     atom_numbers = atoms.get_atomic_numbers()
     unitcell = atoms.get_cell()
 
-    # We want to calculate k nearest neighbors, so we start within a sphere with radius R.
-    # In this sphere we are calculating the number of neighbors, if there are not enough,
-    # i.e. the number of neighbors within the sphere is smaller than k, R is increased 
-    # until we found enough neighbors. After that we discard all neighbors except the k nearest. 
+    # We want to calculate k nearest neighbors, so we start within a sphere
+    # with radius R. In this sphere we are calculating the number of neighbors,
+    # if there are not enough, i.e. the number of neighbors within the sphere
+    # is smaller than k, R is increased until we found enough neighbors. After
+    # that we discard all neighbors except the k nearest.
     for multiplier in range(1, 11):
         if multiplier == 10:
             raise RuntimeError("Reached maximum radius")
@@ -155,40 +155,40 @@ def get_graph_knearest(
         keep_senders = []
         keep_receivers = []
 
-        for ii in range(len(atoms)):
-            nodes.append(atom_numbers[ii])
+        for i in range(len(atoms)):
+            nodes.append(atom_numbers[i])
 
         early_exit = False
-        for ii in range(len(atoms)):
+        for i in range(len(atoms)):
             this_edges = []
             this_senders = []
             this_receivers = []
-            neighbor_indices, offset = neighborhood.get_neighbors(ii)
+            neighbor_indices, offset = neighborhood.get_neighbors(i)
             if len(neighbor_indices) < num_neighbors:
                 # Not enough neigbors, so exit and increase radius
                 early_exit = True
                 break
-            for jj, offs in zip(neighbor_indices, offset):
-                ii_pos = atom_positions[ii]
-                jj_pos = atom_positions[jj] + np.dot(offs, unitcell)
-                dist_vec = ii_pos - jj_pos
+            for j, offs in zip(neighbor_indices, offset):
+                i_pos = atom_positions[i]
+                j_pos = atom_positions[j] + np.dot(offs, unitcell)
+                dist_vec = i_pos - j_pos
                 dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
                 this_edges.append([dist])
-                this_senders.append(jj)
-                this_receivers.append(ii)
+                this_senders.append(j)
+                this_receivers.append(i)
             edges.append(np.array(this_edges))
             senders.append(np.array(this_senders))
             receivers.append(np.array(this_receivers))
         if early_exit:
             continue
         else:
-            for e, s, r in zip(edges, senders, receivers):
+            for e_ind, s_ind, r_ind in zip(edges, senders, receivers):
                 # Keep only num_neighbors closest indices
-                keep_ind = np.argsort(e[:, 0])[0:num_neighbors]
-                keep_edges.append(e[keep_ind])
-                keep_senders.append(s[keep_ind])
-                keep_receivers.append(r[keep_ind])
+                keep_ind = np.argsort(e_ind[:, 0])[0:num_neighbors]
+                keep_edges.append(e_ind[keep_ind])
+                keep_senders.append(s_ind[keep_ind])
+                keep_receivers.append(r_ind[keep_ind])
         break
     return (
         np.array(nodes),
@@ -233,8 +233,8 @@ def asedb_to_graphslist(
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
         if num_edges_max is not None:
-            if n_edge > num_edges_max:  # do not include graphs with too many edges 
-                # TODO: test this 
+            if n_edge > num_edges_max:  # do not include graphs with too many edges
+                # TODO: test this
                 continue
         if n_edge == 0:  # do not include graphs without edges
             continue
