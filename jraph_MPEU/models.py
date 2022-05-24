@@ -17,12 +17,29 @@ eps_vw which is size k_max. The network then outputs an edge vector e_vw(0)
 of size C (latent_size).
 """
 
+import pickle
+
 import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
 import haiku as hk
 import ml_collections
+
+from jraph_MPEU.utils import load_config
+
+
+def load_model(workdir):
+    """Load model to evaluate on."""
+    state_dir = workdir+'/checkpoints/best_state.pkl'
+    with open(state_dir, 'rb') as state_file:
+        best_state = pickle.load(state_file)
+    config = load_config(workdir)
+    # load the model params
+    params = best_state['state']['params']
+    net_fn = GNN(config)
+    net = hk.without_apply_rng(hk.transform(net_fn))
+    return net, params
 
 
 # Define the shifted softplus activation function.

@@ -15,35 +15,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jax
 
-from jraph_MPEU.models import GNN
+from jraph_MPEU.models import (
+    GNN,
+    load_model,
+)
 from jraph_MPEU.utils import (
     load_config,
-    get_valid_mask
+    get_valid_mask,
 )
 from jraph_MPEU.input_pipeline import (
     get_datasets,
-    DataReader
+    DataReader,
+    load_data
 )
-
-
-def load_data(workdir):
-    """Load evaluation splits."""
-    config = load_config(workdir)
-    dataset, dataset_raw, mean, std = get_datasets(config)  # might refactor
-    return dataset, dataset_raw, mean, std
-
-
-def load_model(workdir):
-    """Load model to evaluate on."""
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
-        best_state = pickle.load(state_file)
-    config = load_config(workdir)
-    # load the model params
-    params = best_state['state']['params']
-    net_fn = GNN(config)
-    net = hk.without_apply_rng(hk.transform(net_fn))
-    return net, params
 
 
 def get_predictions(dataset, net, params):
@@ -156,7 +140,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Show regression plot and loss curve.')
     parser.add_argument(
-        '-f', '-F', type=str, dest='folder', default='results/qm9/test_eval',
+        '-f', '-F', type=str, dest='folder', default='results/qm9/test',
         help='input directory name')
     parser.add_argument(
         '--redo', dest='redo', action='store_true'

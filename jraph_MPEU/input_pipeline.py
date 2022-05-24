@@ -24,7 +24,15 @@ from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     normalize_targets,
     add_labels_to_graphs,
+    load_config
 )
+
+
+def load_data(workdir):
+    """Load evaluation splits."""
+    config = load_config(workdir)
+    dataset, dataset_raw, mean, std = get_datasets(config)  # might refactor
+    return dataset, dataset_raw, mean, std
 
 
 def get_graph_fc(atoms: Atoms):
