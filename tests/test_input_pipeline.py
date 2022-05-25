@@ -227,6 +227,8 @@ class TestPipelineFunctions(unittest.TestCase):
         self.assertEqual(len(num_list), 3)
         self.assertTrue(len(num_list) == len(set(num_list)))
         np.testing.assert_array_equal(num_list, [1, 6, 8])
+        self.assertIsInstance(num_list[0], int)
+        self.assertIsInstance(num_list, list)
 
 
 if __name__ == '__main__':

@@ -279,7 +279,7 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
         for num in nodes:  # Loop over nodes in a graph.
             if not num in num_list:
                 # Append unseen atomic numbers to num_list.
-                num_list.append(num)
+                num_list.append(int(num))
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
     for graph in graphs:

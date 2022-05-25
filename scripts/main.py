@@ -11,7 +11,7 @@ import jax
 from ml_collections import config_flags
 import tensorflow as tf
 
-import train
+from jraph_MPEU import train
 
 FLAGS = flags.FLAGS
 

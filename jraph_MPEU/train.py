@@ -12,6 +12,7 @@ from typing import (
     Any,
     Mapping
 )
+import json
 
 from absl import logging
 import jax
@@ -471,8 +472,10 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, _, std, _ = get_datasets(config)
+    datasets, _, _, std, num_list = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
+    with open(os.path.join(workdir, 'atomic_num_list.json'), 'w') as list_file:
+        json.dump(num_list, list_file)
 
     # save the config in txt for later inspection
     save_config(config, workdir)
