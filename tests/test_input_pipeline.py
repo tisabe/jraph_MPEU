@@ -29,8 +29,8 @@ class TestPipelineFunctions(unittest.TestCase):
             for i, row in enumerate(db.select(limit=10)):
                 if i == 0:
                     first_row = row
-            cutoff_type = row['cutoff_type']
-            cutoff_val = row['cutoff_val']
+            cutoff_type = first_row['cutoff_type']
+            cutoff_val = first_row['cutoff_val']
             print(f'db name: {db_name}, cutoff type: {cutoff_type}, \
                 cutoff val: {cutoff_val}')
 
@@ -117,6 +117,7 @@ class TestPipelineFunctions(unittest.TestCase):
         self.assertTrue(labels_repeat_sum > np.sum(labels))
 
     def test_ase_row_to_jraph(self):
+        """Test conversion from ase.db.Row to jraph.GraphsTuple."""
         db = ase.db.connect('matproj/mp_graphs.db')
         row = db.get('mp_id=mp-1001')
         atomic_numbers = row.toatoms().get_atomic_numbers()
@@ -193,14 +194,14 @@ class TestPipelineFunctions(unittest.TestCase):
         return 0
 
     def test_atoms_to_nodes_list(self):
-        '''Example: atomic numbers as nodes before:
+        """Example: atomic numbers as nodes before:
         [1 1 1 6] Methane
         [1 1 1 1 1 1 6 6] Ethane
         [1 1 1 1 6 8] Carbon Monoxide
         Will be turned into:
         [0 0 0 1]
         [0 0 0 0 0 0 1 1]
-        [0 0 0 0 1 2]'''
+        [0 0 0 0 1 2]"""
         graph0 = jraph.GraphsTuple(
             n_node=[4], nodes=np.array([1, 1, 1, 6]), n_edge=None, edges=None,
             senders=None, receivers=None, globals=None)
@@ -211,7 +212,7 @@ class TestPipelineFunctions(unittest.TestCase):
             n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graphs = [graph0, graph1, graph2]
-        graphs, num_classes = atoms_to_nodes_list(graphs)
+        graphs, num_list = atoms_to_nodes_list(graphs)
 
         nodes0_expected = np.array([0, 0, 0, 1])
         nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])
@@ -222,7 +223,10 @@ class TestPipelineFunctions(unittest.TestCase):
         np.testing.assert_array_equal(nodes0_expected, nodes0)
         np.testing.assert_array_equal(nodes1_expected, nodes1)
         np.testing.assert_array_equal(nodes2_expected, nodes2)
-        self.assertEqual(num_classes, 3)
+        # also check that the list of atomic numbers has three different entries
+        self.assertEqual(len(num_list), 3)
+        self.assertTrue(len(num_list) == len(set(num_list)))
+        np.testing.assert_array_equal(num_list, [1, 6, 8])
 
 
 if __name__ == '__main__':

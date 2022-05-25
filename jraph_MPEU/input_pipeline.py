@@ -254,12 +254,13 @@ def asedb_to_graphslist(
     return graphs, labels
 
 def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
-        Sequence[jraph.GraphsTuple], int]:
+        Sequence[jraph.GraphsTuple], list]:
     """Encodes the atomic numbers of nodes in a graph in compact fashion.
 
     Return graphs with atomic numbers as graph-nodes turned into
-    nodes with atomic numbers as classes. This gets rid of atomic numbers that
-    are not present in the dataset.
+    nodes with atomic numbers as classes, and return the list that transforms
+    atomic numbers to classes for reproducibility.
+    This gets rid of atomic numbers that are not present in the dataset.
 
     Example: atomic numbers as nodes before:
     [1 1 1 1 6] Methane
