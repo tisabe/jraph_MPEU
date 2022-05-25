@@ -42,8 +42,16 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    sns.pairplot(df, kind='hist')
+    sns.pairplot(df)
     plt.show()
+
+    # print the best and worst 3 configs
+    for i in range(3):
+        i_min = df['mae'].idxmin()
+        i_max = df['mae'].idxmax()
+        print(f'{i}. minimum mae configuration: \n', df.iloc[i_min])
+        print(f'{i}. maximum mae configuration: \n', df.iloc[i_max])
+        df = df.drop([i_min, i_max])
 
     return 0
 
