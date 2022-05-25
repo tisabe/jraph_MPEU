@@ -471,7 +471,7 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, _, std = get_datasets(config)
+    datasets, _, _, std, _ = get_datasets(config)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection

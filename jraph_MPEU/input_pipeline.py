@@ -31,7 +31,7 @@ from jraph_MPEU.utils import (
 def load_data(workdir):
     """Load evaluation splits."""
     config = load_config(workdir)
-    dataset, dataset_raw, mean, std = get_datasets(config)  # might refactor
+    dataset, dataset_raw, mean, std, _ = get_datasets(config)  # might refactor
     return dataset, dataset_raw, mean, std
 
 
@@ -359,7 +359,7 @@ class DataReader:
 def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         Dict[str, Iterable[jraph.GraphsTuple]],
         Dict[str, Sequence[jraph.GraphsTuple]],
-        float, float]:
+        float, float, list]:
     """Return a dict with a dataset for each split (train, val, test).
 
     Return in normalized and in raw form/labels. Also return the mean and
@@ -372,6 +372,8 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
     The raw dataset is just a dict with lists of graphs.
 
     The graphs have their regression label as a global feature attached.
+    TODO: refactor this to make it single responsiblity. Idea: split this
+    function into getting raw data and a normalizing/processing function.
     """
     # Data will be split into normalized data for regression and raw data for
     # analyzing later
@@ -383,8 +385,7 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         limit=config.limit_data)
     # Convert the atomic numbers in nodes to classes and set number of classes.
     graphs_list, num_list = atoms_to_nodes_list(graphs_list)
-    # TODO: save num list for later access
-    
+
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
     labels_raw = labels_list
@@ -439,4 +440,4 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         'validation': val_raw,
         'test': test_raw}
 
-    return dataset, dataset_raw, mean, std
+    return dataset, dataset_raw, mean, std, num_list

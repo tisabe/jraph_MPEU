@@ -22,7 +22,7 @@ class TestTrain(unittest.TestCase):
         self.config.limit_data = 100
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
-        datasets, _, _, _ = get_datasets(self.config)
+        datasets, _, _, _, _ = get_datasets(self.config)
         self.datasets = datasets
         self.datasets_train_val = {
             'train': self.datasets['train'].data[:],
