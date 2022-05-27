@@ -14,8 +14,8 @@ from ml_collections import config_flags
 import tensorflow as tf
 import jax
 
-from utils import Config_iterator
-from train import train_and_evaluate
+from jraph_MPEU.utils import Config_iterator
+from jraph_MPEU.train import train_and_evaluate
 
 flags.DEFINE_integer('index', 0, help='cross validation grid index')
 FLAGS = flags.FLAGS

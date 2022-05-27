@@ -3,6 +3,7 @@ import os
 import pickle
 import json
 
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -27,14 +28,23 @@ def main(args):
             metrics = metrics_dict[split]
             loss_mse = [row[1][0] for row in metrics]
             loss_mae = [row[1][1] for row in metrics]
+            n_mean = 5 # number of points for running mean
+            #  compute running mean using convolution
+            loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
+            loss_mse = np.convolve(loss_mse, np.ones(n_mean)/n_mean, mode='valid')
             step = [int(row[0]) for row in metrics]
+            min_step_mse = step[np.argmin(loss_mse)]
+            min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
                 'mp_steps': config_dict['message_passing_steps'],
                 'latent_size': config_dict['latent_size'],
                 'batch_size': config_dict['batch_size'],
                 'decay_rate': config_dict['decay_rate'],
                 'mae': min(loss_mae),
-                'mse': min(loss_mse)}
+                'mse': min(loss_mse),
+                'min_step_mae': min_step_mae,
+                'min_step_mse': min_step_mse,
+            }
             #print(row_dict)
             df = df.append(row_dict, ignore_index=True)
 
@@ -42,7 +52,7 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    sns.pairplot(df)
+    sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
     plt.show()
 
     # print the best and worst 3 configs
@@ -58,7 +68,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Show ensemble of loss curves.')
-    parser.add_argument('-f', '-F', type=str, dest='file', default='results_test',
-                        help='input super directory name')
+    parser.add_argument(
+        '-f', '-F', type=str, dest='file',
+        default='results/aflow/crossval_grid',
+        help='input super directory name')
     args_main = parser.parse_args()
     main(args_main)
