@@ -15,8 +15,7 @@ def main(args):
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
-            #print(metrics_path)
-            #metrics_path = 'results/mp/cutoff/lowlr/checkpoints/metrics.pkl'
+            print(metrics_path)
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
 
@@ -32,16 +31,21 @@ def main(args):
             #  compute running mean using convolution
             loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
             loss_mse = np.convolve(loss_mse, np.ones(n_mean)/n_mean, mode='valid')
+            min_mae = min(loss_mae)
+            min_mse = min(loss_mse)
+            if min_mae > 1e4 or min_mse > 1e4:
+                print(f'mae or mse too high for path {dirname}')
+                continue
             step = [int(row[0]) for row in metrics]
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
                 'mp_steps': config_dict['message_passing_steps'],
                 'latent_size': config_dict['latent_size'],
-                'batch_size': config_dict['batch_size'],
+                'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
-                'mae': min(loss_mae),
-                'mse': min(loss_mse),
+                'mae': min_mae,
+                'mse': min_mse,
                 'min_step_mae': min_step_mae,
                 'min_step_mse': min_step_mse,
             }
