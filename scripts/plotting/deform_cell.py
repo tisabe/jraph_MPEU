@@ -120,8 +120,15 @@ def main(args):
     file = config.data_file
     ase_db = ase.db.connect(file)
     ids = ['mp-149', 'mp-165', 'mp-2352', 'mp-1061395', 'mp-1224973']
+    ids = [
+        'aflow:09e8e3c8f41716e4',
+        'aflow:20a474bdfc8057ac',
+        #'aflow:6454e4f00b068452',
+        #'aflow:2bb55fb3d0b119fb'
+        ]
     for id_single in ids:
-        row = ase_db.get(selection=f'mp_id={id_single}')
+        #row = ase_db.get(selection=f'mp_id={id_single}')
+        row = ase_db.get(selection=f'auid={id_single}')
         cutoff_type = row['cutoff_type']
         cutoff_val = row['cutoff_val']
         atoms = row.toatoms()
