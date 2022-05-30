@@ -37,7 +37,6 @@ from jraph_MPEU.input_pipeline import (
 )
 
 
-
 class Updater:
     """A stateless abstraction around an init_fn/update_fn pair.
     This extracts some common boilerplate from the training loop.

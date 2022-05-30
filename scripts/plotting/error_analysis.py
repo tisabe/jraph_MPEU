@@ -1,21 +1,16 @@
-"""Evaluate the model using checkpoints and best state from workdir.
-
-The model with the best validation loss is saved during training and loaded
-here. The model weights are saved in the pickle file, after they are loaded,
-the model can be built using the config.json.
-"""
-
-import pickle
 import argparse
-import os
 
 from absl import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
-from jraph_MPEU.inference import get_predictions, load_inference_file
-from jraph_MPEU.models import load_model
-from jraph_MPEU.input_pipeline import load_data
+from jraph_MPEU.input_pipeline import (
+    get_datasets
+)
+from jraph_MPEU.utils import (
+    load_config
+)
+from jraph_MPEU.inference import load_inference_file
 
 
 def main(args):
@@ -60,15 +55,11 @@ def main(args):
     fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Show regression plot and loss curve.')
+        description='Plot model prediction errors for different distributions.')
     parser.add_argument(
         '-f', '-F', type=str, dest='folder', default='results/qm9/test',
         help='input directory name')
-    parser.add_argument(
-        '--redo', dest='redo', action='store_true'
-    )
     args_main = parser.parse_args()
     main(args_main)
