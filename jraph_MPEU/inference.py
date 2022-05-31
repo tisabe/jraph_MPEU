@@ -1,12 +1,13 @@
 """This module defines function used for making inferences with an existing
 model."""
 import os
+import pickle
 
 import jax
 import numpy as np
 from absl import logging
 
-from jraph_MPEU.input_pipeline import DataReader
+from jraph_MPEU.input_pipeline import DataReader, load_data
 from jraph_MPEU.utils import get_valid_mask
 from jraph_MPEU.models import load_model
 

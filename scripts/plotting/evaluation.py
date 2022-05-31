@@ -5,17 +5,13 @@ here. The model weights are saved in the pickle file, after they are loaded,
 the model can be built using the config.json.
 """
 
-import pickle
 import argparse
-import os
 
 from absl import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
-from jraph_MPEU.inference import get_predictions, load_inference_file
-from jraph_MPEU.models import load_model
-from jraph_MPEU.input_pipeline import load_data
+from jraph_MPEU.inference import load_inference_file
 
 
 def main(args):

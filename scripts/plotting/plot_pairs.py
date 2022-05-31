@@ -15,7 +15,7 @@ def main(args):
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
-            print(metrics_path)
+            #print(metrics_path)
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
 
@@ -56,8 +56,8 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
-    plt.show()
+    #sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
+    #plt.show()
 
     # print the best and worst 3 configs
     for i in range(3):
@@ -66,6 +66,16 @@ def main(args):
         print(f'{i}. minimum mae configuration: \n', df.iloc[i_min])
         print(f'{i}. maximum mae configuration: \n', df.iloc[i_max])
         df = df.drop([i_min, i_max])
+
+    # plot mse for main hyperparameters with logscale
+    box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
+    fig, ax = plt.subplots(1, len(box_xnames), figsize=(16,8), sharey=True)
+    for i, name in enumerate(box_xnames):
+        sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
+        sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+    plt.yscale('log')
+    plt.show()
+
 
     return 0
 
