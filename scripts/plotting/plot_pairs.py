@@ -77,6 +77,7 @@ def main(args):
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
+    fig.savefig(args.file+'/pairplot.png', bbox_inches='tight', dpi=600)
 
 
     return 0
