@@ -13,3 +13,4 @@ scripts/plots
 *.egg*
 databases*
 scripts/figs*
+.pytest_cache
