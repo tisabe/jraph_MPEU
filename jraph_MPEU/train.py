@@ -347,8 +347,8 @@ def cosine_warm_restarts(
         init_value: float,
         decay_steps: int,
 ) -> Callable[[int], float]:
-    '''Return a function that implements a cosine schedule with warm restarts.
-    For more details see: https://arxiv.org/abs/1608.03983'''
+    """Return a function that implements a cosine schedule with warm restarts.
+    For more details see: https://arxiv.org/abs/1608.03983"""
 
     if not decay_steps > 0:
         raise ValueError('The cosine_decay_schedule requires positive decay_steps!')

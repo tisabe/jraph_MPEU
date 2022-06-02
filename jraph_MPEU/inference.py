@@ -13,7 +13,17 @@ from jraph_MPEU.models import load_model
 
 
 def get_predictions(dataset, net, params):
-    """Get predictions for a single dataset split."""
+    """Get predictions for a single dataset split.
+
+    Args:
+        dataset: list of jraph.GraphsTuple
+        net: the model object with an apply function that applies the GNN model
+            on a batch of graphs.
+        params: haiku parameters used by the net.apply function
+
+    Returns:
+        1-D numpy array of predictions from the dataset
+    """
     reader = DataReader(
         data=dataset, batch_size=32, repeat=False)
     @jax.jit
