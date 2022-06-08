@@ -17,62 +17,32 @@ def str_to_array(str_array):
     '''Return a numpy array converted from a single string, representing an array.'''
     return np.array(literal_eval(str_array))
 
-def dict_to_ase(dict):
+def dict_to_ase(aflow_dict):
     '''Return ASE atoms object from a pandas dict, produced by AFLOW json response.'''
-    cell = str_to_array(dict['geometry_orig'])
-    positions = str_to_array(dict['positions_cartesian'])
-    symbols = dict['compound']
-    structure = Atoms(symbols=symbols,
-                        positions=positions,
-                        cell=cell,
-                        pbc=(1,1,1))
+    cell = str_to_array(aflow_dict['geometry_orig'])
+    positions = str_to_array(aflow_dict['positions_cartesian'])
+    symbols = aflow_dict['compound']
+    structure = Atoms(
+        symbols=symbols,
+        positions=positions,
+        cell=cell,
+        pbc=(1, 1, 1))
     structure.wrap()
     return structure
 
 
-def make_graph_df(aflow_df: pandas.DataFrame, cutoff):
-    graph_df = []
-    max_atoms = 64 # limit unitcell size to 64 atoms
-
-    for index, row in aflow_df.iterrows():
-        atoms = dict_to_ase(row)
-        num_atoms = len(atoms)
-        if num_atoms < max_atoms:
-            auid = row['auid']
-            #label = row['enthalpy_atom'] # change this for different target properties/labels
-            label = row['Egap']
-            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
-            graph = {
-                'nodes' : nodes,
-                'atom_positions' : atom_positions,
-                'edges' : edges,
-                'senders' : senders,
-                'receivers' : receivers,
-                'label' : label,
-                'auid' : auid
-            }
-            graph_df.append(graph)
-            
-        if index%1000 == 0:
-            print(index)
-    
-    graph_df = pandas.DataFrame(graph_df)
-    return graph_df
-
-
 def main(args):
-    """Load aflow data from csv file into ase database with graph features, i.e. edges and adjacency list."""
+    """Load aflow data from csv file into ase database with graph features,
+    i.e. edges and adjacency list."""
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
-    aflow_df = pandas.read_csv(args.file_in)
+    aflow_df = pandas.read_csv(args.file_in, index_col=0)
     with ase.db.connect(args.file_out, append=False) as db_out:
         for i, row in aflow_df.iterrows():
             atoms = dict_to_ase(row)  # get the atoms object from each row
-            # get property dict
-            prop_dict = {
-                'auid': row['auid'],
-                'enthalpy_formation_atom': row['enthalpy_formation_atom'],
-                'Egap': row['Egap'],
-            }
+            row = row.to_dict()
+            row.pop('geometry_orig', None)
+            row.pop('positions_cartesian', None)
+            row.pop('compound', None)
 
             # calculate adjacency of graph as senders and receivers
             cutoff = args.cutoff
@@ -85,7 +55,16 @@ def main(args):
                 nodes, atom_positions, edges, senders, receivers = get_graph_fc(atoms)
             else:
                 raise ValueError(f'Cutoff type {args.cutoff_type} not recognised.')
-            data = {'senders': senders, 'receivers': receivers, 'edges': edges}
+
+            # get property dict from all keys in the row
+            prop_dict = {}
+            data = {}
+            for key in row.keys():
+                val = row[key]
+                prop_dict[key] = val
+            data['senders'] = senders
+            data['receivers'] = receivers
+            data['edges'] = edges
             # add information about cutoff
             prop_dict['cutoff_type'] = args.cutoff_type
             prop_dict['cutoff_val'] = cutoff

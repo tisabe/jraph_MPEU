@@ -9,7 +9,9 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    '$catalog(ICSD),enthalpy_atom(*),Egap(*),Egap_type(*),'
+    'enthalpy_formation_atom(*),Egap(*),Egap_type(*),'
+    'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
+    'energy_atom(*),density(*),'#volume_cell(*),'
     'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
