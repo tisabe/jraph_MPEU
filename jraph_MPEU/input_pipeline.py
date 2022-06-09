@@ -232,7 +232,7 @@ def asedb_to_graphslist(
         limit: int = None
     ) -> Tuple[Sequence[jraph.GraphsTuple], list]:
     """Return a list of graphs, by loading rows from local ase database at file.
-    
+
     Args:
         file: string where the database file is located
         label_str: which property to grab from database as label for regression.
@@ -240,7 +240,7 @@ def asedb_to_graphslist(
         selection: ase.db selection parameter, can be integer id, string or
             list of strings or tuples.
         num_edges_max: integer, cutoff for the maximum number of edges in the
-            graph. Graphs with more edges are discarded. 
+            graph. Graphs with more edges are discarded.
             Note: if limit is not None, fewer graph may be returned than limit,
             if graphs are discarded with too many edges.
         limit: maximum number of graphs queried from the database.

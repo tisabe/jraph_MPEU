@@ -59,7 +59,7 @@ def main(args):
                 )
 
     sns.violinplot(ax=ax[0], x="num_species", y="mae", hue="split", data=df)
-    sns.scatterplot(ax=ax[1], x="num_nodes", y="mae", data=df, hue="split")
+    sns.lineplot(ax=ax[1], x="num_nodes", y="mae", data=df, hue="split")
     #ax[0].set_yscale('log')
     ax[1].set_yscale('log')
     plt.tight_layout()

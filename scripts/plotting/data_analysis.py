@@ -8,7 +8,20 @@ import ase.db
 import pandas as pd
 
 import matplotlib.pyplot as plt
+import seaborn as sns
+from collections import Counter
 
+# We define a blacklist for keys that should be excluded from being plotted.
+# This can be extended if additional data is pulled.
+keys_blacklist = [
+    'auid',
+    'aurl',
+    'tag',
+    'index',
+    'cutoff_type',
+    'cutoff_val',
+    'mp-id'
+]
 
 
 def main(args):
@@ -54,15 +67,27 @@ def main(args):
     key_df = pd.DataFrame(key_val_list)
     print(key_df.head())
     print(key_df.describe())
-    key_y = key_df.get(key).to_numpy()
-    units = input("Type units of key: ")
-    fig, ax = plt.subplots()
-    ax.hist(key_y, bins=100, log=True)
-    ax.set_xlabel(f'{key} ({units})', fontsize=12)
-    ax.set_ylabel('Number of graphs', fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(folder+f'/{key}_hist.png', bbox_inches='tight', dpi=600)
+    for key_i in key_df.keys():
+        if not key_i in keys_blacklist:
+            print(key_i)
+
+            key_y = key_df.get(key_i).to_numpy()
+            units = ''#input("Type units of key: ")
+            fig, ax = plt.subplots()
+            if isinstance(key_y[0], float):
+                ax.hist(key_y, bins=100, log=True)
+            else:
+                counts = Counter(key_y)
+                heights = list(counts.values())
+                categories = list(counts.keys())
+                #ax.bar(categories, heights)
+                sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
+                plt.yscale('log')
+            ax.set_xlabel(f'{key_i} ({units})', fontsize=12)
+            ax.set_ylabel('Number of graphs', fontsize=12)
+            plt.tight_layout()
+            plt.show()
+            fig.savefig(folder+f'/{key_i}_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots(2, 1)
     ax[0].hist(num_nodes, bins=100, log=True)
