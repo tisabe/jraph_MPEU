@@ -457,3 +457,36 @@ def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
         'test': test_raw}
 
     return dataset, dataset_raw, mean, std, num_list
+
+
+def get_train_val_test_split_dict(
+        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1):
+    """Return the id_list split into train, validation and test indices."""
+    if abs(train_frac + val_frac + test_frac - 1.0) > 1e-5:
+        raise ValueError('Train, val and test fractions do not add up to one.')
+    (
+        train_set,
+        val_and_test_set) = sklearn.model_selection.train_test_split(
+            id_list,
+            test_size=test_frac+val_frac,
+            random_state=0)
+
+    (
+        val_set,
+        test_set) = sklearn.model_selection.train_test_split(
+            val_and_test_set,
+            test_size=test_frac/(test_frac+val_frac),
+            random_state=1)
+    split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
+    return split_dict
+
+def add_splits_to_database(config):
+    num_rows = 1000  # TODO: get actual number of rows in database
+    ids_all = range(1, num_rows+1)  # row ids in ase.db start at 1
+    split_ids_dict = get_train_val_test_split_dict(
+        ids_all, config.train_frac, config.val_frac, config.test_frac)
+    # connect to database and update rows
+    with ase.db.connect(config.data_file) as db:
+        for split, ids in split_ids_dict.items():
+            for id_single in ids:
+                db.update(id_single, split=split)
