@@ -11,3 +11,6 @@ output_slurm
 *venv/
 scripts/plots
 *.egg*
+databases*
+scripts/figs*
+.pytest_cache
