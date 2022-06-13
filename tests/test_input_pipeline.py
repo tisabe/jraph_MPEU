@@ -10,11 +10,57 @@ from jraph_MPEU.input_pipeline import (
     ase_row_to_jraph,
     asedb_to_graphslist,
     atoms_to_nodes_list,
+    get_train_val_test_split_dict
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def test_get_splits_fail(self):
+        """Test getting the indices for train/test/validation splits.
+        
+        This test should fail because the fractions don't add up to one."""
+        id_list = range(100)
+        train_frac = 0.85
+        val_frac = 0.15
+        test_frac = 0.1
+        # function should fail, because fractions do not add up to one
+        self.assertRaises(
+            ValueError,
+            get_train_val_test_split_dict,
+            id_list, train_frac, val_frac, test_frac
+        )
+
+    def test_get_splits_length(self):
+        """Test getting the indices for train/test/validation splits."""
+        id_list = range(100)
+        train_frac = 0.75
+        val_frac = 0.15
+        test_frac = 0.1
+        split_dict = get_train_val_test_split_dict(
+            id_list, train_frac, val_frac, test_frac)
+        self.assertEqual(len(split_dict['train']), 75)
+        self.assertEqual(len(split_dict['validation']), 15)
+        self.assertEqual(len(split_dict['test']), 10)
+
+    def test_get_splits(self):
+        """Test getting the exact indices for reproducibility in later versions."""
+        id_list = range(20)
+        train_frac = 0.5
+        val_frac = 0.3
+        test_frac = 0.2
+        split_dict = get_train_val_test_split_dict(
+            id_list, train_frac, val_frac, test_frac)
+        print(split_dict['train'])
+        print(split_dict['validation'])
+        print(split_dict['test'])
+        np.testing.assert_array_equal(
+            split_dict['train'], [5, 14, 9, 7, 16, 11, 3, 0, 15, 12])
+        np.testing.assert_array_equal(
+            split_dict['validation'], [18, 8, 1, 13, 4, 17])
+        np.testing.assert_array_equal(
+            split_dict['test'], [19, 2, 6, 10])
+
     def test_get_cutoff_val(self):
         """Test getting the cutoff types and values from the datasets."""
         db_names = [

@@ -481,6 +481,8 @@ def get_train_val_test_split_dict(
     return split_dict
 
 def add_splits_to_database(config):
+    """Modify the database given in the config.data_file with split value for
+    each row."""
     num_rows = 1000  # TODO: get actual number of rows in database
     ids_all = range(1, num_rows+1)  # row ids in ase.db start at 1
     split_ids_dict = get_train_val_test_split_dict(
