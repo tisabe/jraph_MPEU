@@ -1,21 +1,49 @@
 """Test the functions of the input_pipeline_test.py module."""
+import tempfile
 
 import unittest
 import jraph
 import numpy as np
+from ase import Atoms
 import ase.db
+import ml_collections
 
 from jraph_MPEU.input_pipeline import (
     DataReader,
     ase_row_to_jraph,
     asedb_to_graphslist,
     atoms_to_nodes_list,
-    get_train_val_test_split_dict
+    get_train_val_test_split_dict,
+    add_splits_to_database
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def test_add_splits_to_database(self):
+        config = ml_collections.ConfigDict()
+        config.train_frac = 0.5
+        config.val_frac = 0.3
+        config.test_frac = 0.2
+        num_rows = 20  # number of rows to write
+        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
+            config.data_file = test_dir + 'test.db'
+            # create and connect to temporary database
+            db = ase.db.connect(config.data_file)
+            for _ in range(num_rows):
+                h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
+                db.write(h2)
+            add_splits_to_database(config, num_rows)
+            split_dict = {'train': [], 'validation': [], 'test': []}
+            for row in db.select():
+                split_dict[row.split].append(row.id)
+            np.testing.assert_array_equal(
+                split_dict['train'], sorted([6, 15, 10, 8, 17, 12, 4, 1, 16, 13]))
+            np.testing.assert_array_equal(
+                split_dict['validation'], sorted([19, 9, 2, 14, 5, 18]))
+            np.testing.assert_array_equal(
+                split_dict['test'], sorted([20, 3, 7, 11]))
+
     def test_get_splits_fail(self):
         """Test getting the indices for train/test/validation splits.
         
@@ -45,21 +73,18 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_get_splits(self):
         """Test getting the exact indices for reproducibility in later versions."""
-        id_list = range(20)
+        id_list = range(1, 21)
         train_frac = 0.5
         val_frac = 0.3
         test_frac = 0.2
         split_dict = get_train_val_test_split_dict(
             id_list, train_frac, val_frac, test_frac)
-        print(split_dict['train'])
-        print(split_dict['validation'])
-        print(split_dict['test'])
         np.testing.assert_array_equal(
-            split_dict['train'], [5, 14, 9, 7, 16, 11, 3, 0, 15, 12])
+            split_dict['train'], [6, 15, 10, 8, 17, 12, 4, 1, 16, 13])
         np.testing.assert_array_equal(
-            split_dict['validation'], [18, 8, 1, 13, 4, 17])
+            split_dict['validation'], [19, 9, 2, 14, 5, 18])
         np.testing.assert_array_equal(
-            split_dict['test'], [19, 2, 6, 10])
+            split_dict['test'], [20, 3, 7, 11])
 
     def test_get_cutoff_val(self):
         """Test getting the cutoff types and values from the datasets."""
