@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+from collections import Counter
 
 import numpy as np
 import ase.db
@@ -9,7 +10,6 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import Counter
 
 # We define a blacklist for keys that should be excluded from being plotted.
 # This can be extended if additional data is pulled.
@@ -76,11 +76,11 @@ def main(args):
             fig, ax = plt.subplots()
             if isinstance(key_y[0], float):
                 ax.hist(key_y, bins=100, log=True)
+            elif isinstance(key_y[0], str):
+                sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
+                plt.xticks(rotation=90)
+                plt.yscale('log')
             else:
-                counts = Counter(key_y)
-                heights = list(counts.values())
-                categories = list(counts.keys())
-                #ax.bar(categories, heights)
                 sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
                 plt.yscale('log')
             ax.set_xlabel(f'{key_i} ({units})', fontsize=12)
