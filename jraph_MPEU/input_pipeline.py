@@ -515,7 +515,7 @@ def save_split_dict(split_dict, workdir):
 
 def load_split_dict(workdir):
     """Load the split dict that saved ids and their split in workdir.
-    
+
     The keys are integer ids and the values are splitnames as strings."""
     with open(os.path.join(workdir, 'splits.json'), 'r') as splits_file:
         splits_dict = json.load(splits_file, parse_int=True)

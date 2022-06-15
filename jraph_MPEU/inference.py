@@ -6,9 +6,16 @@ import pickle
 import jax
 import numpy as np
 from absl import logging
+import ase.db
+import pandas
 
-from jraph_MPEU.input_pipeline import DataReader, load_data
-from jraph_MPEU.utils import get_valid_mask
+from jraph_MPEU.input_pipeline import (
+    DataReader, load_data, load_split_dict, ase_row_to_jraph,
+    atoms_to_nodes_list
+)
+from jraph_MPEU.utils import (
+    get_valid_mask, load_config, add_labels_to_graphs, normalize_targets
+)
 from jraph_MPEU.models import load_model
 
 
@@ -83,3 +90,54 @@ def load_inference_file(workdir, redo=False):
         with open(path, 'rb') as inference_file:
             inference_dict = pickle.load(inference_file)
     return inference_dict
+
+
+def get_results_df(workdir):
+    """Return a pandas dataframe with predictions and their database entries.
+
+    This function loads the config, and splits. Then connects to the
+    database specified in config.data_file, gets the predictions of entries in
+    the database. Finally the function puts together the key_val_pairs
+    including id from the database, the predictions and splits of each database
+    row into a pandas.DataFrame."""
+
+    config = load_config(workdir)
+    split_dict = load_split_dict(workdir)
+    selection = config.selection
+    limit = config.selection
+    label_str = config.label_str
+
+    graphs = []
+    labels = []
+    ase_db = ase.db.connect(config.data_file)
+    inference_df = pandas.DataFrame({})
+    for i, row in enumerate(ase_db.select(selection=selection, limit=limit)):
+        logging.info(f'Rows read: {i}')
+        graph = ase_row_to_jraph(row)
+        n_edge = int(graph.n_edge)
+        if config.num_edges_max is not None:
+            if n_edge > config.num_edges_max:  # do not include graphs with too many edges
+                continue
+        graphs.append(graph)
+        label = row.key_value_pairs[label_str]
+        labels.append(label)
+        row_dict = row.key_value_pairs # initialze row dict with key_val_pairs
+        row_dict['id'] = row.id
+        row_dict['n_edge'] = n_edge
+        row_dict['split'] = split_dict[row.id]
+        #row_dict['symbols']
+        inference_df = inference_df.append(row_dict, ignore_index=True)
+    # Normalize graphs and targets
+    # Convert the atomic numbers in nodes to classes and set number of classes.
+    graphs, _ = atoms_to_nodes_list(graphs)
+    _, mean, std = normalize_targets(
+        graphs, labels, config)
+    graphs = add_labels_to_graphs(graphs, labels)
+
+    net, params = load_model(workdir)
+    logging.info('Predicting on dataset.')
+    preds = get_predictions(graphs, net, params)
+    targets = [graph.globals[0] for graph in graphs]
+    # scale the predictions and targets using the std
+    preds = preds*float(std) + mean
+    targets = np.array(targets)*float(std) + mean
