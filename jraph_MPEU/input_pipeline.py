@@ -5,10 +5,12 @@ graphs, where the labels are standardized and the nodes have the right numbers
 as input features.
 """
 
+import os
 from xmlrpc.client import Boolean
 import random
 from typing import Dict, Iterable, Sequence, Tuple
 import warnings
+import json
 
 from absl import logging
 import ml_collections
@@ -480,6 +482,7 @@ def get_train_val_test_split_dict(
     split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
     return split_dict
 
+
 def add_splits_to_database(config: ml_collections.ConfigDict, num_rows):
     """Modify the database given in the config.data_file with split value for
     each row."""
@@ -492,3 +495,28 @@ def add_splits_to_database(config: ml_collections.ConfigDict, num_rows):
         for split, ids in split_ids_dict.items():
             for id_single in ids:
                 db.update(id_single, split=split)
+
+
+def save_split_dict(split_dict, workdir):
+    """Save the split_dict in json file.
+
+    The split_dict has signature:
+    {'split1': [1, 2,...], 'split2': [11, 21...]}, ... and this is turned into
+    the signature {1: 'split1', 2: 'split1',... 11: 'split2',...}.
+    This format is more practical when doing the inference after training."""
+    inverse_dict = {}
+    for split, ids in split_dict.items():
+        for id_single in ids:
+            inverse_dict[id_single] = split
+
+    with open(os.path.join(workdir, 'splits.json'), 'w') as splits_file:
+        json.dump(inverse_dict, splits_file, indent=4, separators=(',', ': '))
+
+
+def load_split_dict(workdir):
+    """Load the split dict that saved ids and their split in workdir.
+    
+    The keys are integer ids and the values are splitnames as strings."""
+    with open(os.path.join(workdir, 'splits.json'), 'r') as splits_file:
+        splits_dict = json.load(splits_file, parse_int=True)
+    return {int(k): v for k, v in splits_dict.items()}

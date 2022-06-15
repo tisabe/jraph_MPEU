@@ -14,13 +14,33 @@ from jraph_MPEU.input_pipeline import (
     asedb_to_graphslist,
     atoms_to_nodes_list,
     get_train_val_test_split_dict,
-    add_splits_to_database
+    add_splits_to_database,
+    save_split_dict,
+    load_split_dict
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def test_save_load_split_dict(self):
+        """Test the saving and loading of a split dict by generating, saving
+        and loading a split dict in a temporary file."""
+        test_dict = {
+            'train': [1, 2, 3, 4, 5],
+            'validation': [6, 7, 8],
+            'test': [9]}
+        with tempfile.TemporaryDirectory() as test_dir:
+            save_split_dict(test_dict, test_dir)
+            dict_loaded = load_split_dict(test_dir)
+        # the loaded dict now has signature
+        # {1: 'split1', 2: 'split1',... 11: 'split2',...}.
+        print(dict_loaded)
+        for key, ids in test_dict.items():
+            for i in ids:
+                self.assertEqual(key, dict_loaded[i])
+
     def test_add_splits_to_database(self):
+        """Note: might get rid of this function"""
         config = ml_collections.ConfigDict()
         config.train_frac = 0.5
         config.val_frac = 0.3
@@ -46,7 +66,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_get_splits_fail(self):
         """Test getting the indices for train/test/validation splits.
-        
+
         This test should fail because the fractions don't add up to one."""
         id_list = range(100)
         train_frac = 0.85
