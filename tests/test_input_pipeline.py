@@ -1,5 +1,7 @@
 """Test the functions of the input_pipeline_test.py module."""
 import tempfile
+import os
+import json
 
 import unittest
 import jraph
@@ -16,12 +18,73 @@ from jraph_MPEU.input_pipeline import (
     get_train_val_test_split_dict,
     add_splits_to_database,
     save_split_dict,
-    load_split_dict
+    load_split_dict,
+    get_datasets_new
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def test_get_datasets_new(self):
+        """Test new version of get_datasets.
+
+        For this an ase database is generated with atoms objects and graphs
+        attributes. Also a config with parameters is generated."""
+        config = ml_collections.ConfigDict()
+        config.train_frac = 0.5
+        config.val_frac = 0.3
+        config.test_frac = 0.2
+        config.label_str = 'test_label'
+        config.selection = None
+        config.limit_data = None
+        config.num_edges_max = None
+        num_rows = 20  # number of rows to write
+        label_values = np.arange(num_rows)*1.0
+
+        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
+            config.data_file = test_dir + 'test.db'
+            path_split = os.path.join(test_dir, 'splits.json')
+            path_num = os.path.join(test_dir, 'atomic_num_list.json')
+            # check that there is no file with splits or atomic numbers yet
+            self.assertFalse(os.path.exists(path_split))
+            self.assertFalse(os.path.exists(path_num))
+            # create and connect to temporary database
+            database = ase.db.connect(config.data_file)
+            for label_value in label_values:
+                h2_atom = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
+                key_value_pairs = {config.label_str: label_value}
+                data = {
+                    'senders': [0],
+                    'receivers': [1],
+                    'edges': [5.0]
+                }
+                database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
+            graphs_split, mean, std = get_datasets_new(
+                config, test_dir
+            )
+            mean_expected = np.mean(label_values)
+            std_expected = np.std(label_values)
+            self.assertAlmostEqual(mean, mean_expected)
+            self.assertAlmostEqual(std, std_expected)
+
+            # check that the splits.json and atomic_num_list.json file was created
+            self.assertTrue(os.path.exists(path_split))
+            self.assertTrue(os.path.exists(path_num))
+            # check that the atomic num list has one entry, as there is only
+            # one species
+            with open(path_num) as list_file:
+                num_list = json.load(list_file)
+            np.testing.assert_array_equal(num_list, [1])
+
+            globals_expected = {
+                'train': [5., 14., 9., 7., 16., 11., 3., 0., 15., 12.],
+                'validation': [18., 8., 1., 13., 4., 17.],
+                'test': [19., 2., 6., 10.]
+            }
+            for split, graph_list in graphs_split.items():
+                labels = [(graph.globals[0]*std)+mean for graph in graph_list]
+                np.testing.assert_array_equal(labels, globals_expected[split])
+
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving
         and loading a split dict in a temporary file."""
@@ -49,13 +112,13 @@ class TestPipelineFunctions(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:  # directory for database
             config.data_file = test_dir + 'test.db'
             # create and connect to temporary database
-            db = ase.db.connect(config.data_file)
+            database = ase.db.connect(config.data_file)
             for _ in range(num_rows):
-                h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
-                db.write(h2)
+                h2_atom = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
+                database.write(h2_atom)
             add_splits_to_database(config, num_rows)
             split_dict = {'train': [], 'validation': [], 'test': []}
-            for row in db.select():
+            for row in database.select():
                 split_dict[row.split].append(row.id)
             np.testing.assert_array_equal(
                 split_dict['train'], sorted([6, 15, 10, 8, 17, 12, 4, 1, 16, 13]))
@@ -116,8 +179,8 @@ class TestPipelineFunctions(unittest.TestCase):
         ]
         for db_name in db_names:
             first_row = None
-            db = ase.db.connect(db_name)
-            for i, row in enumerate(db.select(limit=10)):
+            database = ase.db.connect(db_name)
+            for i, row in enumerate(database.select(limit=10)):
                 if i == 0:
                     first_row = row
             cutoff_type = first_row['cutoff_type']
@@ -209,28 +272,13 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        db = ase.db.connect('matproj/mp_graphs.db')
-        row = db.get('mp_id=mp-1001')
+        database = ase.db.connect('matproj/mp_graphs.db')
+        row = database.get('mp_id=mp-1001')
         atomic_numbers = row.toatoms().get_atomic_numbers()
         graph = ase_row_to_jraph(row)
         nodes = graph.nodes
         self.assertIsInstance(graph, jraph.GraphsTuple)
         np.testing.assert_array_equal(atomic_numbers, nodes)
-
-    '''
-    def test_asedb_to_graphslist_filter(self):
-        selection = 'fold>=0'
-        graphs, labels = asedb_to_graphslist('matproj/mp_graphs.db', 
-            label_str='delta_e', 
-            selection=selection, limit=2000)
-        print(labels[0:10])
-        ndim0 = len(np.shape(graphs[0].edges))
-        for graph in graphs:
-            ndim = len(np.shape(graph.edges))
-            if ndim != ndim0:
-                raise ValueError('Dimension of edges not 1D')
-                break
-    '''
 
     def test_dbs_raw(self):
         '''Test the raw ase databases without graph features.'''

@@ -491,10 +491,10 @@ def add_splits_to_database(config: ml_collections.ConfigDict, num_rows):
     split_ids_dict = get_train_val_test_split_dict(
         ids_all, config.train_frac, config.val_frac, config.test_frac)
     # connect to database and update rows
-    with ase.db.connect(config.data_file) as db:
+    with ase.db.connect(config.data_file) as database:
         for split, ids in split_ids_dict.items():
             for id_single in ids:
-                db.update(id_single, split=split)
+                database.update(id_single, split=split)
 
 
 def save_split_dict(split_dict, workdir):
@@ -520,3 +520,49 @@ def load_split_dict(workdir):
     with open(os.path.join(workdir, 'splits.json'), 'r') as splits_file:
         splits_dict = json.load(splits_file, parse_int=True)
     return {int(k): v for k, v in splits_dict.items()}
+
+def get_datasets_new(config, workdir):
+    """New version of dataset getter."""
+    # TODO: put in real docstring.
+    # create list with all graphs in database
+    graphs_list, labels_list = asedb_to_graphslist(
+        config.data_file,
+        label_str=config.label_str,
+        selection=config.selection,
+        num_edges_max=config.num_edges_max,
+        limit=config.limit_data)
+
+    # Convert the atomic numbers in nodes to classes and set number of classes.
+    graphs_list, num_list = atoms_to_nodes_list(graphs_list)
+    # save num list here
+    with open(os.path.join(workdir, 'atomic_num_list.json'), 'w') as list_file:
+        json.dump(num_list, list_file)
+    num_classes = len(num_list)
+    config.max_atomic_number = num_classes
+
+    labels_list, mean, std = normalize_targets(
+        graphs_list, labels_list, config)
+    logging.info(f'Mean: {mean}, Std: {std}')
+    graphs_list = add_labels_to_graphs(graphs_list, labels_list)
+
+    path = os.path.join(workdir, 'splits.json')
+    if not os.path.exists(path):
+        # divide the ids into splits
+        n_graphs = len(graphs_list)
+        ids = range(1, n_graphs+1) # one-based since that's how ase.db works
+        split_dict = get_train_val_test_split_dict(
+            ids, config.train_frac, config.val_frac, config.test_frac
+        )
+        save_split_dict(split_dict, workdir)
+    else:
+        split_dict = load_split_dict(workdir)
+
+    graphs_split = {}  # dict with the graphs list divided into splits
+    for key, id_list in split_dict.items():
+        graphs_split[key] = []  # init lists for every split
+        for id_single in id_list:
+            # append graph from graph_list using the id in split_dict
+            # the id must be converted from one-based to zero-based
+            graphs_split[key].append(graphs_list[id_single-1])
+
+    return graphs_split, mean, std
