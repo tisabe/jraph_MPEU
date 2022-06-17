@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 def main(args):
     # plot learning curves
     df = pd.DataFrame({})
+    print(args.max_step)
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
@@ -25,8 +26,8 @@ def main(args):
 
             split = 'validation'
             metrics = metrics_dict[split]
-            loss_mse = [row[1][0] for row in metrics]
-            loss_mae = [row[1][1] for row in metrics]
+            loss_mse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
+            loss_mae = [row[1][1] for row in metrics if int(row[0]) < args.max_step]
             n_mean = 5 # number of points for running mean
             #  compute running mean using convolution
             loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
@@ -36,7 +37,7 @@ def main(args):
             if min_mae > 1e4 or min_mse > 1e4:
                 print(f'mae or mse too high for path {dirname}')
                 continue
-            step = [int(row[0]) for row in metrics]
+            step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
@@ -89,5 +90,10 @@ if __name__ == "__main__":
         '-f', '-F', type=str, dest='file',
         default='results/aflow/crossval_grid',
         help='input super directory name')
+    parser.add_argument(
+        '-step', type=int, dest='max_step',
+        default=100000000,  # an arbitrary large number...
+        help='maximum number of steps to take the mse/mae minimum from'
+    )
     args_main = parser.parse_args()
     main(args_main)
