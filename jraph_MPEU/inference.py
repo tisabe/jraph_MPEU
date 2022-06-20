@@ -141,3 +141,8 @@ def get_results_df(workdir):
     # scale the predictions and targets using the std
     preds = preds*float(std) + mean
     targets = np.array(targets)*float(std) + mean
+
+    # add row with predictions to dataframe
+    inference_df['predictions'] = preds
+
+    return inference_df

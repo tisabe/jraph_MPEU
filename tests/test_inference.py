@@ -7,6 +7,8 @@ the resulting metrics and checkpoints.
 import tempfile
 import unittest
 
+import numpy as np
+
 from jraph_MPEU_configs import default_test as cfg
 
 import jraph_MPEU.train as train
@@ -15,40 +17,24 @@ from jraph_MPEU.inference import (
     get_predictions,
     load_inference_file
 )
-from jraph_MPEU.input_pipeline import get_datasets
+from jraph_MPEU.input_pipeline import get_datasets, load_data
 
 
 class TestInference(unittest.TestCase):
-    """Test train.py methods and classes."""
-    def setUp(self):
-        self.config = cfg.get_config()
-        self.config.limit_data = 100
-        self.assertEqual(self.config.batch_size, 32)
-        # get testing datasets
-        datasets, _, _, _, _ = get_datasets(self.config)
-        self.datasets = datasets
-        self.data_val_list = self.datasets['validation'].data[:]
-        self.test_dir = tempfile.TemporaryDirectory()
-        self.workdir = self.test_dir.name
-        budget = datasets['train'].budget
-        print(budget.n_node)
-        print(budget.n_edge)
-        print(budget.n_graph)
-        budget = datasets['validation'].budget
-        print(budget.n_node)
-        print(budget.n_edge)
-        print(budget.n_graph)
-        budget = datasets['test'].budget
-        print(budget.n_node)
-        print(budget.n_edge)
-        print(budget.n_graph)
-        # run training to produce model in temp directory
-        _, _ = train.train_and_evaluate(
-            self.config, self.workdir)
-
+    """Test inference.py methods and classes."""
     def test_get_predictions_qm9(self):
-        net, params = load_model(self.workdir)
-        preds = get_predictions(self.data_val_list, net, params)
+        workdir = 'tests/qm9_test_run'
+        net, params = load_model(workdir)
+        dataset, _, _, _ = load_data(workdir)
+        dataset = {key: reader.data for key, reader in dataset.items()}
+        #preds = get_predictions(dataset, net, params)
+        preds = {
+            key: get_predictions(data_split, net, params)
+            for key, data_split in dataset.items()
+        }
+        for split, pred in preds.items():
+            self.assertIsInstance(pred, type(np.array([])))
+
 
 if __name__ == '__main__':
     unittest.main()
