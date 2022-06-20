@@ -8,7 +8,7 @@ as input features.
 import os
 from xmlrpc.client import Boolean
 import random
-from typing import Dict, Iterable, Sequence, Tuple
+from typing import Sequence, Tuple
 import warnings
 import json
 
@@ -33,8 +33,8 @@ from jraph_MPEU.utils import (
 def load_data(workdir):
     """Load datasets only using the working directory."""
     config = load_config(workdir)
-    dataset, dataset_raw, mean, std, _ = get_datasets(config)  # might refactor
-    return dataset, dataset_raw, mean, std
+    dataset, mean, std = get_datasets(config, workdir)  # might refactor
+    return dataset, mean, std
 
 
 def get_graph_fc(atoms: Atoms):
@@ -374,93 +374,6 @@ class DataReader:
             yield graph
 
 
-def get_datasets(config: ml_collections.ConfigDict) -> Tuple[
-        Dict[str, Iterable[jraph.GraphsTuple]],
-        Dict[str, Sequence[jraph.GraphsTuple]],
-        float, float, list]:
-    """Return a dict with a dataset for each split (train, val, test).
-
-    Return in normalized and in raw form/labels. Also return the mean and
-    standard deviation.
-
-    Each dataset is an iterator that yields batches of graphs.
-    The training dataset will reshuffle each time the end of the list has been
-    reached, while the validation and test sets are only iterated over once.
-
-    The raw dataset is just a dict with lists of graphs.
-
-    The graphs have their regression label as a global feature attached.
-    TODO: refactor this to make it single responsiblity. Idea: split this
-    function into getting raw data and a normalizing/processing function.
-    """
-    # Data will be split into normalized data for regression and raw data for
-    # analyzing later
-    graphs_list, labels_list = asedb_to_graphslist(
-        config.data_file,
-        label_str=config.label_str,
-        selection=config.selection,
-        num_edges_max=config.num_edges_max,
-        limit=config.limit_data)
-    # Convert the atomic numbers in nodes to classes and set number of classes.
-    graphs_list, num_list = atoms_to_nodes_list(graphs_list)
-
-    num_classes = len(num_list)
-    config.max_atomic_number = num_classes
-    labels_raw = labels_list
-
-    labels_list, mean, std = normalize_targets(
-        graphs_list, labels_list, config)
-    logging.info(f'Mean: {mean}, Std: {std}')
-    graphs_list = add_labels_to_graphs(graphs_list, labels_list)
-    graphs_raw = add_labels_to_graphs(graphs_list, labels_raw)
-
-    # Split the graphs into three splits using the fractions defined in config.
-    (
-        train_set,
-        val_and_test_set,
-        train_raw,
-        val_and_test_raw) = sklearn.model_selection.train_test_split(
-            graphs_list, graphs_raw,
-            test_size=config.test_frac+config.val_frac,
-            random_state=0)
-
-    (
-        val_set,
-        test_set,
-        val_raw,
-        test_raw) = sklearn.model_selection.train_test_split(
-            val_and_test_set, val_and_test_raw,
-            test_size=config.test_frac/(config.test_frac+config.val_frac),
-            random_state=1)
-
-    # Define iterators and generators.
-    reader_train = DataReader(
-        data=train_set,
-        batch_size=config.batch_size,
-        repeat=True,
-        seed=config.seed)
-    reader_val = DataReader(
-        data=val_set,
-        batch_size=config.batch_size,
-        repeat=False)
-    reader_test = DataReader(
-        data=test_set,
-        batch_size=config.batch_size,
-        repeat=False)
-
-    dataset = {
-        'train': reader_train,
-        'validation': reader_val,
-        'test': reader_test}
-
-    dataset_raw = {
-        'train': train_raw,
-        'validation': val_raw,
-        'test': test_raw}
-
-    return dataset, dataset_raw, mean, std, num_list
-
-
 def get_train_val_test_split_dict(
         id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1):
     """Return the id_list split into train, validation and test indices."""
@@ -521,7 +434,8 @@ def load_split_dict(workdir):
         splits_dict = json.load(splits_file, parse_int=True)
     return {int(k): v for k, v in splits_dict.items()}
 
-def get_datasets_new(config, workdir):
+
+def get_datasets(config, workdir):
     """New version of dataset getter."""
     # TODO: put in real docstring.
     # create list with all graphs in database
@@ -551,11 +465,20 @@ def get_datasets_new(config, workdir):
         n_graphs = len(graphs_list)
         ids = range(1, n_graphs+1) # one-based since that's how ase.db works
         split_dict = get_train_val_test_split_dict(
-            ids, config.train_frac, config.val_frac, config.test_frac
+            ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
+            config.test_frac
         )
         save_split_dict(split_dict, workdir)
     else:
-        split_dict = load_split_dict(workdir)
+        split_dict_converted = load_split_dict(workdir)
+        # convert back to signature {'split1': [...], 'split2': [...], ...}
+        split_dict = {}
+        for id_single, split in split_dict_converted.items():
+            if split in split_dict.keys():
+                split_dict[split].append(id_single)
+            else:
+                split_dict[split] = []
+                split_dict[split].append(id_single)
 
     graphs_split = {}  # dict with the graphs list divided into splits
     for key, id_list in split_dict.items():

@@ -12,7 +12,6 @@ from typing import (
     Any,
     Mapping
 )
-import json
 
 from absl import logging
 import jax
@@ -252,7 +251,7 @@ class Evaluater:
         loss_dict = {}
         for split in splits:
             loss_dict[split] = self.evaluate_split(
-                state, datasets[split].data, datasets[split].batch_size)
+                state, datasets[split], 32)
             if split == 'validation':
                 if self.best_state is None or loss_dict[split][0] < self.lowest_val_loss:
                     self.best_state = state.copy()
@@ -471,15 +470,20 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, _, std, num_list = get_datasets(config)
+    datasets, _, std = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
-    with open(os.path.join(workdir, 'atomic_num_list.json'), 'w') as list_file:
-        json.dump(num_list, list_file)
 
     # save the config in txt for later inspection
     save_config(config, workdir)
 
-    init_graphs = next(datasets['train'])
+    # initialize data reader with training data
+    train_reader = DataReader(
+        data=datasets['train'],
+        batch_size=config.batch_size,
+        repeat=True,
+        seed=config.seed)
+
+    init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
     # the right answer. The model's not using them now anyway.
     init_graphs = replace_globals(init_graphs)
@@ -508,7 +512,7 @@ def train_and_evaluate(
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step. Get next training graphs.
-        graphs = next(datasets['train'])
+        graphs = next(train_reader)
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.

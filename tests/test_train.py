@@ -19,19 +19,16 @@ class TestTrain(unittest.TestCase):
     """Test train.py methods and classes."""
     def setUp(self):
         self.config = cfg.get_config()
+        self.test_dir = tempfile.TemporaryDirectory()
         self.config.limit_data = 100
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
-        datasets, _, _, _, _ = get_datasets(self.config)
+        datasets, _, _ = get_datasets(self.config, self.test_dir.name)
         self.datasets = datasets
-        self.datasets_train_val = {
-            'train': self.datasets['train'].data[:],
-            'validation': self.datasets['validation'].data[:]}
-        self.test_dir = tempfile.TemporaryDirectory()
 
     def test_init_state(self):
         """Test that init optimizer state is the right class."""
-        init_graphs = next(self.datasets['train'])
+        init_graphs = self.datasets['train'][0]
         _, state, _ = train.init_state(
             self.config, init_graphs, self.test_dir.name)
         opt_state = state['opt_state']

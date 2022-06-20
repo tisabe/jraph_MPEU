@@ -19,13 +19,13 @@ from jraph_MPEU.input_pipeline import (
     add_splits_to_database,
     save_split_dict,
     load_split_dict,
-    get_datasets_new
+    get_datasets
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
-    def test_get_datasets_new(self):
+    def test_get_datasets(self):
         """Test new version of get_datasets.
 
         For this an ase database is generated with atoms objects and graphs
@@ -59,7 +59,7 @@ class TestPipelineFunctions(unittest.TestCase):
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
-            graphs_split, mean, std = get_datasets_new(
+            graphs_split, mean, std = get_datasets(
                 config, test_dir
             )
             mean_expected = np.mean(label_values)
@@ -84,6 +84,11 @@ class TestPipelineFunctions(unittest.TestCase):
             for split, graph_list in graphs_split.items():
                 labels = [(graph.globals[0]*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
+
+            # load the dataset again to check if generated jsons work
+            graphs_split, mean, std = get_datasets(
+                config, test_dir
+            )
 
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving
