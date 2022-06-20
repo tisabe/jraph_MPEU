@@ -43,7 +43,6 @@ def main(args):
             row_dict = {
                 'mp_steps': config_dict['message_passing_steps'],
                 'latent_size': config_dict['latent_size'],
-                'batch_size': config_dict['batch_size'],
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'mae': min_mae,
@@ -70,7 +69,7 @@ def main(args):
         df = df.drop([i_min, i_max])
 
     # plot mse for main hyperparameters with logscale
-    box_xnames = ['latent_size', 'mp_steps', 'batch_size', 'init_lr', 'decay_rate']
+    box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
