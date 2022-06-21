@@ -248,10 +248,12 @@ def asedb_to_graphslist(
         limit: maximum number of graphs queried from the database.
 
     Returns:
-        list of jraph.GraphsTuple, list of labels as single scalars.
+        list of jraph.GraphsTuple, list of labels as single scalars,
+        ids with the corresponding asedb id for each graph
     """
     graphs = []
     labels = []
+    ids = []
     ase_db = ase.db.connect(file)
     count = 0
     #print(f'Selection: {selection}')
@@ -267,9 +269,10 @@ def asedb_to_graphslist(
         graphs.append(graph)
         label = row.key_value_pairs[label_str]
         labels.append(label)
+        ids.append(row.id)
         count += 1
 
-    return graphs, labels
+    return graphs, labels, ids
 
 def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
         Sequence[jraph.GraphsTuple], list]:
@@ -396,34 +399,45 @@ def get_train_val_test_split_dict(
     return split_dict
 
 
-def add_splits_to_database(config: ml_collections.ConfigDict, num_rows):
-    """Modify the database given in the config.data_file with split value for
-    each row."""
-    # TODO: get actual number of rows in database
-    ids_all = range(1, num_rows+1)  # row ids in ase.db start at 1
-    split_ids_dict = get_train_val_test_split_dict(
-        ids_all, config.train_frac, config.val_frac, config.test_frac)
-    # connect to database and update rows
-    with ase.db.connect(config.data_file) as database:
-        for split, ids in split_ids_dict.items():
-            for id_single in ids:
-                database.update(id_single, split=split)
+def split_dict_to_lists(split_dict_in):
+    """Convert split_dict to signature {'split1': [...], 'split2': [...], ...}.
+
+    split_dict must have signature
+    {1: 'split1', 2: 'split1',... 11: 'split2',...}.
+    """
+    split_lists = {}
+    for id_single, split in split_dict_in.items():
+        if split in split_lists.keys():
+            split_lists[split].append(id_single)
+        else:
+            split_lists[split] = []
+            split_lists[split].append(id_single)
+    return split_lists
 
 
-def save_split_dict(split_dict, workdir):
-    """Save the split_dict in json file.
+def lists_to_split_dict(split_lists):
+    """Convert split_lists to signature {1: 'split1', 2: 'split1', ... }.
 
-    The split_dict has signature:
+    split_lists must have signature {'split1': [...], 'split2': [...], ...}.
+    """
+    split_dict = {}
+    for split, ids in split_lists.items():
+        for id_single in ids:
+            split_dict[id_single] = split
+    return split_dict
+
+
+def save_split_dict(split_lists, workdir):
+    """Save the split_lists in json file at workdir.
+
+    The split_lists has signature:
     {'split1': [1, 2,...], 'split2': [11, 21...]}, ... and this is turned into
     the signature {1: 'split1', 2: 'split1',... 11: 'split2',...}.
     This format is more practical when doing the inference after training."""
-    inverse_dict = {}
-    for split, ids in split_dict.items():
-        for id_single in ids:
-            inverse_dict[id_single] = split
+    split_dict = lists_to_split_dict(split_lists)
 
     with open(os.path.join(workdir, 'splits.json'), 'w') as splits_file:
-        json.dump(inverse_dict, splits_file, indent=4, separators=(',', ': '))
+        json.dump(split_dict, splits_file, indent=4, separators=(',', ': '))
 
 
 def load_split_dict(workdir):
@@ -438,13 +452,31 @@ def load_split_dict(workdir):
 def get_datasets(config, workdir):
     """New version of dataset getter."""
     # TODO: put in real docstring.
-    # create list with all graphs in database
-    graphs_list, labels_list = asedb_to_graphslist(
-        config.data_file,
-        label_str=config.label_str,
-        selection=config.selection,
-        num_edges_max=config.num_edges_max,
-        limit=config.limit_data)
+    # Pull the data from the ase database. If there is no file with splits
+    # present, pull the data using the parameters selection and limit.
+    # If the file with splits is present, load it and pull the data using the
+    # ids in the split file
+    split_path = os.path.join(workdir, 'splits.json')
+    if not os.path.exists(split_path):
+        graphs_list, labels_list, ids = asedb_to_graphslist(
+            config.data_file,
+            label_str=config.label_str,
+            selection=config.selection,
+            num_edges_max=config.num_edges_max,
+            limit=config.limit_data)
+    else:
+        graphs_list = []
+        labels_list = []
+        ids = []
+        split_dict = load_split_dict(workdir)
+        ase_db = ase.db.connect(config.data_file)
+        for id_single in split_dict.keys():
+            row = ase_db.get(id_single)
+            graph = ase_row_to_jraph(row)
+            graphs_list.append(graph)
+            label = row.key_value_pairs[config.label_str]
+            labels_list.append(label)
+            ids.append(id_single)
 
     # Convert the atomic numbers in nodes to classes and set number of classes.
     graphs_list, num_list = atoms_to_nodes_list(graphs_list)
@@ -459,29 +491,19 @@ def get_datasets(config, workdir):
     logging.info(f'Mean: {mean}, Std: {std}')
     graphs_list = add_labels_to_graphs(graphs_list, labels_list)
 
-    path = os.path.join(workdir, 'splits.json')
-    if not os.path.exists(path):
-        # divide the ids into splits
-        n_graphs = len(graphs_list)
-        ids = range(1, n_graphs+1) # one-based since that's how ase.db works
-        split_dict = get_train_val_test_split_dict(
+    if not os.path.exists(split_path):
+        # If split file did not exist before, generate and save it
+        split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
             config.test_frac
         )
-        save_split_dict(split_dict, workdir)
+        save_split_dict(split_lists, workdir)
     else:
-        split_dict_converted = load_split_dict(workdir)
-        # convert back to signature {'split1': [...], 'split2': [...], ...}
-        split_dict = {}
-        for id_single, split in split_dict_converted.items():
-            if split in split_dict.keys():
-                split_dict[split].append(id_single)
-            else:
-                split_dict[split] = []
-                split_dict[split].append(id_single)
+        # If it did exist, convert split_dict to split_lists
+        split_lists = split_dict_to_lists(split_dict)
 
     graphs_split = {}  # dict with the graphs list divided into splits
-    for key, id_list in split_dict.items():
+    for key, id_list in split_lists.items():
         graphs_split[key] = []  # init lists for every split
         for id_single in id_list:
             # append graph from graph_list using the id in split_dict

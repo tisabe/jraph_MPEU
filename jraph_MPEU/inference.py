@@ -14,7 +14,8 @@ from jraph_MPEU.input_pipeline import (
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, add_labels_to_graphs, normalize_targets
+    get_valid_mask, load_config, add_labels_to_graphs, normalize_targets,
+    scale_targets
 )
 from jraph_MPEU.models import load_model
 
@@ -65,12 +66,12 @@ def load_inference_file(workdir, redo=False):
         logging.info('Loading model.')
         net, params = load_model(workdir)
         logging.info('Loading datasets.')
-        dataset, _, mean, std = load_data(workdir)
+        dataset, mean, std = load_data(workdir)
         splits = dataset.keys()
         print(splits)
 
         for split in splits:
-            data_list = dataset[split].data
+            data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
             preds = get_predictions(data_list, net, params)
             targets = [graph.globals[0] for graph in data_list]
@@ -103,16 +104,16 @@ def get_results_df(workdir):
 
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
-    selection = config.selection
-    limit = config.selection
     label_str = config.label_str
 
     graphs = []
     labels = []
     ase_db = ase.db.connect(config.data_file)
     inference_df = pandas.DataFrame({})
-    for i, row in enumerate(ase_db.select(selection=selection, limit=limit)):
-        logging.info(f'Rows read: {i}')
+    for i, (id_single, split) in enumerate(split_dict.items()):
+        if i%10000 == 0:
+            logging.info(f'Rows read: {i}')
+        row = ase_db.get(id_single)
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
         if config.num_edges_max is not None:
@@ -121,10 +122,10 @@ def get_results_df(workdir):
         graphs.append(graph)
         label = row.key_value_pairs[label_str]
         labels.append(label)
-        row_dict = row.key_value_pairs # initialze row dict with key_val_pairs
+        row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
         row_dict['id'] = row.id
         row_dict['n_edge'] = n_edge
-        row_dict['split'] = split_dict[row.id]
+        row_dict['split'] = split  # convert from one-based id
         #row_dict['symbols']
         inference_df = inference_df.append(row_dict, ignore_index=True)
     # Normalize graphs and targets
@@ -137,12 +138,10 @@ def get_results_df(workdir):
     net, params = load_model(workdir)
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params)
-    targets = [graph.globals[0] for graph in graphs]
-    # scale the predictions and targets using the std
-    preds = preds*float(std) + mean
-    targets = np.array(targets)*float(std) + mean
+    # scale the predictions using the std
+    preds = scale_targets(graphs, preds, mean, std, config.aggregation_readout_type)
 
     # add row with predictions to dataframe
-    inference_df['predictions'] = preds
+    inference_df['prediction'] = preds
 
     return inference_df

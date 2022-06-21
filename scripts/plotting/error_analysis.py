@@ -18,8 +18,10 @@ def main(args):
     """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
     df = get_results_df(args.folder)
-    df.describe()
-    
+    df.head()
+    print(df)
+    sns.scatterplot(x='U0', y='prediction', data=df, hue='split')
+    plt.show()
 
 
 if __name__ == "__main__":

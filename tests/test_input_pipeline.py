@@ -16,7 +16,6 @@ from jraph_MPEU.input_pipeline import (
     asedb_to_graphslist,
     atoms_to_nodes_list,
     get_train_val_test_split_dict,
-    add_splits_to_database,
     save_split_dict,
     load_split_dict,
     get_datasets
@@ -107,31 +106,6 @@ class TestPipelineFunctions(unittest.TestCase):
             for i in ids:
                 self.assertEqual(key, dict_loaded[i])
 
-    def test_add_splits_to_database(self):
-        """Note: might get rid of this function"""
-        config = ml_collections.ConfigDict()
-        config.train_frac = 0.5
-        config.val_frac = 0.3
-        config.test_frac = 0.2
-        num_rows = 20  # number of rows to write
-        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
-            config.data_file = test_dir + 'test.db'
-            # create and connect to temporary database
-            database = ase.db.connect(config.data_file)
-            for _ in range(num_rows):
-                h2_atom = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
-                database.write(h2_atom)
-            add_splits_to_database(config, num_rows)
-            split_dict = {'train': [], 'validation': [], 'test': []}
-            for row in database.select():
-                split_dict[row.split].append(row.id)
-            np.testing.assert_array_equal(
-                split_dict['train'], sorted([6, 15, 10, 8, 17, 12, 4, 1, 16, 13]))
-            np.testing.assert_array_equal(
-                split_dict['validation'], sorted([19, 9, 2, 14, 5, 18]))
-            np.testing.assert_array_equal(
-                split_dict['test'], sorted([20, 3, 7, 11]))
-
     def test_get_splits_fail(self):
         """Test getting the indices for train/test/validation splits.
 
@@ -212,9 +186,10 @@ class TestPipelineFunctions(unittest.TestCase):
         label_str = 'delta_e'
         selection = 'delta_e<0'
         limit = 100
-        graphs, labels = asedb_to_graphslist(
+        graphs, labels, ids = asedb_to_graphslist(
             file=file_str, label_str=label_str, selection=selection, limit=limit)
         _ = [self.assertIsInstance(graph, jraph.GraphsTuple) for graph in graphs]
+        _ = [self.assertIsInstance(i, int) for i in ids]
         # assert that the selection worked
         _ = [self.assertFalse(label == 0) for label in labels]
         _ = [self.assertTrue(label < 0) for label in labels]
