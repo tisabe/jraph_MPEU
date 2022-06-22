@@ -32,6 +32,7 @@ def get_predictions(dataset, net, params):
     Returns:
         1-D numpy array of predictions from the dataset
     """
+    # TODO: test this, especially that it does not modify dataset in place
     reader = DataReader(
         data=dataset, batch_size=32, repeat=False)
     @jax.jit
@@ -123,17 +124,17 @@ def get_results_df(workdir):
         label = row.key_value_pairs[label_str]
         labels.append(label)
         row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
-        row_dict['id'] = row.id
+        row_dict['asedb_id'] = row.id
         row_dict['n_edge'] = n_edge
         row_dict['split'] = split  # convert from one-based id
         #row_dict['symbols']
         inference_df = inference_df.append(row_dict, ignore_index=True)
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
-    graphs, _ = atoms_to_nodes_list(graphs)
+    graphs, _ = atoms_to_nodes_list(graphs)  # TODO: make function that loads atoms to nodes list
     _, mean, std = normalize_targets(
         graphs, labels, config)
-    graphs = add_labels_to_graphs(graphs, labels)
+    #graphs = add_labels_to_graphs(graphs, labels)
 
     net, params = load_model(workdir)
     logging.info('Predicting on dataset.')

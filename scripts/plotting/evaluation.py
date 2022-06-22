@@ -5,21 +5,26 @@ here. The model weights are saved in the pickle file, after they are loaded,
 the model can be built using the config.json.
 """
 
-import argparse
-
+from absl import app
+from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
 from jraph_MPEU.inference import load_inference_file
 
+FLAGS = flags.FLAGS
+flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
+flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 
-def main(args):
+def main(argv):
     """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
-    workdir = args.folder
+    if len(argv) > 1:
+        raise app.UsageError('Too many command-line arguments.')
+    workdir = FLAGS.file
 
-    inference_dict = load_inference_file(workdir, redo=args.redo)
+    inference_dict = load_inference_file(workdir, redo=FLAGS.redo)
 
     fig, ax = plt.subplots(2)
     marker_size = 0.3
@@ -58,13 +63,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Show regression plot and loss curve.')
-    parser.add_argument(
-        '-f', '-F', type=str, dest='folder', default='results/qm9/test',
-        help='input directory name')
-    parser.add_argument(
-        '--redo', dest='redo', action='store_true'
-    )
-    args_main = parser.parse_args()
-    main(args_main)
+    app.run(main)
