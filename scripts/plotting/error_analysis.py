@@ -2,6 +2,7 @@
 using different metrics such as atomic numbers, number of species etc.
 """
 import argparse
+import os
 
 from absl import logging
 import matplotlib.pyplot as plt
@@ -17,10 +18,19 @@ from jraph_MPEU.inference import get_results_df
 def main(args):
     """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
-    df = get_results_df(args.folder)
-    df.head()
-    print(df)
-    sns.scatterplot(x='U0', y='prediction', data=df, hue='split')
+    workdir = args.folder
+    df_path = workdir + '/result.csv'
+    
+    if not os.path.exists(df_path):
+        logging.info('Did not find csv path, generating DataFrame.')
+        df = get_results_df(workdir)
+        df.head()
+        print(df)
+        df.to_csv(df_path, index=False)
+    else:
+        logging.info('Found csv path. Reading DataFrame.')
+        df = pd.read_csv(df_path)
+    sns.scatterplot(x='enthalpy_formation_atom', y='prediction', data=df, hue='split')
     plt.show()
 
 

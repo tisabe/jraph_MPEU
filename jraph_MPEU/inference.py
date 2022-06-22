@@ -138,7 +138,7 @@ def get_results_df(workdir):
     net, params = load_model(workdir)
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params)
-    # scale the predictions using the std
+    # scale the predictions using the std and mean
     preds = scale_targets(graphs, preds, mean, std, config.aggregation_readout_type)
 
     # add row with predictions to dataframe
