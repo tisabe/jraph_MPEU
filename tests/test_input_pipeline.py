@@ -2,6 +2,7 @@
 import tempfile
 import os
 import json
+import random
 
 import unittest
 import jraph
@@ -18,7 +19,8 @@ from jraph_MPEU.input_pipeline import (
     get_train_val_test_split_dict,
     save_split_dict,
     load_split_dict,
-    get_datasets
+    get_datasets,
+    get_atom_num_list
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
@@ -39,6 +41,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.num_edges_max = None
         num_rows = 20  # number of rows to write
         label_values = np.arange(num_rows)*1.0
+        compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
 
         with tempfile.TemporaryDirectory() as test_dir:  # directory for database
             config.data_file = test_dir + 'test.db'
@@ -50,7 +53,9 @@ class TestPipelineFunctions(unittest.TestCase):
             # create and connect to temporary database
             database = ase.db.connect(config.data_file)
             for label_value in label_values:
-                h2_atom = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])  # example structure
+                # example structure
+                h2_atom = Atoms(
+                    random.choice(compound_list))
                 key_value_pairs = {config.label_str: label_value}
                 data = {
                     'senders': [0],
@@ -69,17 +74,17 @@ class TestPipelineFunctions(unittest.TestCase):
             # check that the splits.json and atomic_num_list.json file was created
             self.assertTrue(os.path.exists(path_split))
             self.assertTrue(os.path.exists(path_num))
-            # check that the atomic num list has one entry, as there is only
-            # one species
+            # check that the atomic num list has at least one entry
             with open(path_num) as list_file:
                 num_list = json.load(list_file)
-            np.testing.assert_array_equal(num_list, [1])
+            self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
                 'train': [5., 14., 9., 7., 16., 11., 3., 0., 15., 12.],
                 'validation': [18., 8., 1., 13., 4., 17.],
                 'test': [19., 2., 6., 10.]
             }
+            graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
                 labels = [(graph.globals[0]*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
@@ -88,6 +93,13 @@ class TestPipelineFunctions(unittest.TestCase):
             graphs_split, mean, std = get_datasets(
                 config, test_dir
             )
+            # TODO: test that the nodes are still transformed in the same way
+            for split, graph_list in graphs_split.items():
+                nodes = [np.array(graph.nodes) for graph in graph_list]
+                graphs_list_old = graphs_split_old[split]
+                nodes_old = [np.array(graph.nodes) for graph in graphs_list_old]
+                for node, node_old in zip(nodes, nodes_old):
+                    np.testing.assert_array_equal(node, node_old)
 
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving
@@ -331,7 +343,8 @@ class TestPipelineFunctions(unittest.TestCase):
             n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graphs = [graph0, graph1, graph2]
-        graphs, num_list = atoms_to_nodes_list(graphs)
+        num_list = get_atom_num_list(graphs)
+        graphs = atoms_to_nodes_list(graphs, num_list)
 
         nodes0_expected = np.array([0, 0, 0, 1])
         nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])

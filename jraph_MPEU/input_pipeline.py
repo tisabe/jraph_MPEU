@@ -13,7 +13,6 @@ import warnings
 import json
 
 from absl import logging
-import ml_collections
 import jraph
 import sklearn.model_selection
 import numpy as np
@@ -274,8 +273,10 @@ def asedb_to_graphslist(
 
     return graphs, labels, ids
 
-def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
-        Sequence[jraph.GraphsTuple], list]:
+
+def atoms_to_nodes_list(
+        graphs: Sequence[jraph.GraphsTuple], num_list: list) -> Tuple[
+            Sequence[jraph.GraphsTuple]]:
     """Encodes the atomic numbers of nodes in a graph in compact fashion.
 
     Return graphs with atomic numbers as graph-nodes turned into
@@ -292,15 +293,7 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
     [0 0 0 0 0 0 1 1]
     [0 0 0 0 1 2]
     as there are only three different atomic numbers present in the list.
-    Also return the number of classes."""
-    num_list = [] # List with atomic numbers in the graphs list.
-    # Generate full list first.
-    for graph in graphs:  # Loop over all graphs.
-        nodes = graph.nodes  # Grab information about nodes in the graph.
-        for num in nodes:  # Loop over nodes in a graph.
-            if not num in num_list:
-                # Append unseen atomic numbers to num_list.
-                num_list.append(int(num))
+    """
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
     for graph in graphs:
@@ -309,7 +302,20 @@ def atoms_to_nodes_list(graphs: Sequence[jraph.GraphsTuple]) -> Tuple[
             nodes[i] = num_list.index(num)
         graph._replace(nodes=nodes)
 
-    return graphs, num_list
+    return graphs
+
+
+def get_atom_num_list(graphs):
+    """Return the atomic num list. See atoms_to_nodes_list for details."""
+    num_list = [] # List with atomic numbers in the graphs list.
+
+    for graph in graphs:  # Loop over all graphs.
+        nodes = graph.nodes  # Grab information about nodes in the graph.
+        for num in nodes:  # Loop over nodes in a graph.
+            if not num in num_list:
+                # Append unseen atomic numbers to num_list.
+                num_list.append(int(num))
+    return num_list
 
 
 class DataReader:
@@ -479,10 +485,17 @@ def get_datasets(config, workdir):
             ids.append(id_single)
 
     # Convert the atomic numbers in nodes to classes and set number of classes.
-    graphs_list, num_list = atoms_to_nodes_list(graphs_list)
-    # save num list here
-    with open(os.path.join(workdir, 'atomic_num_list.json'), 'w') as list_file:
-        json.dump(num_list, list_file)
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    if not os.path.exists(num_path):
+        num_list = get_atom_num_list(graphs_list)
+        # save num list here
+        with open(num_path, 'w') as num_file:
+            json.dump(num_list, num_file)
+    else:
+        with open(num_path, 'r') as num_file:
+            num_list = json.load(num_file)
+    graphs_list = atoms_to_nodes_list(graphs_list, num_list)
+
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 

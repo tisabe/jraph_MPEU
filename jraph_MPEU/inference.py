@@ -2,6 +2,7 @@
 model."""
 import os
 import pickle
+import json
 
 import jax
 import numpy as np
@@ -14,8 +15,7 @@ from jraph_MPEU.input_pipeline import (
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, add_labels_to_graphs, normalize_targets,
-    scale_targets
+    get_valid_mask, load_config, normalize_targets, scale_targets
 )
 from jraph_MPEU.models import load_model
 
@@ -131,7 +131,10 @@ def get_results_df(workdir):
         inference_df = inference_df.append(row_dict, ignore_index=True)
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
-    graphs, _ = atoms_to_nodes_list(graphs)  # TODO: make function that loads atoms to nodes list
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    with open(num_path, 'r') as num_file:
+        num_list = json.load(num_file)
+    graphs = atoms_to_nodes_list(graphs, num_list)
     _, mean, std = normalize_targets(
         graphs, labels, config)
     #graphs = add_labels_to_graphs(graphs, labels)
