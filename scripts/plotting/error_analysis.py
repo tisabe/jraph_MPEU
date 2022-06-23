@@ -38,7 +38,9 @@ def main(argv):
 
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     # get dataframe with only test data
-    df_test = df.loc[lambda df_temp: df_temp['split']=='test']
+    df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
+    mean_abs_err_test = df_test.mean(0)['abs. error']
+    print(mean_abs_err_test)
 
     fig, ax = plt.subplots()
     sns.scatterplot(
@@ -59,6 +61,8 @@ def main(argv):
         hue='split',
         ax=ax
     )
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
+    plt.yscale('log')
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
 
@@ -70,10 +74,11 @@ def main(argv):
         hue='split',
         ax=ax
     )
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
-    
+
     # group the spacegoups into crystal systems
     #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
     bins = [0, 2, 15, 74, 142, 167, 194, 230]
@@ -89,7 +94,7 @@ def main(argv):
         hue='split',
         ax=ax
     )
-    plt.axhline(y=1e-2, color='black', linestyle='--')
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
@@ -102,7 +107,7 @@ def main(argv):
         hue='split',
         ax=ax
     )
-    plt.axhline(y=1e-2, color='black', linestyle='--')
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
@@ -115,10 +120,13 @@ def main(argv):
         hue='split',
         ax=ax
     )
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
 
+    # TODO: get atomic numbers and group them into material classes, e.g.
+    # oxides/transition metal, binaries/ternaries
 
 if __name__ == "__main__":
     app.run(main)
