@@ -37,6 +37,7 @@ def load_model(workdir):
     config = load_config(workdir)
     # load the model params
     params = best_state['state']['params']
+    print(f'Loaded best state at step {best_state["state"]["step"]}')
     net_fn = GNN(config)
     net = hk.without_apply_rng(hk.transform(net_fn))
     return net, params

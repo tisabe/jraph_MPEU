@@ -26,7 +26,7 @@ def main(argv):
 
     inference_dict = load_inference_file(workdir, redo=FLAGS.redo)
 
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots()
     marker_size = 0.3
 
     splits = inference_dict.keys()
@@ -41,20 +41,16 @@ def main(argv):
         print(f'MSE: {mse} {units}')
         print(f'MAE: {mae} {units}')
         label_string = f'{split} \nMAE: {mae:9.3f} {units}'
-        ax[0].scatter(targets, preds, s=marker_size, label=label_string)
-        ax[1].scatter(targets, error, s=marker_size, label=split)
+        ax.scatter(targets, preds, s=marker_size, label=label_string)
 
     # plot x = y regression lines
-    x_ref = np.linspace(*ax[0].get_xlim())
-    ax[0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax[0].set_title('Model regression performance')
-    ax[0].set_ylabel(f'prediction ({units})', fontsize=12)
-    ax[1].set_xlabel(f'target ({units})', fontsize=12)
-    ax[1].set_ylabel(f'abs. error ({units})', fontsize=12)
-    ax[0].set_aspect('equal')
-    ax[0].legend()
-    ax[1].legend()
-    ax[1].set_yscale('log')
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    ax.set_title('Model regression performance')
+    ax.set_ylabel(f'prediction ({units})', fontsize=12)
+    ax.set_xlabel(f'target ({units})', fontsize=12)
+    ax.set_aspect('equal')
+    ax.legend()
     plt.tight_layout()
 
     plt.show()

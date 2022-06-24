@@ -49,6 +49,7 @@ def main(args):
                 'mse': min_mse,
                 'min_step_mae': min_step_mae,
                 'min_step_mse': min_step_mse,
+                'directory': dirname
             }
             #print(row_dict)
             df = df.append(row_dict, ignore_index=True)

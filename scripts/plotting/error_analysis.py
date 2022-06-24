@@ -37,10 +37,22 @@ def main(argv):
         df = pd.read_csv(df_path)
 
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
-    # get dataframe with only test data
+    # get dataframe with only split data
+    df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
+    mean_abs_err_train = df_train.mean(0)['abs. error']
+    print(f'MAE on train set: {mean_abs_err_train}')
+
+    df_val = df.loc[lambda df_temp: df_temp['split'] == 'validation']
+    mean_abs_err_val = df_val.mean(0)['abs. error']
+    print(f'MAE on validation set: {mean_abs_err_val}')
+
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
     mean_abs_err_test = df_test.mean(0)['abs. error']
-    print(mean_abs_err_test)
+    print(f'MAE on test set: {mean_abs_err_test}')
+
+    mean_target = df.mean(0)[config.label_str]
+    std_target = df.std(0)[config.label_str]
+    print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
     fig, ax = plt.subplots()
     sns.scatterplot(

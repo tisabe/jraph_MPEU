@@ -106,6 +106,7 @@ def get_results_df(workdir):
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
     label_str = config.label_str
+    net, params = load_model(workdir)
 
     graphs = []
     labels = []
@@ -139,7 +140,6 @@ def get_results_df(workdir):
         graphs, labels, config)
     #graphs = add_labels_to_graphs(graphs, labels)
 
-    net, params = load_model(workdir)
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params)
     # scale the predictions using the std and mean
