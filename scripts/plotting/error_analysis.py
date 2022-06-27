@@ -2,6 +2,7 @@
 using different metrics such as atomic numbers, number of species etc.
 """
 import os
+from collections import Counter
 
 from absl import app
 from absl import flags
@@ -62,6 +63,7 @@ def main(argv):
         hue='split',
         ax=ax
     )
+    plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/pred_vs_label.png', bbox_inches='tight', dpi=600)
 
@@ -75,6 +77,7 @@ def main(argv):
     )
     plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
 
@@ -87,9 +90,13 @@ def main(argv):
         ax=ax
     )
     plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
+    plt.xticks(rotation=90)
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+'/error_vs_dft.png', bbox_inches='tight', dpi=600)
+    col = df['dft_type']
+    print(Counter(col))
 
     # group the spacegoups into crystal systems
     #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
@@ -107,9 +114,13 @@ def main(argv):
         ax=ax
     )
     plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
+    plt.xticks(rotation=90)
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+'/error_vs_crystal.png', bbox_inches='tight', dpi=600)
+    col = df['crystal system']
+    print(Counter(col))
 
     fig, ax = plt.subplots()
     sns.boxplot(
@@ -120,9 +131,13 @@ def main(argv):
         ax=ax
     )
     plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
+    plt.xticks(rotation=90)
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+'/error_vs_egap.png', bbox_inches='tight', dpi=600)
+    col = df['Egap_type']
+    print(Counter(col))
 
     fig, ax = plt.subplots()
     sns.scatterplot(
@@ -134,8 +149,23 @@ def main(argv):
     )
     plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+'/error_vs_density.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='ldau_type', # plot error vs ldau type
+        y='abs. error',
+        data=df,
+        hue='split',
+        ax=ax
+    )
+    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/error_vs_ldau.png', bbox_inches='tight', dpi=600)
 
     # TODO: get atomic numbers and group them into material classes, e.g.
     # oxides/transition metal, binaries/ternaries

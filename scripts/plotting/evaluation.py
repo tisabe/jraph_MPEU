@@ -56,6 +56,30 @@ def main(argv):
     plt.show()
     fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)
 
+    ### plot residuals
+    fig, ax = plt.subplots()
+    for split in splits:
+        preds = inference_dict[split]['preds']
+        targets = inference_dict[split]['targets']
+        error = (preds - targets)
+        mae = np.mean(error)
+        mse = np.mean(np.square(error))
+        print(f'Number of graphs: {len(preds)}')
+        print(f'MSE: {mse} {units}')
+        print(f'MAE: {mae} {units}')
+        label_string = split
+        ax.scatter(targets, error, s=marker_size, label=label_string)
+
+    ax.set_title('Model regression performance')
+    ax.set_ylabel(f'error ({units})', fontsize=12)
+    ax.set_xlabel(f'target ({units})', fontsize=12)
+    ax.legend()
+    ax.set_yscale('log')
+    plt.tight_layout()
+
+    plt.show()
+    fig.savefig(workdir+'/residuals.png', bbox_inches='tight', dpi=600)
+
 
 
 if __name__ == "__main__":

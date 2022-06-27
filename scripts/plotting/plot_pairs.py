@@ -75,6 +75,10 @@ def main(args):
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
         sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+        if i == 0:
+            ax[i].set_ylabel('MAE (eV)')
+        else:
+            ax[i].set_ylabel('')
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
