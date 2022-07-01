@@ -412,7 +412,7 @@ def init_state(
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
         sq_diff = jnp.square((predictions - labels)*mask)
-        # TODO: make different loss functions available in config
+
         loss = jnp.sum(sq_diff)
         mean_loss = loss / jnp.sum(mask)
         absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
@@ -519,8 +519,6 @@ def train_and_evaluate(
         state, loss_metrics = updater.update(state, graphs)
 
         # Log periodically the losses/step count.
-        # TODO: Use the last step to break out of this training loop if
-        # we have already completed the max number of training steps.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
             # TODO: Add timing metrics.
