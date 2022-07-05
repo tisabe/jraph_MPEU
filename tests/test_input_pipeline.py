@@ -342,16 +342,16 @@ class TestPipelineFunctions(unittest.TestCase):
         graph2 = jraph.GraphsTuple(
             n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
-        graphs = [graph0, graph1, graph2]
-        num_list = get_atom_num_list(graphs)
-        graphs = atoms_to_nodes_list(graphs, num_list)
+        graphs_dict = {1: graph0, 3: graph1, 4:graph2}
+        num_list = get_atom_num_list(graphs_dict)
+        graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
         nodes0_expected = np.array([0, 0, 0, 1])
         nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])
         nodes2_expected = np.array([0, 0, 0, 0, 1, 2])
-        nodes0 = graphs[0].nodes
-        nodes1 = graphs[1].nodes
-        nodes2 = graphs[2].nodes
+        nodes0 = graphs_dict[1].nodes
+        nodes1 = graphs_dict[3].nodes
+        nodes2 = graphs_dict[4].nodes
         np.testing.assert_array_equal(nodes0_expected, nodes0)
         np.testing.assert_array_equal(nodes1_expected, nodes1)
         np.testing.assert_array_equal(nodes2_expected, nodes2)

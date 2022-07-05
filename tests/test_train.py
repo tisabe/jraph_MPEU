@@ -9,6 +9,7 @@ import unittest
 
 import numpy as np
 import jax
+from absl import logging
 
 from jraph_MPEU import train
 from jraph_MPEU.input_pipeline import get_datasets
@@ -18,13 +19,13 @@ from jraph_MPEU_configs import default_test as cfg
 class TestTrain(unittest.TestCase):
     """Test train.py methods and classes."""
     def setUp(self):
+        logging.set_verbosity(logging.DEBUG)
         self.config = cfg.get_config()
-        self.test_dir = tempfile.TemporaryDirectory()
         self.config.limit_data = 100
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
-        datasets, _, _ = get_datasets(self.config, self.test_dir.name)
-        self.datasets = datasets
+        #datasets, _, _ = get_datasets(self.config, self.test_dir.name)
+        #self.datasets = datasets
 
     def test_init_state(self):
         """Test that init optimizer state is the right class."""
@@ -85,20 +86,21 @@ class TestTrain(unittest.TestCase):
         First the best loss after 10 steps is calculated, then training is
         continued from checkpoint for 90 more steps until step 100 is reached.
         """
-        self.test_dir = tempfile.TemporaryDirectory()
-        config = cfg_num.get_config()
-        evaluater, lowest_val_loss = train.train_and_evaluate(
-            config, self.test_dir.name)
+        with tempfile.TemporaryDirectory() as test_dir:
+            config = cfg_num.get_config()
+            print(config)
+            evaluater, lowest_val_loss = train.train_and_evaluate(
+                config, test_dir)
 
-        self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-        self.assertIsInstance(lowest_val_loss, np.float32)
+            self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
+            self.assertIsInstance(lowest_val_loss, np.float32)
 
-        config.num_train_steps_max = 100
-        evaluater, lowest_val_loss2 = train.train_and_evaluate(
-            config, self.test_dir.name)
-        self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-        print(lowest_val_loss2 - lowest_val_loss)
-        self.assertTrue(lowest_val_loss2 <= lowest_val_loss)
+            config.num_train_steps_max = 100
+            evaluater, lowest_val_loss2 = train.train_and_evaluate(
+                config, test_dir)
+            self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
+            print(lowest_val_loss2 - lowest_val_loss)
+            self.assertTrue(lowest_val_loss2 <= lowest_val_loss)
 
     def test_metrics_logged(self):
         """Test that the right number of evals are computed."""

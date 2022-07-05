@@ -23,7 +23,7 @@ from ase.neighborlist import NeighborList
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
-    normalize_targets,
+    normalize_targets_dict,
     add_labels_to_graphs,
     load_config
 )
@@ -275,8 +275,7 @@ def asedb_to_graphslist(
 
 
 def atoms_to_nodes_list(
-        graphs: Sequence[jraph.GraphsTuple], num_list: list) -> Tuple[
-            Sequence[jraph.GraphsTuple]]:
+        graphs_dict: dict, num_list: list) -> dict:
     """Encodes the atomic numbers of nodes in a graph in compact fashion.
 
     Return graphs with atomic numbers as graph-nodes turned into
@@ -296,20 +295,20 @@ def atoms_to_nodes_list(
     """
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
-    for graph in graphs:
+    for graph in graphs_dict.values():
         nodes = graph.nodes
         for i, num in enumerate(nodes):
             nodes[i] = num_list.index(num)
         graph._replace(nodes=nodes)
 
-    return graphs
+    return graphs_dict
 
 
-def get_atom_num_list(graphs):
+def get_atom_num_list(graphs_dict):
     """Return the atomic num list. See atoms_to_nodes_list for details."""
     num_list = [] # List with atomic numbers in the graphs list.
 
-    for graph in graphs:  # Loop over all graphs.
+    for graph in graphs_dict.values():  # Loop over all graphs.
         nodes = graph.nodes  # Grab information about nodes in the graph.
         for num in nodes:  # Loop over nodes in a graph.
             if not num in num_list:
@@ -464,47 +463,63 @@ def get_datasets(config, workdir):
     # ids in the split file
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
+        logging.debug(f'Did not find split file at {split_path}. Pulling data.')
         graphs_list, labels_list, ids = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
             selection=config.selection,
             num_edges_max=config.num_edges_max,
             limit=config.limit_data)
+        # transform graphs list into graphs dict, same for labels
+        graphs_dict = {}
+        labels_dict = {}
+        for (graph, label, id_single) in zip(graphs_list, labels_list, ids):
+            graphs_dict[id_single] = graph
+            labels_dict[id_single] = label
+
     else:
-        graphs_list = []
-        labels_list = []
-        ids = []
+        logging.debug(f'Found split file. Connecting to ase.db at {config.data_file}')
+        graphs_dict = {}
+        labels_dict = {}
         split_dict = load_split_dict(workdir)
         ase_db = ase.db.connect(config.data_file)
         for id_single in split_dict.keys():
             row = ase_db.get(id_single)
             graph = ase_row_to_jraph(row)
-            graphs_list.append(graph)
+            #graphs_list.append(graph)
+            graphs_dict[id_single] = graph
             label = row.key_value_pairs[config.label_str]
-            labels_list.append(label)
-            ids.append(id_single)
+            #labels_list.append(label)
+            labels_dict[id_single] = label
+    # In either path, the list ids has been created at this point. ids contains
+    # the asedb row.id of each graph that has been pulled.
 
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
     if not os.path.exists(num_path):
-        num_list = get_atom_num_list(graphs_list)
+        num_list = get_atom_num_list(graphs_dict)
         # save num list here
         with open(num_path, 'w') as num_file:
             json.dump(num_list, num_file)
     else:
         with open(num_path, 'r') as num_file:
             num_list = json.load(num_file)
-    graphs_list = atoms_to_nodes_list(graphs_list, num_list)
+    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    labels_list, mean, std = normalize_targets(
-        graphs_list, labels_list, config)
+    labels_dict, mean, std = normalize_targets_dict(
+        graphs_dict, labels_dict, config)
     logging.info(f'Mean: {mean}, Std: {std}')
-    graphs_list = add_labels_to_graphs(graphs_list, labels_list)
+    # add the labels to graphs as globals
+    #graphs_dict = add_labels_to_graphs(graphs_dict, labels_dict)
+
+    for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
+        graphs_dict[id_single] = graph._replace(globals=np.array([label]))
 
     if not os.path.exists(split_path):
+        logging.debug('Generating splits and saving split file.')
         # If split file did not exist before, generate and save it
         split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
@@ -520,7 +535,6 @@ def get_datasets(config, workdir):
         graphs_split[key] = []  # init lists for every split
         for id_single in id_list:
             # append graph from graph_list using the id in split_dict
-            # the id must be converted from one-based to zero-based
-            graphs_split[key].append(graphs_list[id_single-1])
+            graphs_split[key].append(graphs_dict[id_single])
 
     return graphs_split, mean, std

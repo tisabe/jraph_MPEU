@@ -135,10 +135,15 @@ def get_results_df(workdir):
     num_path = os.path.join(workdir, 'atomic_num_list.json')
     with open(num_path, 'r') as num_file:
         num_list = json.load(num_file)
-    graphs = atoms_to_nodes_list(graphs, num_list)
+
+    # convert to dict for atoms_to_nodes function
+    graphs_dict = dict(enumerate(graphs))
+    labels_dict = dict(enumerate(labels))
+    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
     _, mean, std = normalize_targets(
-        graphs, labels, config)
-    #graphs = add_labels_to_graphs(graphs, labels)
+        graphs_dict, labels_dict, config)
+    graphs = list(graphs_dict.values())
+    labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params)
