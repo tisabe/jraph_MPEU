@@ -295,7 +295,7 @@ def get_node_update_fn(latent_size, hk_init):
     return node_update_fn
 
 
-def get_readout_global_fn():
+def get_readout_global_fn(latent_size, dropout_rate=0.0, extra_mlp: bool = False):
     """Return the readout global function."""
     def readout_global_fn(
             node_attributes, edge_attributes,
@@ -312,11 +312,29 @@ def get_readout_global_fn():
         """
         # Delete unused arguments that are expected by jraph.
         del edge_attributes, global_attributes
-        return node_attributes
+
+        if extra_mlp:
+            def mlp(x, hidden_sizes):
+                
+                for layer_output_size in hidden_sizes:
+                    x = hk.Linear(layer_output_size, with_bias=False)(x)
+                    # parameters taken from ResNet example in Haiku
+                    x = hk.BatchNorm(
+                        create_scale=True,
+                        create_offset=True,
+                        decay_rate=0.99, # NOTE: might need to change this
+                        name='batchnorm_final')(x, is_training=is_training)
+                    x = shifted_softplus(x)
+                    x = hk.dropout(hk.next_rng_key(), dropout_rate, x)
+                return x
+            nodes = mlp(node_attributes, [latent_size//4, latent_size//8])
+            return hk.Linear(1, with_bias=False)(nodes)
+        else:
+            return node_attributes
     return readout_global_fn
 
 
-def get_readout_node_update_fn(latent_size, hk_init):
+def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -344,13 +362,21 @@ def get_readout_node_update_fn(latent_size, hk_init):
             jnp.ndarray, updated node features
         """
         del sent_attributes, received_attributes, global_attributes
-
+        nodes = hk.dropout(hk.next_rng_key(), dropout_rate, nodes)
         # NN. First layer has output size of latent_size/2 (C/2) with
         # shifted softplus. Then we have a linear FC layer with no softplus.
-        net = hk.Sequential([
-            hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
-            shifted_softplus,
-            hk.Linear(1, with_bias=False, w_init=hk_init)])
+        if output_size == 1:
+            net = hk.Sequential([
+                hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
+                shifted_softplus,
+                hk.Linear(output_size, with_bias=False, w_init=hk_init)])
+        else:
+            # add extra shsp
+            net = hk.Sequential([
+                hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
+                shifted_softplus,
+                hk.Linear(output_size, with_bias=False, w_init=hk_init),
+                shifted_softplus])
         # Apply the network to the nodes.
         return net(nodes)
     return readout_node_update_fn
@@ -427,9 +453,15 @@ class GNN:
         # aggregate features to pass to the update_global_fn.
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
-                self.config.latent_size, self.config.hk_init),
+                self.config.latent_size,
+                self.config.hk_init,
+                self.config.dropout_rate,
+                self.config.latent_size//4),
             update_edge_fn=None,
-            update_global_fn=get_readout_global_fn(),
+            update_global_fn=get_readout_global_fn(
+                latent_size=self.config.latent_size,
+                dropout_rate=self.config.dropout_rate,
+                extra_mlp=self.config.extra_mlp),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
         graphs = net_readout(graphs)

@@ -66,17 +66,17 @@ class Updater:
     @functools.partial(jax.jit, static_argnums=0)
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
-        #rng, new_rng = jax.random.split(state['rng'])
+        rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
         (loss, _), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, data, self._net_apply)
+            self._loss_fn, has_aux=True)(params, rng, data, self._net_apply)
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
         params = optax.apply_updates(params, updates)
 
         new_state = {
             'step': state['step'] + 1,
-            'rng': 0,
+            'rng': new_rng,
             'opt_state': opt_state,
             'params': params,
         }
@@ -224,7 +224,8 @@ class Evaluater:
     def _evaluate_step(
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
         """Calculate the mean loss for a batch of graphs."""
-        (mean_loss, (mae)) = self._loss_fn(state['params'], graphs, self._net_apply)
+        rng, new_rng = jax.random.split(state['rng'])
+        (mean_loss, (mae)) = self._loss_fn(state['params'], rng, graphs, self._net_apply)
         return [mean_loss*self._loss_scalar, mae*self._loss_scalar]
 
     def evaluate_split(
@@ -399,17 +400,20 @@ def init_state(
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
 
     net_fn = create_model(config)
-    net = hk.without_apply_rng(hk.transform(net_fn))
+    net = hk.transform(net_fn)
+
+    net_fn_train = 
+    net_train = hk.transform(net_fn_train)
 
     # Create the optimizer
     optimizer = create_optimizer(config)
 
-    def loss_fn(params, graphs, net_apply):
+    def loss_fn(params, rng, graphs, net_apply):
         labels = graphs.globals
         graphs = replace_globals(graphs)
 
         mask = get_valid_mask(graphs)
-        pred_graphs = net_apply(params, graphs)
+        pred_graphs = net_apply(params, rng, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
         sq_diff = jnp.square((predictions - labels)*mask)
