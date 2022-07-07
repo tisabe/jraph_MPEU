@@ -20,7 +20,7 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models import load_model
 
 
-def get_predictions(dataset, net, params):
+def get_predictions(dataset, net, params, hk_state):
     """Get predictions for a single dataset split.
 
     Args:
@@ -28,6 +28,7 @@ def get_predictions(dataset, net, params):
         net: the model object with an apply function that applies the GNN model
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
+        hk_state: haiku state for batch norm in apply function
 
     Returns:
         1-D numpy array of predictions from the dataset
@@ -35,15 +36,18 @@ def get_predictions(dataset, net, params):
     # TODO: test this, especially that it does not modify dataset in place
     reader = DataReader(
         data=dataset, batch_size=32, repeat=False)
+    key = jax.random.PRNGKey(42)
+
     @jax.jit
-    def predict_batch(graphs):
+    def predict_batch(graphs, rng, hk_state):
         mask = get_valid_mask(graphs)
-        pred_graphs = net.apply(params, graphs)
+        pred_graphs, _ = net.apply(params, hk_state, rng, graphs)
         predictions = pred_graphs.globals
         return predictions, mask
     preds = np.array([])
     for graph in reader:
-        preds_batch, mask = predict_batch(graph)
+        key, subkey = jax.random.split(key)
+        preds_batch, mask = predict_batch(graph, subkey, hk_state)
         # get only the valid, unmasked predictions
         preds_valid = preds_batch[mask]
         preds = np.concatenate([preds, preds_valid], axis=0)
@@ -65,7 +69,7 @@ def load_inference_file(workdir, redo=False):
     if not os.path.exists(path) or redo:
         # compute the inferences
         logging.info('Loading model.')
-        net, params = load_model(workdir)
+        net, params, hk_state = load_model(workdir, is_training=False)
         logging.info('Loading datasets.')
         dataset, mean, std = load_data(workdir)
         splits = dataset.keys()
@@ -74,7 +78,7 @@ def load_inference_file(workdir, redo=False):
         for split in splits:
             data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
-            preds = get_predictions(data_list, net, params)
+            preds = get_predictions(data_list, net, params, hk_state)
             targets = [graph.globals[0] for graph in data_list]
             # scale the predictions and targets using the std
             preds = preds*float(std) + mean
@@ -106,7 +110,7 @@ def get_results_df(workdir):
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
     label_str = config.label_str
-    net, params = load_model(workdir)
+    net, params, hk_state = load_model(workdir)
 
     graphs = []
     labels = []
@@ -146,7 +150,7 @@ def get_results_df(workdir):
     labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
-    preds = get_predictions(graphs, net, params)
+    preds = get_predictions(graphs, net, params, hk_state)
     # scale the predictions using the std and mean
     preds = scale_targets(graphs, preds, mean, std, config.aggregation_readout_type)
 

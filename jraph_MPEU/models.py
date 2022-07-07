@@ -29,7 +29,7 @@ import ml_collections
 from jraph_MPEU.utils import load_config
 
 
-def load_model(workdir):
+def load_model(workdir, is_training=False):
     """Load model to evaluate on."""
     state_dir = workdir+'/checkpoints/best_state.pkl'
     with open(state_dir, 'rb') as state_file:
@@ -38,9 +38,9 @@ def load_model(workdir):
     # load the model params
     params = best_state['state']['params']
     print(f'Loaded best state at step {best_state["state"]["step"]}')
-    net_fn = GNN(config)
-    net = hk.without_apply_rng(hk.transform(net_fn))
-    return net, params
+    net_fn = GNN(config, is_training)
+    net = hk.transform_with_state(net_fn)
+    return net, params, best_state['state']['hk_state']
 
 
 # Define the shifted softplus activation function.

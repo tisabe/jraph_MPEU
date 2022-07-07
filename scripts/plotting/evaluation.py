@@ -64,9 +64,6 @@ def main(argv):
         error = (preds - targets)
         mae = np.mean(error)
         mse = np.mean(np.square(error))
-        print(f'Number of graphs: {len(preds)}')
-        print(f'MSE: {mse} {units}')
-        print(f'MAE: {mae} {units}')
         label_string = split
         ax.scatter(targets, error, s=marker_size, label=label_string)
 
