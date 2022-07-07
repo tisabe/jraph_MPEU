@@ -53,6 +53,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = 5
     # Regularization parameters
+    config.extra_mlp = False
     config.dropout_rate = 0.0
 
     # Logging options

@@ -53,13 +53,14 @@ class Updater:
     def init(self, rng, data):
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
-        params = self._net_init(init_rng, data)
+        params, hk_state = self._net_init(init_rng, data)
         opt_state = self._opt.init(params)
         state = dict(
             step=np.array(0),
             rng=out_rng,
             opt_state=opt_state,
             params=params,
+            hk_state=hk_state
         )
         return state
 
@@ -68,8 +69,9 @@ class Updater:
         """Updates the state using some data and returns metrics."""
         rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
-        (loss, _), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, rng, data, self._net_apply)
+        hk_state = state['hk_state']
+        (loss, (_, hk_state)), grad = jax.value_and_grad(
+            self._loss_fn, has_aux=True)(params, hk_state, rng, data, self._net_apply)
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
         params = optax.apply_updates(params, updates)
@@ -79,6 +81,7 @@ class Updater:
             'rng': new_rng,
             'opt_state': opt_state,
             'params': params,
+            'hk_state': hk_state
         }
 
         metrics = {
@@ -176,6 +179,7 @@ class Evaluater:
         self._loss_fn = loss_fn
         self.val_queue = []
         self.loss_dict = {}
+        self.rng = None  # initialize rng for later assign in evaluate model
         self.best_state = None # save the state with lowest validation error in best state
         self.lowest_val_loss = None
         self._checkpoint_dir = checkpoint_dir
@@ -224,8 +228,9 @@ class Evaluater:
     def _evaluate_step(
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
         """Calculate the mean loss for a batch of graphs."""
-        rng, new_rng = jax.random.split(state['rng'])
-        (mean_loss, (mae)) = self._loss_fn(state['params'], rng, graphs, self._net_apply)
+        state['rng'], new_rng = jax.random.split(state['rng'])
+        (mean_loss, (mae, _)) = self._loss_fn(
+            state['params'], state['hk_state'], new_rng, graphs, self._net_apply)
         return [mean_loss*self._loss_scalar, mae*self._loss_scalar]
 
     def evaluate_split(
@@ -339,9 +344,9 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
     return labels
 
 
-def create_model(config: ml_collections.ConfigDict):
+def create_model(config: ml_collections.ConfigDict, is_training = True):
     """Return a function that applies the graph model."""
-    return GNN(config)
+    return GNN(config, is_training)
 
 
 def cosine_warm_restarts(
@@ -399,21 +404,21 @@ def init_state(
     rng, init_rng = jax.random.split(rng)
     init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
 
-    net_fn = create_model(config)
-    net = hk.transform(net_fn)
+    net_fn_eval = create_model(config, is_training=False)
+    net_eval = hk.transform_with_state(net_fn_eval)
 
-    net_fn_train = 
-    net_train = hk.transform(net_fn_train)
+    net_fn_train = create_model(config, is_training=True)
+    net_train = hk.transform_with_state(net_fn_train)
 
     # Create the optimizer
     optimizer = create_optimizer(config)
 
-    def loss_fn(params, rng, graphs, net_apply):
+    def loss_fn(params, state, rng, graphs, net_apply):
         labels = graphs.globals
         graphs = replace_globals(graphs)
 
         mask = get_valid_mask(graphs)
-        pred_graphs = net_apply(params, rng, graphs)
+        pred_graphs, new_state = net_apply(params, state, rng, graphs)
         predictions = pred_graphs.globals
         labels = jnp.expand_dims(labels, 1)
         sq_diff = jnp.square((predictions - labels)*mask)
@@ -423,14 +428,14 @@ def init_state(
         absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
         mae = absolute_error /jnp.sum(mask)
 
-        return mean_loss, mae
+        return mean_loss, (mae, new_state)
 
-    updater = Updater(net, loss_fn, optimizer)
+    updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
         updater, os.path.join(workdir, 'checkpoints'),
         config.checkpoint_every_steps)
     evaluater = Evaluater(
-        net, loss_fn,
+        net_eval, loss_fn,
         os.path.join(workdir, 'checkpoints'),
         config.checkpoint_every_steps,
         config.eval_every_steps)

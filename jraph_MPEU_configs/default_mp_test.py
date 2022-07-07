@@ -12,7 +12,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.log_every_steps = 5_000
     config.eval_every_steps = 10_000
     config.early_stopping_steps = 100_000
-    config.checkpoint_every_steps = 50_000
+    config.checkpoint_every_steps = 5_000
     # data split settings
     config.label_str = 'band_gap' # string to determine which label is used from the dataset
 

@@ -295,7 +295,9 @@ def get_node_update_fn(latent_size, hk_init):
     return node_update_fn
 
 
-def get_readout_global_fn(latent_size, dropout_rate=0.0, extra_mlp: bool = False):
+def get_readout_global_fn(
+        latent_size, dropout_rate=0.0, extra_mlp: bool = False, is_training=True
+    ):
     """Return the readout global function."""
     def readout_global_fn(
             node_attributes, edge_attributes,
@@ -315,7 +317,6 @@ def get_readout_global_fn(latent_size, dropout_rate=0.0, extra_mlp: bool = False
 
         if extra_mlp:
             def mlp(x, hidden_sizes):
-                
                 for layer_output_size in hidden_sizes:
                     x = hk.Linear(layer_output_size, with_bias=False)(x)
                     # parameters taken from ResNet example in Haiku
@@ -363,17 +364,18 @@ def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1
         """
         del sent_attributes, received_attributes, global_attributes
         nodes = hk.dropout(hk.next_rng_key(), dropout_rate, nodes)
-        # NN. First layer has output size of latent_size/2 (C/2) with
-        # shifted softplus. Then we have a linear FC layer with no softplus.
+        
         if output_size == 1:
+            # NN. First layer has output size of latent_size/2 (C/2) with
+            # shifted softplus. Then we have a linear FC layer with no softplus.
             net = hk.Sequential([
                 hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
                 shifted_softplus,
                 hk.Linear(output_size, with_bias=False, w_init=hk_init)])
         else:
-            # add extra shsp
+            # add extra shsp and larger hidden layer
             net = hk.Sequential([
-                hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
+                hk.Linear(latent_size, with_bias=False, w_init=hk_init),
                 shifted_softplus,
                 hk.Linear(output_size, with_bias=False, w_init=hk_init),
                 shifted_softplus])
@@ -384,13 +386,14 @@ def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1
 
 class GNN:
     """Graph neural network class where we define the interactions/updates."""
-    def __init__(self, config: ml_collections.ConfigDict):
+    def __init__(self, config: ml_collections.ConfigDict, is_training=True):
         """Initialize the GNN using a config.
 
         Args:
             config: Configuration specifying GNN properties.
         """
         self.config = config
+        self.is_training = is_training
 
         if self.config.aggregation_message_type == 'sum':
             self.aggregation_message_fn = jraph.segment_sum
@@ -451,17 +454,23 @@ class GNN:
         # Then after we're done with message passing steps, we intiialize
         # our readout function. aggregate_nodes_for_globals_fn is used to
         # aggregate features to pass to the update_global_fn.
+
+        # get the right node output size depending if there is an extra MLP
+        # after the node to global aggregation
+        node_output_size = self.config.latent_size if self.config.extra_mlp else 1
+
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
                 self.config.hk_init,
                 self.config.dropout_rate,
-                self.config.latent_size//4),
+                node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 dropout_rate=self.config.dropout_rate,
-                extra_mlp=self.config.extra_mlp),
+                extra_mlp=self.config.extra_mlp,
+                is_training=self.is_training),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
         graphs = net_readout(graphs)
