@@ -499,7 +499,7 @@ def get_datasets(config, workdir):
     if not os.path.exists(num_path):
         num_list = get_atom_num_list(graphs_dict)
         # save num list here
-        with open(num_path, 'w') as num_file:
+        with open(num_path, 'w+') as num_file:
             json.dump(num_list, num_file)
     else:
         with open(num_path, 'r') as num_file:
