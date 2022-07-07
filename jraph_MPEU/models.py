@@ -336,7 +336,7 @@ def get_readout_global_fn(
     return readout_global_fn
 
 
-def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1):
+def get_readout_node_update_fn(latent_size, hk_init, output_size=1):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -344,6 +344,9 @@ def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1
     Args:
         latent_size: The node feature vector dimensionality.
         hk_init: The weight initializer for the the readout NN.
+        output_size: dimensionality of the final node embeddings. If 1, it is
+            assumed that this is the final layer and in readout global function
+            only the nodes are aggregated.
     """
     def readout_node_update_fn(
             nodes, sent_attributes,
@@ -364,8 +367,7 @@ def get_readout_node_update_fn(latent_size, hk_init, dropout_rate, output_size=1
             jnp.ndarray, updated node features
         """
         del sent_attributes, received_attributes, global_attributes
-        nodes = hk.dropout(hk.next_rng_key(), dropout_rate, nodes)
-        
+
         if output_size == 1:
             # NN. First layer has output size of latent_size/2 (C/2) with
             # shifted softplus. Then we have a linear FC layer with no softplus.
@@ -464,7 +466,6 @@ class GNN:
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
                 self.config.hk_init,
-                self.config.dropout_rate,
                 node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
