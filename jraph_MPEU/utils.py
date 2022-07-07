@@ -109,6 +109,22 @@ def dist_matrix(position_matrix):
     return jnp.sqrt(distance_matrix)
 
 
+def normalize_targets_dict(graphs_dict, labels_dict, aggregation_type):
+    """Wrapper for normalize targets, when graphs and labels are dicts."""
+    # convert from dicts to arrays
+    inputs = list(graphs_dict.values())
+    outputs = list(labels_dict.values())
+
+    res, mean, std = normalize_targets(inputs, outputs, aggregation_type)
+
+    # convert results back into dict
+    res_dict = {}
+    for id_single, label in zip(labels_dict.keys(), res):
+        res_dict[id_single] = label
+
+    return res_dict, mean, std
+
+
 def normalize_targets(inputs, outputs, aggregation_type):
     """Return normalized outputs, based on aggregation type.
 
@@ -131,6 +147,7 @@ def normalize_targets(inputs, outputs, aggregation_type):
         return (outputs - (mean*n_atoms))/std, mean, std
     else:
         return (scaled_targets - mean)/std, mean, std
+
 
 def scale_targets(inputs, outputs, mean, std, aggregation_type):
     '''Return scaled targets. Inverse of normalize_targets,

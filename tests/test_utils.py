@@ -13,6 +13,7 @@ from jraph_MPEU.utils import (
     save_config,
     load_config,
     normalize_targets,
+    normalize_targets_dict,
     scale_targets,
     estimate_padding_budget_for_batch_size,
     add_labels_to_graphs
@@ -35,14 +36,36 @@ class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
     def test_config_iterator(self):
         """Test config_iterator by producing config grid and printing them."""
-        # TODO: Quantify test
         config = ml_collections.ConfigDict()
         config.list = [1, 2]
         config.list2 = ['d', 'e', 'f']
         config.single = ['c']
         iterator = Config_iterator(config)
-        for config in iterator:
-            print(config)
+
+        configs = list(iterator)
+        self.assertEqual(configs[0].list, 1)
+        self.assertEqual(configs[0].list2, 'd')
+        self.assertEqual(configs[0].single, 'c')
+
+        self.assertEqual(configs[1].list, 1)
+        self.assertEqual(configs[1].list2, 'e')
+        self.assertEqual(configs[1].single, 'c')
+
+        self.assertEqual(configs[2].list, 1)
+        self.assertEqual(configs[2].list2, 'f')
+        self.assertEqual(configs[2].single, 'c')
+
+        self.assertEqual(configs[3].list, 2)
+        self.assertEqual(configs[3].list2, 'd')
+        self.assertEqual(configs[3].single, 'c')
+
+        self.assertEqual(configs[4].list, 2)
+        self.assertEqual(configs[4].list2, 'e')
+        self.assertEqual(configs[4].single, 'c')
+
+        self.assertEqual(configs[5].list, 2)
+        self.assertEqual(configs[5].list2, 'f')
+        self.assertEqual(configs[5].single, 'c')
 
     def test_save_and_load_config(self):
         """Test saving and loading a config.json file by saving and loading."""
@@ -58,6 +81,43 @@ class TestUtilsFunctions(unittest.TestCase):
         self.assertEqual(config_loaded.a, config.a)
         self.assertEqual(config_loaded.b, config.b)
         self.assertEqual(config_loaded.c, config.c)
+
+    def test_normalize_targets_dict(self):
+        """Test the normalization of targets for dict inputs."""
+        n_graph = 10 # number of graphs and labels to generate
+        graphs = {}
+        labels = {}
+        seed = 0
+        key = jax.random.PRNGKey(seed)
+        for i in range(n_graph):
+            key, subkey = jax.random.split(key)
+            graph = get_random_graph(key)
+            graphs[i] = graph
+            labels[i] = jax.random.uniform(subkey)
+
+        aggregation_type = 'mean'
+        expected_targets = np.zeros(n_graph)
+        expected_mean = 0
+        expected_std = 0
+        for i in range(n_graph):
+            expected_mean += labels[i]
+        expected_mean = expected_mean/n_graph
+
+        for i in range(n_graph):
+            expected_std += np.square(labels[i] - expected_mean)
+        expected_std = np.sqrt(expected_std/n_graph)
+
+        for i in range(n_graph):
+            expected_targets[i] = (labels[i] - expected_mean)/expected_std
+
+        # calculate function values
+        targets, mean, std = normalize_targets_dict(
+            graphs, labels, aggregation_type)
+        targets = list(targets.values())
+
+        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
+        np.testing.assert_almost_equal(mean, expected_mean)
+        np.testing.assert_almost_equal(std, expected_std)
 
     def test_normalize_targets_mean(self):
         """Test the normalization of targets when doing mean aggregation."""

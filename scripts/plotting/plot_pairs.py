@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 def main(args):
     # plot learning curves
     df = pd.DataFrame({})
+    print(args.max_step)
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
@@ -25,8 +26,8 @@ def main(args):
 
             split = 'validation'
             metrics = metrics_dict[split]
-            loss_mse = [row[1][0] for row in metrics]
-            loss_mae = [row[1][1] for row in metrics]
+            loss_mse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
+            loss_mae = [row[1][1] for row in metrics if int(row[0]) < args.max_step]
             n_mean = 5 # number of points for running mean
             #  compute running mean using convolution
             loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
@@ -36,19 +37,19 @@ def main(args):
             if min_mae > 1e4 or min_mse > 1e4:
                 print(f'mae or mse too high for path {dirname}')
                 continue
-            step = [int(row[0]) for row in metrics]
+            step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
                 'mp_steps': config_dict['message_passing_steps'],
                 'latent_size': config_dict['latent_size'],
-                'batch_size': config_dict['batch_size'],
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'mae': min_mae,
                 'mse': min_mse,
                 'min_step_mae': min_step_mae,
                 'min_step_mse': min_step_mse,
+                'directory': dirname
             }
             #print(row_dict)
             df = df.append(row_dict, ignore_index=True)
@@ -69,11 +70,15 @@ def main(args):
         df = df.drop([i_min, i_max])
 
     # plot mse for main hyperparameters with logscale
-    box_xnames = ['latent_size', 'mp_steps', 'batch_size', 'init_lr', 'decay_rate']
+    box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
         sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+        if i == 0:
+            ax[i].set_ylabel('MAE (eV)')
+        else:
+            ax[i].set_ylabel('')
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -89,5 +94,10 @@ if __name__ == "__main__":
         '-f', '-F', type=str, dest='file',
         default='results/aflow/crossval_grid',
         help='input super directory name')
+    parser.add_argument(
+        '-step', type=int, dest='max_step',
+        default=100000000,  # an arbitrary large number...
+        help='maximum number of steps to take the mse/mae minimum from'
+    )
     args_main = parser.parse_args()
     main(args_main)
