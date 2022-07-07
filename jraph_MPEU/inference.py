@@ -2,13 +2,21 @@
 model."""
 import os
 import pickle
+import json
 
 import jax
 import numpy as np
 from absl import logging
+import ase.db
+import pandas
 
-from jraph_MPEU.input_pipeline import DataReader, load_data
-from jraph_MPEU.utils import get_valid_mask
+from jraph_MPEU.input_pipeline import (
+    DataReader, load_data, load_split_dict, ase_row_to_jraph,
+    atoms_to_nodes_list
+)
+from jraph_MPEU.utils import (
+    get_valid_mask, load_config, normalize_targets, scale_targets
+)
 from jraph_MPEU.models import load_model
 
 
@@ -24,6 +32,7 @@ def get_predictions(dataset, net, params):
     Returns:
         1-D numpy array of predictions from the dataset
     """
+    # TODO: test this, especially that it does not modify dataset in place
     reader = DataReader(
         data=dataset, batch_size=32, repeat=False)
     @jax.jit
@@ -58,12 +67,12 @@ def load_inference_file(workdir, redo=False):
         logging.info('Loading model.')
         net, params = load_model(workdir)
         logging.info('Loading datasets.')
-        dataset, _, mean, std = load_data(workdir)
+        dataset, mean, std = load_data(workdir)
         splits = dataset.keys()
         print(splits)
 
         for split in splits:
-            data_list = dataset[split].data
+            data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
             preds = get_predictions(data_list, net, params)
             targets = [graph.globals[0] for graph in data_list]
@@ -83,3 +92,65 @@ def load_inference_file(workdir, redo=False):
         with open(path, 'rb') as inference_file:
             inference_dict = pickle.load(inference_file)
     return inference_dict
+
+
+def get_results_df(workdir):
+    """Return a pandas dataframe with predictions and their database entries.
+
+    This function loads the config, and splits. Then connects to the
+    database specified in config.data_file, gets the predictions of entries in
+    the database. Finally the function puts together the key_val_pairs
+    including id from the database, the predictions and splits of each database
+    row into a pandas.DataFrame."""
+
+    config = load_config(workdir)
+    split_dict = load_split_dict(workdir)
+    label_str = config.label_str
+    net, params = load_model(workdir)
+
+    graphs = []
+    labels = []
+    ase_db = ase.db.connect(config.data_file)
+    inference_df = pandas.DataFrame({})
+    for i, (id_single, split) in enumerate(split_dict.items()):
+        if i%10000 == 0:
+            logging.info(f'Rows read: {i}')
+        row = ase_db.get(id_single)
+        graph = ase_row_to_jraph(row)
+        n_edge = int(graph.n_edge)
+        if config.num_edges_max is not None:
+            if n_edge > config.num_edges_max:  # do not include graphs with too many edges
+                continue
+        graphs.append(graph)
+        label = row.key_value_pairs[label_str]
+        labels.append(label)
+        row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
+        row_dict['asedb_id'] = row.id
+        row_dict['n_edge'] = n_edge
+        row_dict['split'] = split  # convert from one-based id
+        #row_dict['symbols']
+        inference_df = inference_df.append(row_dict, ignore_index=True)
+    # Normalize graphs and targets
+    # Convert the atomic numbers in nodes to classes and set number of classes.
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    with open(num_path, 'r') as num_file:
+        num_list = json.load(num_file)
+
+    # convert to dict for atoms_to_nodes function
+    graphs_dict = dict(enumerate(graphs))
+    labels_dict = dict(enumerate(labels))
+    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+    _, mean, std = normalize_targets(
+        graphs_dict, labels_dict, config)
+    graphs = list(graphs_dict.values())
+    labels = list(graphs_dict.values())
+
+    logging.info('Predicting on dataset.')
+    preds = get_predictions(graphs, net, params)
+    # scale the predictions using the std and mean
+    preds = scale_targets(graphs, preds, mean, std, config.aggregation_readout_type)
+
+    # add row with predictions to dataframe
+    inference_df['prediction'] = preds
+
+    return inference_df

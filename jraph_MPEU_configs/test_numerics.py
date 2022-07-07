@@ -16,6 +16,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = 10
 
     # data selection parameters
+    config.num_edges_max = 64
     config.limit_data = 2000
 
     return config
