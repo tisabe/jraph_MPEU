@@ -343,7 +343,7 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
     return labels
 
 
-def create_model(config: ml_collections.ConfigDict, is_training = True):
+def create_model(config: ml_collections.ConfigDict, is_training=True):
     """Return a function that applies the graph model."""
     return GNN(config, is_training)
 

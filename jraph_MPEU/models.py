@@ -321,11 +321,13 @@ def get_readout_global_fn(
                 for layer_output_size in hidden_sizes:
                     x = hk.Linear(layer_output_size, with_bias=False)(x)
                     # parameters taken from ResNet example in Haiku
+                    '''
                     x = hk.BatchNorm(
                         create_scale=True,
                         create_offset=True,
                         decay_rate=0.99, # NOTE: might need to change this
                         name='batchnorm_final')(x, is_training=is_training)
+                    '''
                     x = shifted_softplus(x)
                     x = hk.dropout(hk.next_rng_key(), dropout_rate, x)
                 return x
