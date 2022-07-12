@@ -29,7 +29,7 @@ import ml_collections
 from jraph_MPEU.utils import load_config
 
 
-def load_model(workdir, is_training=False):
+def load_model(workdir, is_training):
     """Load model to evaluate on."""
     state_dir = workdir+'/checkpoints/best_state.pkl'
     with open(state_dir, 'rb') as state_file:
@@ -463,7 +463,7 @@ class GNN:
         # get the right node output size depending if there is an extra MLP
         # after the node to global aggregation
         node_output_size = self.config.latent_size if self.config.extra_mlp else 1
-
+        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
@@ -472,7 +472,7 @@ class GNN:
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
-                dropout_rate=self.config.dropout_rate,
+                dropout_rate=dropout_rate,
                 extra_mlp=self.config.extra_mlp,
                 is_training=self.is_training),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)

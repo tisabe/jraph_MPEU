@@ -110,7 +110,7 @@ def get_results_df(workdir):
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
     label_str = config.label_str
-    net, params, hk_state = load_model(workdir)
+    net, params, hk_state = load_model(workdir, is_training=False)
 
     graphs = []
     labels = []
