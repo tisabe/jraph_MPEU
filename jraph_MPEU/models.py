@@ -39,8 +39,15 @@ def load_model(workdir, is_training):
     params = best_state['state']['params']
     print(f'Loaded best state at step {best_state["state"]["step"]}')
     net_fn = GNN(config, is_training)
-    net = hk.transform_with_state(net_fn)
-    return net, params, best_state['state']['hk_state']
+    # compatibility layer to load old models the were initialized without state
+    try:
+        hk_state = best_state['state']['hk_state']
+        net = hk.transform_with_state(net_fn)
+    except KeyError:
+        print('Loaded old stateless function. Converting to stateful.')
+        hk_state = {}
+        net = hk.with_empty_state(hk.transform(net_fn))
+    return net, params, hk_state
 
 
 # Define the shifted softplus activation function.

@@ -14,6 +14,18 @@ import numpy as np
 import ml_collections
 from sklearn.model_selection import ParameterGrid
 
+from jraph_MPEU_configs.default import get_config
+
+
+def update_config_fields(
+        config: ml_collections.ConfigDict
+    ) -> ml_collections.ConfigDict:
+    """Update config with missing parameters taken from default config."""
+    config_default = get_config()
+    for field in config_default:
+        if not field in config:
+            config[field] = config_default[field]
+    return config
 
 
 def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
@@ -78,7 +90,8 @@ def load_config(workdir: str) -> ml_collections.ConfigDict:
     """Load and return a config from the directory workdir."""
     with open(os.path.join(workdir, 'config.json'), 'r') as config_file:
         config_dict = json.load(config_file)
-    return dict_to_config(config_dict)
+    config = dict_to_config(config_dict)
+    return update_config_fields(config)
 
 
 def dist_matrix(position_matrix):

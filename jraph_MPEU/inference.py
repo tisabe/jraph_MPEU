@@ -15,7 +15,7 @@ from jraph_MPEU.input_pipeline import (
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, normalize_targets, scale_targets
+    get_valid_mask, load_config, normalize_targets_dict, scale_targets
 )
 from jraph_MPEU.models import load_model
 
@@ -98,7 +98,7 @@ def load_inference_file(workdir, redo=False):
     return inference_dict
 
 
-def get_results_df(workdir):
+def get_results_df(workdir, limit=None):
     """Return a pandas dataframe with predictions and their database entries.
 
     This function loads the config, and splits. Then connects to the
@@ -119,6 +119,10 @@ def get_results_df(workdir):
     for i, (id_single, split) in enumerate(split_dict.items()):
         if i%10000 == 0:
             logging.info(f'Rows read: {i}')
+        if limit is not None:
+            if i >= limit:
+                # limit the number of read graphs, for faster loading
+                break
         row = ase_db.get(id_single)
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
@@ -144,7 +148,7 @@ def get_results_df(workdir):
     graphs_dict = dict(enumerate(graphs))
     labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
-    _, mean, std = normalize_targets(
+    _, mean, std = normalize_targets_dict(
         graphs_dict, labels_dict, config)
     graphs = list(graphs_dict.values())
     labels = list(graphs_dict.values())
