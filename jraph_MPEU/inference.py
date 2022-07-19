@@ -136,6 +136,8 @@ def get_results_df(workdir, limit=None):
         row_dict['asedb_id'] = row.id
         row_dict['n_edge'] = n_edge
         row_dict['split'] = split  # convert from one-based id
+        row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
+        # the csv from file, this has to be converted from string to list
         #row_dict['symbols']
         inference_df = inference_df.append(row_dict, ignore_index=True)
     # Normalize graphs and targets
