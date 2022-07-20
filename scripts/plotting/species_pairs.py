@@ -52,7 +52,6 @@ def get_pair_matrices(compounds, errors):
         mae_mat = np.divide(error_mat, count_mat)
     return mae_mat, count_mat
 
-
 def main(argv):
     """Main function that gets data and creates plots."""
     logging.set_verbosity(logging.INFO)
@@ -86,32 +85,52 @@ def main(argv):
     mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set: {mean_abs_err_test}')
 
-    errors = list(df['abs. error'])
+    mae_mat = {}
+    count_mat = {}
+    # training data
+    errors = list(df_train['abs. error'])
     compounds = []
-    for compound in list(df['numbers']):
+    for compound in list(df_train['numbers']):
         compounds.append(str_to_list(compound))
+    mae_mat['train'], count_mat['train'] = get_pair_matrices(compounds, errors)
 
-    mae_mat, count_mat = get_pair_matrices(compounds, errors)
-    print(mae_mat)
-    print(count_mat)
-    '''
-    fig, (ax1, ax2) = plt.subplots(2)
-    im1 = ax1.imshow(mae_mat)
-    im2 = ax2.imshow(count_mat)
-    ax1.set_title('MAE')
-    ax2.set_title('Count')
+    # validation data
+    errors = list(df_val['abs. error'])
+    compounds = []
+    for compound in list(df_val['numbers']):
+        compounds.append(str_to_list(compound))
+    mae_mat['validation'], count_mat['validation'] = get_pair_matrices(
+        compounds, errors)
 
-    divider = make_axes_locatable(ax1)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    fig.colorbar(im1, cax=cax, orientation='vertical')
+    # testing data
+    errors = list(df_test['abs. error'])
+    compounds = []
+    for compound in list(df_test['numbers']):
+        compounds.append(str_to_list(compound))
+    mae_mat['test'], count_mat['test'] = get_pair_matrices(compounds, errors)
 
-    plt.imshow(mae_mat)
-    plt.show()
+
     '''
     sns.heatmap(mae_mat, norm=LogNorm())
     plt.show()
 
     sns.heatmap(count_mat, norm=LogNorm())
+    plt.show()
+    '''
+    splits = ['train', 'validation', 'test']
+    fig, ax = plt.subplots()
+    for split in splits:
+        ax.scatter(
+            count_mat[split].flatten(),
+            mae_mat[split].flatten(),
+            label=split)
+
+    ax.set_ylabel('MAE (PUT UNITS)', fontsize=12)
+    ax.set_xlabel('Number of samples', fontsize=12)
+    ax.legend()
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    plt.tight_layout()
     plt.show()
 
     return 0
