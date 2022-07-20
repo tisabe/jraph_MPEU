@@ -36,13 +36,13 @@ def main(args_parsed):
         ax[0].legend()
         ax[1].legend()
         ax[0].set_xlabel('gradient step', fontsize=12)
-        ax[1].set_xlabel('gradient step',fontsize=12)
-        ax[0].set_ylabel('MSE (eV)', fontsize=12)
+        ax[1].set_xlabel('gradient step', fontsize=12)
+        ax[0].set_ylabel('MSE (eV^2)', fontsize=12)
         ax[1].set_ylabel('MAE (eV)', fontsize=12)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
         plt.tight_layout()
-        
+
         plt.show()
         fig.savefig(folder+'/curve.png', bbox_inches='tight', dpi=600)
     except FileNotFoundError:

@@ -71,7 +71,7 @@ def main(argv):
     ax.set_ylabel(f'error ({units})', fontsize=12)
     ax.set_xlabel(f'target ({units})', fontsize=12)
     ax.legend()
-    ax.set_yscale('log')
+    #ax.set_yscale('log')
     plt.tight_layout()
 
     plt.show()
