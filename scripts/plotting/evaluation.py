@@ -37,9 +37,13 @@ def main(argv):
         error = np.abs(preds - targets)
         mae = np.mean(error)
         mse = np.mean(np.square(error))
+        print(split)
         print(f'Number of graphs: {len(preds)}')
         print(f'MSE: {mse} {units}')
         print(f'MAE: {mae} {units}')
+        std = np.std(targets)
+        r2 = 1 - mse/std
+        print(f'R^2 value: {r2}')
         label_string = f'{split} \nMAE: {mae:9.3f} {units}'
         ax.scatter(targets, preds, s=marker_size, label=label_string)
 

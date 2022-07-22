@@ -87,7 +87,7 @@ def load_inference_file(workdir, redo=False):
             preds = get_predictions(data_list, net, params, hk_state)
             targets = [graph.globals[0] for graph in data_list]
             # scale the predictions and targets using the std
-            preds = preds*float(std) + mean
+            preds = np.array(preds)*float(std) + mean
             targets = np.array(targets)*float(std) + mean
 
             inference_dict[split] = {}
