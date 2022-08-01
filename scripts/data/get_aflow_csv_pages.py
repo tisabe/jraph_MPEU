@@ -1,6 +1,6 @@
 """Pulling Data from AFLOW."""
 
-import json, sys, os
+import json
 from urllib.request import urlopen
 import pandas
 
@@ -9,19 +9,19 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'enthalpy_formation_atom(*),'
-    'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
-    'energy_atom(*),density(*),'#volume_cell(*),'
+    'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
+    #'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
+    #'energy_atom(*),density(*),'#volume_cell(*),'
     'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
     )
 print("URL:", SERVER+API+MATCHBOOK)
 
-i = 35
+i = 1
 while i < 50:
     print("Page: " + str(i))
-    DIRECTIVES = f'$paging({int(i)},10000)'
+    DIRECTIVES = f'$paging({int(i)},100000)'
     summons = MATCHBOOK+","+DIRECTIVES
-    
+
     response = urlopen(SERVER+API+summons)
     print("Response code:" + str(response.code))
     data = response.read()
