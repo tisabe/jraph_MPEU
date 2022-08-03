@@ -4,14 +4,11 @@ contained number pairs are [[1,1],[1,4],[1,5],[4,4],[4,5],[5,5]].
 TODO: decide whether to include or exclude symmetric pairs.
 """
 import os
-from collections import Counter
 
 from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-import seaborn as sns
 import pandas as pd
 import numpy as np
 
@@ -70,6 +67,7 @@ def main(argv):
     else:
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
+        df['numbers'] = df['numbers'].apply(str_to_list)
 
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     # get dataframe with only split data
@@ -91,14 +89,16 @@ def main(argv):
     errors = list(df_train['abs. error'])
     compounds = []
     for compound in list(df_train['numbers']):
-        compounds.append(str_to_list(compound))
+        #compounds.append(str_to_list(compound))
+        compounds.append(compound)
     mae_mat['train'], count_mat['train'] = get_pair_matrices(compounds, errors)
 
     # validation data
     errors = list(df_val['abs. error'])
     compounds = []
     for compound in list(df_val['numbers']):
-        compounds.append(str_to_list(compound))
+        #compounds.append(str_to_list(compound))
+        compounds.append(compound)
     mae_mat['validation'], count_mat['validation'] = get_pair_matrices(
         compounds, errors)
 
@@ -106,7 +106,8 @@ def main(argv):
     errors = list(df_test['abs. error'])
     compounds = []
     for compound in list(df_test['numbers']):
-        compounds.append(str_to_list(compound))
+        #compounds.append(str_to_list(compound))
+        compounds.append(compound)
     mae_mat['test'], count_mat['test'] = get_pair_matrices(compounds, errors)
 
 
