@@ -11,6 +11,8 @@ from absl import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import seaborn as sns
+from matplotlib.colors import LogNorm
 
 from jraph_MPEU.utils import load_config, get_num_pairs, str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -111,13 +113,13 @@ def main(argv):
     mae_mat['test'], count_mat['test'] = get_pair_matrices(compounds, errors)
 
 
-    '''
-    sns.heatmap(mae_mat, norm=LogNorm())
+    print(np.shape(mae_mat['train']))
+    sns.heatmap(mae_mat['train'], norm=LogNorm())
     plt.show()
 
-    sns.heatmap(count_mat, norm=LogNorm())
+    sns.heatmap(count_mat['train'], norm=LogNorm())
     plt.show()
-    '''
+
     splits = ['train', 'validation', 'test']
     fig, ax = plt.subplots()
     for split in splits:

@@ -19,6 +19,20 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 
+
+def get_refs(df: pd.DataFrame, label_str: str):
+    """Return list of reference energies and formulae."""
+    refs = []  # list of formulas and energies from aflow
+    for _, row in df.iterrows():
+        n_atoms = len(row['numbers'])
+        #energy = row[config.label_str]*n_atoms
+        energy = row[label_str]*n_atoms
+        formula = row['formula']
+        if isinstance(formula, str) and isinstance(energy, float):
+            refs.append((formula, energy))
+    return refs
+
+
 def main(argv):
     """Main function that gets data and creates plots."""
     logging.set_verbosity(logging.INFO)
@@ -53,14 +67,9 @@ def main(argv):
     mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set: {mean_abs_err_test}')
 
-    refs_target = []  # list of formulas and energies from aflow
-    for _, row in df.iterrows():
-        n_atoms = len(row['numbers'])
-        energy = row[config.label_str]*n_atoms
-        formula = row['formula']
-        refs_target.append((formula, energy))
+    refs_target = get_refs(df, 'prediction')
 
-    phases = PhaseDiagram(refs_target, filter='AlO')
+    phases = PhaseDiagram(refs_target, filter='AlSi')
 
     phases.plot(show=True)
 
