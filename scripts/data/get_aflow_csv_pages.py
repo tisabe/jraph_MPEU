@@ -7,7 +7,7 @@ import pandas
 # Find all properties in http://aflow.org/API/aflux/?schema
 
 SERVER = "http://aflow.org"
-API = "/API/aflux/v1.0/?"
+API = "/API/aflux/?"
 MATCHBOOK = (
     'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
     #'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
