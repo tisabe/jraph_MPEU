@@ -67,11 +67,21 @@ def main(argv):
     mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set: {mean_abs_err_test}')
 
-    refs_target = get_refs(df, 'prediction')
+    refs_pred = get_refs(df, 'prediction')
+    refs_target = get_refs(df, config.label_str)
+    
+    compound = 'LiAs'
 
-    phases = PhaseDiagram(refs_target, filter='AlSi')
+    fig, (ax1, ax2) = plt.subplots(2)
 
-    phases.plot(show=True)
+    phases = PhaseDiagram(refs_target, filter=compound, verbose=True)
+    phases.plot(ax=ax1)
+
+    phases = PhaseDiagram(refs_pred, filter=compound, verbose=False)
+    phases.plot(ax=ax2)
+
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
