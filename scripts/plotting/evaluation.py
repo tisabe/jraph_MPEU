@@ -44,7 +44,7 @@ def main(argv):
         std = np.std(targets)
         r2 = 1 - mse/std
         print(f'R^2 value: {r2}')
-        label_string = f'{split} \nMAE: {mae:9.3f} {units}'
+        label_string = f'{split} \nMAE: {mae:9.3f} {units}, R^2: {r2:9.3f}'
         ax.scatter(targets, preds, s=marker_size, label=label_string)
 
     # plot x = y regression lines
