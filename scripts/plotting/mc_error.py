@@ -37,6 +37,12 @@ def main(argv):
         df = pd.read_csv(df_path)
 
     df['abs. error'] = abs(df['prediction_mean'] - df[config.label_str])
+    bins = [0, 2, 15, 74, 142, 167, 194, 230]
+    labels = [
+        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
+        'Trigonal', 'Hexagonal', 'Cubic']
+    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
@@ -55,15 +61,53 @@ def main(argv):
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
     sns.set_context('paper')
+    fig, ax = plt.subplots()
     sns.scatterplot(
+        ax=ax,
         x='abs. error',
         y='prediction_std',
         data=df,
         hue='split'
     )
+    ax.set_xlabel('absolute error', fontsize=12)
+    ax.set_ylabel('prediction std', fontsize=12)
     plt.xscale('log')
     plt.yscale('log')
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+'/mc_error', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.violinplot(
+        ax=ax,
+        x='crystal system',
+        y='prediction_std',
+        data=df_test,
+        inner='quart',
+        linewidth=1,
+    )
+    ax.set_ylabel('prediction std', fontsize=12)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/mc_crystal_system', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.violinplot(
+        ax=ax,
+        x='ldau_type',
+        y='prediction_std',
+        data=df_test,
+        inner='quart',
+        linewidth=1,
+    )
+    ax.set_ylabel('prediction std', fontsize=12)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/mc_ldau_type', bbox_inches='tight', dpi=600)
+
+
 
 
 if __name__ == "__main__":
