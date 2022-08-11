@@ -61,13 +61,17 @@ def main(args):
     #sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
     #plt.show()
 
-    # print the best and worst 3 configs
-    for i in range(3):
-        i_min = df['mae'].idxmin()
+    # print the best 5 configs
+    df_copy = df.copy()
+    for i in range(5):
+        i_min = df_copy['mae'].idxmin()
+        print(f'{i}. minimum mae configuration: \n', df_copy.iloc[i_min])
+        df_copy = df_copy.drop([i_min])
+
+    # drop the worst 50 configs
+    for i in range(50):
         i_max = df['mae'].idxmax()
-        print(f'{i}. minimum mae configuration: \n', df.iloc[i_min])
-        print(f'{i}. maximum mae configuration: \n', df.iloc[i_max])
-        df = df.drop([i_min, i_max])
+        df = df.drop([i_max])
 
     # plot mse for main hyperparameters with logscale
     box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
