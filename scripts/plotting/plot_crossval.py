@@ -79,14 +79,16 @@ def main(args):
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
         sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+        ax[i].set_xlabel(f'{name}', fontsize=15)
         if i == 0:
-            ax[i].set_ylabel('MAE (eV)')
+            ax[i].set_ylabel('MAE (eV/atom)', fontsize=15)
         else:
             ax[i].set_ylabel('')
     plt.yscale('log')
+    plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
-    fig.savefig(args.file+'/pairplot.png', bbox_inches='tight', dpi=600)
+    fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
 
 
     return 0
