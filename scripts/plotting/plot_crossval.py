@@ -9,9 +9,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
+def min_of_previous(array):
+    return [min(array[:i]) for i in range(len(array))]
+
+
+
 def main(args):
     # plot learning curves
     df = pd.DataFrame({})
+    df_minima = pd.DataFrame({})
     print(args.max_step)
     for dirname in os.listdir(args.file):
         try:
@@ -37,6 +43,8 @@ def main(args):
             if min_mae > 1e4 or min_mse > 1e4:
                 print(f'mae or mse too high for path {dirname}')
                 continue
+
+            df_minima[dirname] = list(loss_mae)
             step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
@@ -58,8 +66,13 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    #sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
-    #plt.show()
+    print(df_minima)
+    print(type(df_minima))
+
+    for column in df_minima:
+        plt.plot(df_minima[column], label=column)
+    plt.legend()
+    plt.show()
 
     # print the best 5 configs
     df_copy = df.copy()
