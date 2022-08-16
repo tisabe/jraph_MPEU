@@ -66,20 +66,21 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    print(df_minima)
-    print(type(df_minima))
+    df_minima_top = pd.DataFrame({})
 
-    for column in df_minima:
-        plt.plot(df_minima[column], label=column)
-    plt.legend()
-    plt.show()
-
-    # print the best 5 configs
+    # print the best 10 configs
     df_copy = df.copy()
-    for i in range(5):
+    for i in range(20):
         i_min = df_copy['mae'].idxmin()
         print(f'{i}. minimum mae configuration: \n', df_copy.iloc[i_min])
+        name = df_copy.iloc[i_min]['directory']
         df_copy = df_copy.drop([i_min])
+        df_minima_top[name] = df_minima[name]
+
+    for column in df_minima_top:
+        plt.plot(df_minima_top[column], label=column)
+    plt.legend()
+    plt.show()
 
     # drop the worst 50 configs
     for i in range(50):
