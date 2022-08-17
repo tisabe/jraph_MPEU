@@ -44,8 +44,10 @@ def main(args):
     ax[1].set_ylabel('MAE (eV)', fontsize=12)
     ax[0].set_yscale('log')
     ax[1].set_yscale('log')
+    plt.tight_layout()
+
     plt.show()
-    plt.savefig(args.file+'/curve.png')
+    fig.savefig(args.file+'/curves.png', bbox_inches='tight', dpi=600)
 
     return 0
 

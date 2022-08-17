@@ -8,7 +8,9 @@ def get_config() -> ml_collections.ConfigDict():
     Returns a ml_collections.ConfigDict() object."""
     config = get_config_super() # inherit from default mp config
 
-    config.data_file = 'aflow/graphs_cutoff_6A.db'
+    config.eval_every_steps = 1_000
+
+    config.data_file = 'aflow/graphs_knn.db'
     config.selection = None
     config.label_str = 'enthalpy_formation_atom'
     config.num_edges_max = None

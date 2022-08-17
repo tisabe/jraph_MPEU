@@ -37,10 +37,14 @@ def main(argv):
         error = np.abs(preds - targets)
         mae = np.mean(error)
         mse = np.mean(np.square(error))
+        print(split)
         print(f'Number of graphs: {len(preds)}')
         print(f'MSE: {mse} {units}')
         print(f'MAE: {mae} {units}')
-        label_string = f'{split} \nMAE: {mae:9.3f} {units}'
+        std = np.std(targets)
+        r2 = 1 - mse/std
+        print(f'R^2 value: {r2}')
+        label_string = f'{split} \nMAE: {mae:9.3f} {units}, R^2: {r2:9.3f}'
         ax.scatter(targets, preds, s=marker_size, label=label_string)
 
     # plot x = y regression lines
@@ -64,9 +68,6 @@ def main(argv):
         error = (preds - targets)
         mae = np.mean(error)
         mse = np.mean(np.square(error))
-        print(f'Number of graphs: {len(preds)}')
-        print(f'MSE: {mse} {units}')
-        print(f'MAE: {mae} {units}')
         label_string = split
         ax.scatter(targets, error, s=marker_size, label=label_string)
 
@@ -74,7 +75,7 @@ def main(argv):
     ax.set_ylabel(f'error ({units})', fontsize=12)
     ax.set_xlabel(f'target ({units})', fontsize=12)
     ax.legend()
-    ax.set_yscale('log')
+    #ax.set_yscale('log')
     plt.tight_layout()
 
     plt.show()

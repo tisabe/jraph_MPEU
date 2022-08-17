@@ -9,9 +9,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
+def min_of_previous(array):
+    return [min(array[:i]) for i in range(len(array))]
+
+
+
 def main(args):
     # plot learning curves
     df = pd.DataFrame({})
+    df_minima = pd.DataFrame({})
     print(args.max_step)
     for dirname in os.listdir(args.file):
         try:
@@ -37,6 +43,8 @@ def main(args):
             if min_mae > 1e4 or min_mse > 1e4:
                 print(f'mae or mse too high for path {dirname}')
                 continue
+
+            df_minima[dirname] = list(loss_mae)
             step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
@@ -58,16 +66,26 @@ def main(args):
             a = 1
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    #sns.pairplot(df, y_vars=['mae', 'mse', 'min_step_mae', 'min_step_mse'])
-    #plt.show()
+    df_minima_top = pd.DataFrame({})
 
-    # print the best and worst 3 configs
-    for i in range(3):
-        i_min = df['mae'].idxmin()
+    # print the best 10 configs
+    df_copy = df.copy()
+    for i in range(20):
+        i_min = df_copy['mae'].idxmin()
+        print(f'{i}. minimum mae configuration: \n', df_copy.iloc[i_min])
+        name = df_copy.iloc[i_min]['directory']
+        df_copy = df_copy.drop([i_min])
+        df_minima_top[name] = df_minima[name]
+
+    for column in df_minima_top:
+        plt.plot(df_minima_top[column], label=column)
+    plt.legend()
+    plt.show()
+
+    # drop the worst 50 configs
+    for i in range(50):
         i_max = df['mae'].idxmax()
-        print(f'{i}. minimum mae configuration: \n', df.iloc[i_min])
-        print(f'{i}. maximum mae configuration: \n', df.iloc[i_max])
-        df = df.drop([i_min, i_max])
+        df = df.drop([i_max])
 
     # plot mse for main hyperparameters with logscale
     box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
@@ -75,14 +93,16 @@ def main(args):
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
         sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+        ax[i].set_xlabel(f'{name}', fontsize=15)
         if i == 0:
-            ax[i].set_ylabel('MAE (eV)')
+            ax[i].set_ylabel('MAE (eV/atom)', fontsize=15)
         else:
             ax[i].set_ylabel('')
     plt.yscale('log')
+    plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
-    fig.savefig(args.file+'/pairplot.png', bbox_inches='tight', dpi=600)
+    fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
 
 
     return 0

@@ -15,12 +15,12 @@ from jraph_MPEU.input_pipeline import (
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, normalize_targets, scale_targets
+    get_valid_mask, load_config, normalize_targets_dict, scale_targets
 )
 from jraph_MPEU.models import load_model
 
 
-def get_predictions(dataset, net, params):
+def get_predictions(dataset, net, params, hk_state, mc_dropout=False):
     """Get predictions for a single dataset split.
 
     Args:
@@ -28,26 +28,36 @@ def get_predictions(dataset, net, params):
         net: the model object with an apply function that applies the GNN model
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
+        hk_state: haiku state for batch norm in apply function
+        mc_dropout: whether to use monte-carlo dropout to estimate the
+            uncertainty of the model. If true, preds gets and extra dimension
+            for the extra sampling of each graph
 
     Returns:
         1-D numpy array of predictions from the dataset
     """
+    n_samples = 10 if mc_dropout else 1
     # TODO: test this, especially that it does not modify dataset in place
-    reader = DataReader(
-        data=dataset, batch_size=32, repeat=False)
+    key = jax.random.PRNGKey(42)
+
     @jax.jit
-    def predict_batch(graphs):
+    def predict_batch(graphs, rng, hk_state):
         mask = get_valid_mask(graphs)
-        pred_graphs = net.apply(params, graphs)
+        pred_graphs, _ = net.apply(params, hk_state, rng, graphs)
         predictions = pred_graphs.globals
         return predictions, mask
-    preds = np.array([])
-    for graph in reader:
-        preds_batch, mask = predict_batch(graph)
-        # get only the valid, unmasked predictions
-        preds_valid = preds_batch[mask]
-        preds = np.concatenate([preds, preds_valid], axis=0)
-
+    preds = []
+    for _ in range(n_samples):
+        reader = DataReader(
+            data=dataset, batch_size=32, repeat=False)
+        preds_sample = np.array([])
+        for graph in reader:
+            key, subkey = jax.random.split(key)
+            preds_batch, mask = predict_batch(graph, subkey, hk_state)
+            # get only the valid, unmasked predictions
+            preds_valid = preds_batch[mask]
+            preds_sample = np.concatenate([preds_sample, preds_valid], axis=0)
+        preds.append(preds_sample)
     return preds
 
 
@@ -65,7 +75,7 @@ def load_inference_file(workdir, redo=False):
     if not os.path.exists(path) or redo:
         # compute the inferences
         logging.info('Loading model.')
-        net, params = load_model(workdir)
+        net, params, hk_state = load_model(workdir, is_training=False)
         logging.info('Loading datasets.')
         dataset, mean, std = load_data(workdir)
         splits = dataset.keys()
@@ -74,10 +84,10 @@ def load_inference_file(workdir, redo=False):
         for split in splits:
             data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
-            preds = get_predictions(data_list, net, params)
+            preds = get_predictions(data_list, net, params, hk_state)
             targets = [graph.globals[0] for graph in data_list]
             # scale the predictions and targets using the std
-            preds = preds*float(std) + mean
+            preds = np.array(preds)*float(std) + mean
             targets = np.array(targets)*float(std) + mean
 
             inference_dict[split] = {}
@@ -94,7 +104,7 @@ def load_inference_file(workdir, redo=False):
     return inference_dict
 
 
-def get_results_df(workdir):
+def get_results_df(workdir, limit=None, mc_dropout=False):
     """Return a pandas dataframe with predictions and their database entries.
 
     This function loads the config, and splits. Then connects to the
@@ -106,7 +116,7 @@ def get_results_df(workdir):
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
     label_str = config.label_str
-    net, params = load_model(workdir)
+    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
 
     graphs = []
     labels = []
@@ -115,6 +125,10 @@ def get_results_df(workdir):
     for i, (id_single, split) in enumerate(split_dict.items()):
         if i%10000 == 0:
             logging.info(f'Rows read: {i}')
+        if limit is not None:
+            if i >= limit:
+                # limit the number of read graphs, for faster loading
+                break
         row = ase_db.get(id_single)
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
@@ -128,7 +142,9 @@ def get_results_df(workdir):
         row_dict['asedb_id'] = row.id
         row_dict['n_edge'] = n_edge
         row_dict['split'] = split  # convert from one-based id
-        #row_dict['symbols']
+        row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
+        # the csv from file, this has to be converted from string to list
+        row_dict['formula'] = row.formula
         inference_df = inference_df.append(row_dict, ignore_index=True)
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
@@ -140,17 +156,28 @@ def get_results_df(workdir):
     graphs_dict = dict(enumerate(graphs))
     labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
-    _, mean, std = normalize_targets(
+    _, mean, std = normalize_targets_dict(
         graphs_dict, labels_dict, config)
     graphs = list(graphs_dict.values())
     labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
-    preds = get_predictions(graphs, net, params)
+    preds = get_predictions(graphs, net, params, hk_state, mc_dropout)
     # scale the predictions using the std and mean
-    preds = scale_targets(graphs, preds, mean, std, config.aggregation_readout_type)
+    pooling = config.aggregation_readout_type  # abbreviation
+    preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
 
-    # add row with predictions to dataframe
-    inference_df['prediction'] = preds
+    if mc_dropout:
+        preds = np.transpose(np.array(preds))
+        print(np.shape(preds))
+        print(preds)
+        preds_mean = np.mean(preds, axis=1)
+        preds_std = np.std(preds, axis=1)
+        inference_df['prediction_mean'] = preds_mean
+        inference_df['prediction_std'] = preds_std
+    else:
+        preds = preds[0]
+        # add row with predictions to dataframe
+        inference_df['prediction'] = preds
 
     return inference_df

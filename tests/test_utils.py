@@ -16,7 +16,10 @@ from jraph_MPEU.utils import (
     normalize_targets_dict,
     scale_targets,
     estimate_padding_budget_for_batch_size,
-    add_labels_to_graphs
+    add_labels_to_graphs,
+    update_config_fields,
+    get_num_pairs,
+    str_to_list
 )
 
 
@@ -32,8 +35,57 @@ def get_random_graph(key) -> jraph.GraphsTuple:
         globals=None)
     return graph
 
+
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def test_str_to_list(self):
+        text = '[1  2 3 4]'
+        res = str_to_list(text)
+        print(res)
+        print(type(res))
+        for i in res:
+            print(type(i))
+
+    def test_get_num_pairs(self):
+        """Test function get_num_pairs."""
+        numbers = [1, 1, 1, 1, 4, 4, 5]
+        pairs = get_num_pairs(numbers)
+        pairs_expected = [
+            [1, 1],
+            [1, 4],
+            [1, 5],
+            [4, 1],
+            [4, 4],
+            [4, 5],
+            [5, 1],
+            [5, 4],
+            [5, 5]
+        ]
+        np.testing.assert_array_equal(pairs, pairs_expected)
+        # with numpy array
+        numbers = np.array([1, 1, 1, 1, 4, 4, 5])
+        pairs = get_num_pairs(numbers)
+        np.testing.assert_array_equal(pairs, pairs_expected)
+        # test single number
+        numbers = [1]
+        pairs = get_num_pairs(numbers)
+        pairs_expected = [[1, 1]]
+        np.testing.assert_array_equal(pairs, pairs_expected)
+
+
+    def test_update_config_fields(self):
+        """Test updateing a test config with values from the default config."""
+        config = ml_collections.ConfigDict()
+        config.one = 1
+        config.letter = 'c'
+        config = update_config_fields(config)
+        # test that old entries stayed the same
+        self.assertEqual(config.one, 1)
+        self.assertEqual(config.letter, 'c')
+        # test that new fields were written
+        self.assertEqual(config.label_str, 'U0')
+        self.assertEqual(config.latent_size, 64)
+
     def test_config_iterator(self):
         """Test config_iterator by producing config grid and printing them."""
         config = ml_collections.ConfigDict()

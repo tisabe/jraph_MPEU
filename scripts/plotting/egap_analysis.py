@@ -21,7 +21,7 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 
 
-def plot_egap_hist(dataframe: pd.DataFrame):
+def plot_egap_hist(dataframe: pd.DataFrame, workdir):
     egaps = dataframe['Egap']
     egaps = egaps[egaps > 0]  # filter metals, to make log hist possible
     # histogram on linear scale
@@ -49,13 +49,15 @@ def plot_egap_hist(dataframe: pd.DataFrame):
     plt.xlabel('Predicted Egap (> 0)')
 
     logbins = np.logspace(np.log10(bins[0]), np.log10(bins[-1]), len(bins))
-    ax4 = plt.subplot(224, sharex=ax2)
+    fig, ax4 = plt.subplot(224, sharex=ax2)
     plt.hist(preds, bins=logbins)
     plt.xscale('log')
     plt.yscale('log')
     plt.xlabel('Predicted Egap (> 0)')
 
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+'/egap_hist.png', bbox_inches='tight', dpi=600)
 
 
 def egap_type_to_class(egap_type: str):
@@ -66,7 +68,7 @@ def egap_type_to_class(egap_type: str):
         return 1
 
 
-def classify_egap(dataframe):
+def classify_egap(dataframe, workdir):
     dataframe['egap_class'] = dataframe['Egap_type'].apply(egap_type_to_class)
     print(dataframe[['Egap_type', 'egap_class']])
     # split up dataframe into train and test
@@ -99,14 +101,20 @@ def classify_egap(dataframe):
         df_test['prediction'].to_numpy().reshape(-1, 1)
     )
     df_test['correct_class'] = df_test['egap_class_predict'] == df_test['egap_class']
+    fig, ax = plt.subplots()
     sns.scatterplot(
         x='Egap',
         y='prediction',
         data=df_test,
         hue='correct_class',
-        palette=('red', 'green')
+        palette=('red', 'green'),
+        ax=ax
     )
+    ax.set_xlabel('Target Egap (eV)')
+    ax.set_ylabel('Predicted Egap (eV)')
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+'/egap_classify.png', bbox_inches='tight', dpi=600)
 
     # calculate and display ROC curve
     targets = df_test['egap_class'].to_numpy()
@@ -117,8 +125,11 @@ def classify_egap(dataframe):
         fpr=fpr, tpr=tpr, roc_auc=roc_auc,
         estimator_name='example estimator'
     )
+    fig, ax = plt.subplots()
     display.plot()
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
 
     return df_test
 
@@ -167,13 +178,13 @@ def main(argv):
     print(f'MAE on test set, non_metals: {mean_abs_err}')
 
     #plot_egap_hist(df)
-    df_classes = classify_egap(df)
+    df_classes = classify_egap(df, workdir)
 
     df_non_metals_predicted_test = df_classes.loc[
         lambda df_temp: df_temp['egap_class_predict'] == 1
     ]
-    mean_abs_err = df_non_metals_predicted_test.mean(0,
-        numeric_only=True)['abs. error']
+    mean_abs_err = df_non_metals_predicted_test.mean(
+        0, numeric_only=True)['abs. error']
     print(f'MAE on test set, predicted non_metals: {mean_abs_err}')
 
 

@@ -17,6 +17,8 @@ from jraph_MPEU.inference import get_results_df
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
+    read from the database.')
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -60,7 +62,8 @@ def main(argv):
     df_non_metal = df.loc[lambda df_temp: df_temp['Egap_type'] != 'metal']
     mean_abs_err = df_non_metal.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set, non_metals: {mean_abs_err}')
-    
+
+    sns.set_context('paper')
 
     fig, ax = plt.subplots()
     sns.scatterplot(
