@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-from jraph_MPEU.utils import load_config
+from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
 
 FLAGS = flags.FLAGS
@@ -38,8 +38,11 @@ def main(argv):
     else:
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
+        df['numbers'] = df['numbers'].apply(str_to_list)
 
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
+    df['num_atoms'] = df['numbers'].apply(len)
+    df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
@@ -64,6 +67,50 @@ def main(argv):
     print(f'MAE on test set, non_metals: {mean_abs_err}')
 
     sns.set_context('paper')
+
+    # plot MAE depending on number of species
+    df_counts = df.groupby(['split', 'num_species']).count()
+    df_species = df.groupby(['split', 'num_species']).mean()
+    df_species['count'] = df_counts['num_atoms']
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x='count',
+        y='abs. error',
+        data=df_species,
+        hue='split',
+        ax=ax,
+    )
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/error_vs_nspecies.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x='num_species',
+        y='abs. error',
+        data=df_species,
+        hue='split',
+        ax=ax,
+    )
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/error_vs_nspecies.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x='num_atoms',
+        y='abs. error',
+        data=df,
+        hue='split',
+        ax=ax,
+    )
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
     sns.scatterplot(
