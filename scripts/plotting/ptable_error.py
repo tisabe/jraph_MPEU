@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from ase.formula import Formula
 import numpy as np
+import seaborn as sns
 
 from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -21,6 +22,33 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 
+# define the element types from the periodic table
+element_types = {
+    'Noble gases': ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn'],
+    'Reactive non metals': [
+        'H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Se', 'Br', 'I'],
+    'Metalloids': ['B', 'Si', 'Ge', 'As', 'Sb', 'Te', 'At'],
+    'Post transition metals': ['Al', 'Ga', 'In', 'Sn', 'Tl', 'Pb', 'Bi', 'Po'],
+    'Transition metals': [
+        'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+        'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd',
+        'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
+        'Rf', 'Db', 'Sg', 'Bh', 'Hs'],
+    'Lanthanoids': [
+        'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er',
+        'Tm', 'Yb', 'Lu'],
+    'Actinoids': [
+        'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm',
+        'Md', 'No', 'Lr'],
+    'Alkaline earth metals': ['Be', 'Mg', 'Ca', 'Sr', 'Ba', 'Ra'],
+    'Alkali metals': ['Li', 'Na', 'K', 'Rb', 'Cs', 'Fr']
+}
+
+def get_type(element: str):
+    for key, element_list in element_types.items():
+        if element in element_list:
+            return key
+    raise KeyError('Element type not found')
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -57,7 +85,7 @@ def main(argv):
         counts = Formula(symbols).count()  # dictionary with species and number
         for symbol in counts.keys():
             errors_dict[symbol].append(row['abs. error'])
-    
+
     # get species counts from train split dataframe
     count_dict = defaultdict(int)
 
@@ -78,25 +106,39 @@ def main(argv):
         writer = csv.writer(csv_file)
         for key, value in mae_dict.items():
             writer.writerow([key, value])
-    
+
     # calculate the intersection of keys, for train and test set
     keys_intersect = count_dict.keys() & mae_dict.keys()
 
     # gather counts and mae's into lists
+    species = []
     counts = []
     maes = []
     for key in keys_intersect:
+        species.append(key)
         counts.append(count_dict[key])
         maes.append(mae_dict[key])
 
     fig, ax = plt.subplots()
-    ax.scatter(counts, maes)
+    #ax.scatter(counts, maes)
+    df_plot = pd.DataFrame(
+        data={'species': species, 'counts': counts, 'maes': maes}
+    )
+    df_plot['element class'] = df_plot['species'].apply(get_type)
+    df_plot = df_plot.sort_values('element class', axis=0)
+    print(df_plot)
+    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
 
     for txt, x, y in zip(keys_intersect, counts, maes):
         ax.annotate(txt, (x, y))
-    ax.set_xlabel('Number of compounds containing species', fontsize=12)
-    ax.set_ylabel('MAE per species', fontsize=12)
+    ax.set_xlabel(
+        'Number of compounds in training split containing species', fontsize=12
+    )
+    ax.set_ylabel(
+        'MAE per species (formation energy per atom / eV)', fontsize=12
+    )
     plt.yscale('log')
+    #plt.legend([], [], frameon=False)  # remove legend if necessary
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/species_vs_count.png', bbox_inches='tight', dpi=600)
