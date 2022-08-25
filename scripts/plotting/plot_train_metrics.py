@@ -15,6 +15,8 @@ def main(args_parsed):
     folder = args_parsed.file
 
     splits = ['train', 'validation', 'test']
+    split_convert = {
+        'train': 'training', 'validation': 'validation', 'test': 'testing'}
 
     # plot learning curves
     try:
@@ -23,21 +25,19 @@ def main(args_parsed):
         with open(metrics_path, 'rb') as metrics_file:
             metrics_dict = pickle.load(metrics_file)
 
-        fig, ax = plt.subplots(2)
+        fig, ax = plt.subplots(2, sharex=True)
 
         for split in splits:
             metrics = metrics_dict[split]
             loss_mse = [row[1][0] for row in metrics]
             loss_mae = [row[1][1] for row in metrics]
             step = [int(row[0]) for row in metrics]
-            ax[0].plot(step, loss_mae, label=split)
-            ax[1].plot(step, loss_mse, label=split)
+            ax[0].plot(step, loss_mae, label=split_convert[split])
+            ax[1].plot(step, loss_mse, label=split_convert[split])
 
-        ax[0].legend()
-        ax[1].legend()
-        ax[0].set_xlabel('gradient step', fontsize=12)
-        ax[1].set_xlabel('gradient step', fontsize=12)
-        ax[0].set_ylabel('MSE (eV^2)', fontsize=12)
+        ax[0].legend(title='Split')
+        ax[1].set_xlabel('Gradient step', fontsize=12)
+        ax[0].set_ylabel(r'MSE $(eV^2)$', fontsize=12)
         ax[1].set_ylabel('MAE (eV)', fontsize=12)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
