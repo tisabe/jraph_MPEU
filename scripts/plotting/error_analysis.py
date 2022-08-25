@@ -10,6 +10,7 @@ from absl import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import numpy as np
 
 from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -19,6 +20,134 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
+
+PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
+CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
+ABS_ERROR_LABEL = 'MAE (eV/atom)'
+
+def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
+    fig, ax = plt.subplots()
+    sns.histplot(
+        x=config.label_str,  # plot prediction vs label
+        y='prediction',
+        data=df,
+        #hue='split',
+        cbar=True, cbar_kws={'label': 'Count'},
+        ax=ax,
+        color=color
+    )
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=12)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+
+def plot_dft_type(df, workdir, plot_name):
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='dft_type', # plot error vs dft type
+        y='abs. error',
+        data=df,
+        ax=ax,
+        hue='split'
+    )
+    plt.legend([], [], frameon=False)
+    plt.xticks(rotation=90)
+    ax.set_xlabel('AFLOW DFT type label', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+
+def plot_space_groups(df, workdir, plot_name):
+    # group the spacegoups into crystal systems
+    #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
+    bins = [0, 2, 15, 74, 142, 167, 194, 230]
+    labels = [
+        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
+        'Trigonal', 'Hexagonal', 'Cubic']
+    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='crystal system', # plot error vs space group
+        y='abs. error',
+        data=df,
+        hue='split',
+        ax=ax
+    )
+    plt.legend([], [], frameon=False)
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.xticks(rotation=90)
+    ax.set_xlabel('Crystal system', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+    col = df['crystal system']
+    print(Counter(col))
+
+
+def plot_bandgap_type(df, workdir, plot_name):
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='Egap_type', # plot error vs bandgap type
+        y='abs. error',
+        data=df,
+        ax=ax,
+        hue='split'
+    )
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.xticks(rotation=90)
+    ax.set_xlabel('AFLOW band gap-type label', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+
+def plot_density(df, workdir, plot_name):
+    fig, ax = plt.subplots()
+    sns.histplot(
+        x='density', # plot error vs density
+        y='abs. error',
+        data=df,
+        ax=ax,
+        cbar=True, cbar_kws={'label': 'Count'},
+        log_scale=True
+    )
+    ax.set_xlabel(r'Density $(g/cm^3)$', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+
+def plot_ldau(df, workdir, plot_name):
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='ldau_type', # plot error vs ldau type
+        y='abs. error',
+        data=df,
+        hue='split',
+        ax=ax
+    )
+    ax.set_xlabel('AFLOW LDAU-type label', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -43,6 +172,8 @@ def main(argv):
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
+    df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
+    df['dft_type'] = df['dft_type'].apply(lambda dft: dft.strip(" '[]"))
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
@@ -60,172 +191,56 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
-    # TODO: also filter half metals
-    df_metal = df.loc[lambda df_temp: df_temp['Egap_type'] == 'metal']
-    df_non_metal = df.loc[lambda df_temp: df_temp['Egap_type'] != 'metal']
-    mean_abs_err = df_non_metal.mean(0, numeric_only=True)['abs. error']
-    print(f'MAE on test set, non_metals: {mean_abs_err}')
-
-    sns.set_context('paper')
-
-    # plot MAE depending on number of species
-    df_counts = df.groupby(['split', 'num_species']).count()
-    df_species = df.groupby(['split', 'num_species']).mean()
-    df_species['count'] = df_counts['num_atoms']
     fig, ax = plt.subplots()
-    sns.scatterplot(
-        x='count',
-        y='abs. error',
-        data=df_species,
-        hue='split',
-        ax=ax,
-    )
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_nspecies.png', bbox_inches='tight', dpi=600)
-
-    fig, ax = plt.subplots()
-    sns.scatterplot(
+    sns.boxplot(
         x='num_species',
         y='abs. error',
-        data=df_species,
+        data=df_test,
         hue='split',
         ax=ax,
     )
+    plt.legend([], [], frameon=False)
+    ax.set_xlabel('Number of species in compound', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_nspecies.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
-    sns.scatterplot(
+    sns.histplot(
         x='num_atoms',
         y='abs. error',
-        data=df,
-        hue='split',
+        data=df_test,
         ax=ax,
+        cbar=True, cbar_kws={'label': 'Count'},
+        log_scale=(False, True),
+        bins=max(df_test['num_atoms'])
     )
-    plt.yscale('log')
+    ax.set_xlabel('Number of atoms in unit cell', fontsize=12)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
 
-    fig, ax = plt.subplots()
-    sns.scatterplot(
-        x=config.label_str,  # plot prediction vs label
-        y='prediction',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/pred_vs_label.png', bbox_inches='tight', dpi=600)
+    plot_regression(df_test, workdir, config, '/regression_test.png', color=u'#1f77b4')
+    #plot_regression(df_train, workdir, config, '/regression_train.png', color=u'#2ca02c')
+    #plot_regression(df_val, workdir, config, '/regression_val.png', color=u'#ff7f0e')
 
-    fig, ax = plt.subplots()
-    sns.scatterplot(
-        x=config.label_str, # plot error vs label
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_label.png', bbox_inches='tight', dpi=600)
-
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='dft_type', # plot error vs dft type
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.xticks(rotation=90)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_dft.png', bbox_inches='tight', dpi=600)
+    plot_dft_type(df_test, workdir, '/dft_type_error.png')
     col = df['dft_type']
     print(Counter(col))
 
-    # group the spacegoups into crystal systems
-    #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
-    bins = [0, 2, 15, 74, 142, 167, 194, 230]
-    labels = [
-        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
-        'Trigonal', 'Hexagonal', 'Cubic']
-    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='crystal system', # plot error vs space group
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.xticks(rotation=90)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_crystal.png', bbox_inches='tight', dpi=600)
-    col = df['crystal system']
-    print(Counter(col))
+    plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
 
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='Egap_type', # plot error vs Egap type
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.xticks(rotation=90)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_egap.png', bbox_inches='tight', dpi=600)
+    plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
     col = df['Egap_type']
     print(Counter(col))
 
-    fig, ax = plt.subplots()
-    sns.scatterplot(
-        x='density', # plot error vs density
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_density.png', bbox_inches='tight', dpi=600)
+    plot_density(df_test, workdir, '/error_vs_density.png')
 
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='ldau_type', # plot error vs ldau type
-        y='abs. error',
-        data=df,
-        hue='split',
-        ax=ax
-    )
-    plt.axhline(y=mean_abs_err_test, color='black', linestyle='--')
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_ldau.png', bbox_inches='tight', dpi=600)
+    plot_ldau(df, workdir, '/error_vs_ldau.png')
 
-    # TODO: get atomic numbers and group them into material classes, e.g.
-    # oxides/transition metal, binaries/ternaries
 
 if __name__ == "__main__":
     app.run(main)
