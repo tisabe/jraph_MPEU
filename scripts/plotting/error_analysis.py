@@ -21,9 +21,9 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 
-PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
-CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
-ABS_ERROR_LABEL = 'MAE (eV/atom)'
+PREDICT_LABEL = 'Predicted band gap (eV)'
+CALCULATE_LABEL = 'Calculated band gap (eV)'
+ABS_ERROR_LABEL = 'MAE (eV)'
 
 def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
     fig, ax = plt.subplots()
@@ -172,8 +172,14 @@ def main(argv):
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
-    df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
-    df['dft_type'] = df['dft_type'].apply(lambda dft: dft.strip(" '[]"))
+    try:
+        df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
+    except KeyError:
+        print("Egap_type not found in properties, continuing without.")
+    try:
+        df['dft_type'] = df['dft_type'].apply(lambda dft: dft.strip(" '[]"))
+    except KeyError:
+        print("dft_type not found in properties, continuing without.")
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']

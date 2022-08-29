@@ -10,12 +10,21 @@ from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 
 from jraph_MPEU.inference import load_inference_file
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+
+#PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
+PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+#CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
+CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+RESIDUAL_LABEL = r'Residual $U_0^{Model} - U_0^{Target}$ (eV)'
+ABS_ERROR_LABEL = 'MAE (eV)'
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -25,62 +34,43 @@ def main(argv):
     workdir = FLAGS.file
 
     inference_dict = load_inference_file(workdir, redo=FLAGS.redo)
-
+    
+    df = pd.DataFrame({})
+    df['prediction'] = inference_dict['test']['preds']
+    df['target'] = inference_dict['test']['targets']
     fig, ax = plt.subplots()
-    marker_size = 0.3
-
-    splits = inference_dict.keys()
-    units = input("Type units of prediction and target: ")
-    for split in splits:
-        preds = inference_dict[split]['preds']
-        targets = inference_dict[split]['targets']
-        error = np.abs(preds - targets)
-        mae = np.mean(error)
-        mse = np.mean(np.square(error))
-        print(split)
-        print(f'Number of graphs: {len(preds)}')
-        print(f'MSE: {mse} {units}')
-        print(f'MAE: {mae} {units}')
-        std = np.std(targets)
-        r2 = 1 - mse/std
-        print(f'R^2 value: {r2}')
-        label_string = f'{split} \nMAE: {mae:9.3f} {units}, R^2: {r2:9.3f}'
-        ax.scatter(targets, preds, s=marker_size, label=label_string)
-
-    # plot x = y regression lines
+    sns.histplot(
+        x='target',  # plot prediction vs label
+        y='prediction',
+        data=df,
+        #hue='split',
+        cbar=True, cbar_kws={'label': 'Count'},
+        ax=ax,
+    )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_title('Model regression performance')
-    ax.set_ylabel(f'prediction ({units})', fontsize=12)
-    ax.set_xlabel(f'target ({units})', fontsize=12)
-    ax.set_aspect('equal')
-    ax.legend()
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=12)
     plt.tight_layout()
-
     plt.show()
     fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)
 
-    ### plot residuals
+    df['residual'] = df['prediction'] - df['target']
+    print(df)
     fig, ax = plt.subplots()
-    for split in splits:
-        preds = inference_dict[split]['preds']
-        targets = inference_dict[split]['targets']
-        error = (preds - targets)
-        mae = np.mean(error)
-        mse = np.mean(np.square(error))
-        label_string = split
-        ax.scatter(targets, error, s=marker_size, label=label_string)
-
-    ax.set_title('Model regression performance')
-    ax.set_ylabel(f'error ({units})', fontsize=12)
-    ax.set_xlabel(f'target ({units})', fontsize=12)
-    ax.legend()
-    #ax.set_yscale('log')
+    sns.histplot(
+        x='target',  # plot prediction vs label
+        y='residual',
+        data=df,
+        #hue='split',
+        cbar=True, cbar_kws={'label': 'Count'},
+        ax=ax,
+    )
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
+    ax.set_ylabel(RESIDUAL_LABEL, fontsize=12)
     plt.tight_layout()
-
     plt.show()
     fig.savefig(workdir+'/residuals.png', bbox_inches='tight', dpi=600)
-
 
 
 if __name__ == "__main__":
