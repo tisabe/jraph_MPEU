@@ -101,21 +101,32 @@ def classify_egap(dataframe, workdir):
         df_test['prediction'].to_numpy().reshape(-1, 1)
     )
     df_test['correct_class'] = df_test['egap_class_predict'] == df_test['egap_class']
+    df_test['correct_class'] = df_test['correct_class'].apply(
+        lambda x: 'right classification' if x else 'wrong classification'
+    )
+    matrix = metrics.confusion_matrix(df_test['egap_class'], df_test['egap_class_predict'])
+    print(matrix)
+    print(matrix/np.sum(matrix))
+    print(np.array([['TP', 'FN'], ['FP', 'TN']]))
     fig, ax = plt.subplots()
     sns.scatterplot(
         x='Egap',
         y='prediction',
         data=df_test,
         hue='correct_class',
-        palette=('red', 'green'),
+        palette=('green', 'red'),
         ax=ax
     )
-    ax.set_xlabel('Target Egap (eV)')
-    ax.set_ylabel('Predicted Egap (eV)')
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    ax.set_xlabel('Target Egap (eV)', fontsize=12)
+    ax.set_ylabel('Predicted Egap (eV)', fontsize=12)
+    ax.set_box_aspect(1)
+    ax.legend(title='')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/egap_classify.png', bbox_inches='tight', dpi=600)
-
+    '''
     # calculate and display ROC curve
     targets = df_test['egap_class'].to_numpy()
     preds = df_test['egap_class_predict'].to_numpy()
@@ -130,7 +141,7 @@ def classify_egap(dataframe, workdir):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
-
+    '''
     return df_test
 
 

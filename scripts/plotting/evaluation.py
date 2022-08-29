@@ -8,6 +8,7 @@ the model can be built using the config.json.
 from absl import app
 from absl import flags
 from absl import logging
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -20,9 +21,11 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 
 #PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
-PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+#PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+PREDICT_LABEL = r'Predicted band gap $(eV)$'
 #CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
-CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+#CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+CALCULATE_LABEL = r'Calculated band gap $(eV)$'
 RESIDUAL_LABEL = r'Residual $U_0^{Model} - U_0^{Target}$ (eV)'
 ABS_ERROR_LABEL = 'MAE (eV)'
 
@@ -34,10 +37,15 @@ def main(argv):
     workdir = FLAGS.file
 
     inference_dict = load_inference_file(workdir, redo=FLAGS.redo)
-    
+
     df = pd.DataFrame({})
     df['prediction'] = inference_dict['test']['preds']
     df['target'] = inference_dict['test']['targets']
+
+    plt.hist2d(df['target'], df['prediction'], bins=100, norm=mpl.colors.LogNorm())
+    plt.colorbar()
+    plt.show()
+
     fig, ax = plt.subplots()
     sns.histplot(
         x='target',  # plot prediction vs label
@@ -46,6 +54,8 @@ def main(argv):
         #hue='split',
         cbar=True, cbar_kws={'label': 'Count'},
         ax=ax,
+        bins=(100, 100),
+        #norm=mpl.colors.LogNorm()
     )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
