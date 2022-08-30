@@ -39,6 +39,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.selection = None
         config.limit_data = None
         config.num_edges_max = None
+        config.seed = 42
         num_rows = 20  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']

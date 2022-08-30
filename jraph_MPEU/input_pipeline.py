@@ -383,7 +383,7 @@ class DataReader:
 
 
 def get_train_val_test_split_dict(
-        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1):
+        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=42):
     """Return the id_list split into train, validation and test indices."""
     if abs(train_frac + val_frac + test_frac - 1.0) > 1e-5:
         raise ValueError('Train, val and test fractions do not add up to one.')
@@ -392,14 +392,14 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=0)
+            random_state=seed-42)  # seed-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
         test_set) = sklearn.model_selection.train_test_split(
             val_and_test_set,
             test_size=test_frac/(test_frac+val_frac),
-            random_state=1)
+            random_state=1)   # seed-41 as seed is 42 by default, but default random state should be 1
     split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
     return split_dict
 
@@ -523,7 +523,7 @@ def get_datasets(config, workdir):
         # If split file did not exist before, generate and save it
         split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
-            config.test_frac
+            config.test_frac, seed=config.seed
         )
         save_split_dict(split_lists, workdir)
     else:
