@@ -115,7 +115,8 @@ def classify_egap(dataframe, workdir):
         data=df_test,
         hue='correct_class',
         palette=('green', 'red'),
-        ax=ax
+        ax=ax,
+        alpha=0.2
     )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
