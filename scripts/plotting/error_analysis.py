@@ -190,12 +190,22 @@ def main(argv):
     print(f'MAE on validation set: {mean_abs_err_val}')
 
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
-    mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']
+    # exclude outliers
+    df_test_filter = df_test[df_test[config.label_str] < 50.0]
+    mean_abs_err_test = df_test_filter.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set: {mean_abs_err_test}')
+    rmse_test = (df_test_filter['abs. error'] ** 2).mean() ** .5
+    print(f'RMSE on test set: {rmse_test}')
+    r2_test = 1 - (df_test_filter['abs. error'] ** 2).mean()/df_test_filter[
+            config.label_str].std()
+    print(f'R^2 on test set: {r2_test}')
 
     mean_target = df.mean(0, numeric_only=True)[config.label_str]
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
+
+    sns.scatterplot(x=config.label_str, y='prediction', data=df_test)
+    plt.show()
 
     fig, ax = plt.subplots()
     sns.boxplot(
