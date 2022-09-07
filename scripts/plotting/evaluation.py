@@ -46,7 +46,7 @@ def main(argv):
     plt.colorbar()
     plt.show()
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(4, 3))
     sns.histplot(
         x='target',  # plot prediction vs label
         y='prediction',
@@ -59,15 +59,15 @@ def main(argv):
     )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
-    ax.set_ylabel(PREDICT_LABEL, fontsize=12)
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=14)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=14)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)
 
     df['residual'] = df['prediction'] - df['target']
     print(df)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(4, 3))
     sns.histplot(
         x='target',  # plot prediction vs label
         y='residual',
