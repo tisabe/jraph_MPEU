@@ -12,7 +12,7 @@ MATCHBOOK = (
     'enthalpy_formation_atom(*),Egap(*),Egap_type(*),'
     'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
     'energy_atom(*),density(*),'#volume_cell(*),'
-    'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
+    'geometry_orig,positions_fractional,compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
 summons = MATCHBOOK+","+DIRECTIVES

@@ -2,6 +2,7 @@ import numpy as np
 import pandas
 import ase
 from ase import Atoms
+from ase.visualize import view
 
 from ast import literal_eval
 import argparse
@@ -20,11 +21,11 @@ def str_to_array(str_array):
 def dict_to_ase(aflow_dict):
     '''Return ASE atoms object from a pandas dict, produced by AFLOW json response.'''
     cell = str_to_array(aflow_dict['geometry_orig'])
-    positions = str_to_array(aflow_dict['positions_cartesian'])
+    positions = str_to_array(aflow_dict['positions_fractional'])
     symbols = aflow_dict['compound']
     structure = Atoms(
         symbols=symbols,
-        positions=positions,
+        scaled_positions=positions,
         cell=cell,
         pbc=(1, 1, 1))
     structure.wrap()
@@ -41,7 +42,7 @@ def main(args):
             atoms = dict_to_ase(row)  # get the atoms object from each row
             row = row.to_dict()
             row.pop('geometry_orig', None)
-            row.pop('positions_cartesian', None)
+            row.pop('positions_fractional', None)
             row.pop('compound', None)
 
             # calculate adjacency of graph as senders and receivers
@@ -74,6 +75,8 @@ def main(args):
 
             if i<3:
                 print(prop_dict)
+                print(atoms)
+                view(atoms)
             if i%1000 == 0:
                 print(f'Step {i}')
     return 0
@@ -85,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', type=str, dest='file_out', required=True,
                         help='output file name')
     parser.add_argument('-cutoff_type', type=str, dest='cutoff_type', required=True,
-                        help='choose the cutoff type, knearest or const')            
+                        help='choose the cutoff type, knearest or const')
     parser.add_argument('-cutoff', type=float, dest='cutoff', default=4.0,
                         help='cutoff distance or number of nearest neighbors')
     args = parser.parse_args()
