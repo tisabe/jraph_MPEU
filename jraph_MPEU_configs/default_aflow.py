@@ -13,5 +13,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.label_str = 'enthalpy_formation_atom'
     #config.label_str = 'Egap'
     config.init_lr = 1e-4
+    config.latent_size = 384
+    config.message_passing_steps = 3
 
     return config
