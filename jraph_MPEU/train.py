@@ -101,10 +101,12 @@ class CheckpointingUpdater:
     def __init__(self,
                  inner: Updater,
                  checkpoint_dir: str,
-                 checkpoint_every_n: int):
+                 checkpoint_every_n: int,
+                 num_checkpoints: int):
         self._inner = inner
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_every_n = checkpoint_every_n
+        self._num_checkpoints = num_checkpoints
 
     def _checkpoint_paths(self):
         return [p for p in os.listdir(self._checkpoint_dir) if 'checkpoint_' in p]
@@ -126,8 +128,9 @@ class CheckpointingUpdater:
 
     def update(self, state, data):
         """Update experiment state."""
-        # NOTE: This blocks until `state` is computed. If you want to use JAX async
-        # dispatch, maintain state['step'] as a NumPy scalar instead of a JAX array.
+        # NOTE: This blocks until `state` is computed. If you want to use JAX
+        # async dispatch, maintain state['step'] as a NumPy scalar instead of a
+        # JAX array.
         # Context: https://jax.readthedocs.io/en/latest/async_dispatch.html
         state, metrics = self._inner.update(state, data)
 
@@ -139,6 +142,14 @@ class CheckpointingUpdater:
             logging.info('Serializing experiment state to %s', path)
             with open(path, 'wb') as state_file:
                 pickle.dump(checkpoint_state, state_file)
+
+            # check if too many checkpoints are currently stored
+            paths = self._checkpoint_paths()
+            # if there are too many checkpoints, remove the oldest
+            if len(paths) > self._num_checkpoints:
+                os.remove(
+                    os.path.join(self._checkpoint_dir, min(paths))
+                )
 
         return state, metrics
 
@@ -432,7 +443,8 @@ def init_state(
     updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
         updater, os.path.join(workdir, 'checkpoints'),
-        config.checkpoint_every_steps)
+        config.checkpoint_every_steps,
+        config.num_checkpoints)
     evaluater = Evaluater(
         net_eval, loss_fn,
         os.path.join(workdir, 'checkpoints'),

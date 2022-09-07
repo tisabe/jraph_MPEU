@@ -27,6 +27,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.eval_every_steps = 50_000
     config.early_stopping_steps = 1_000_000
     config.checkpoint_every_steps = 500_000
+    config.num_checkpoints = 1  # number of checkpoints to keep
     config.restore = False # whether to restore from previous checkpoint
     # data split settings
     config.data_file = 'QM9/qm9_graphs.db'
