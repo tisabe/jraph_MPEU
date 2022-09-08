@@ -253,15 +253,15 @@ class Evaluater:
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=False)
 
-        loss_list = [self._evaluate_step(state, batch) for batch in reader]
-        return np.mean(loss_list, axis=0)
-        """loss_list = []
+        """loss_list = [self._evaluate_step(state, batch) for batch in reader]
+        return np.mean(loss_list, axis=0)"""
+        loss_list = []
         weights_list = []
         for batch in reader:
             # get number of graphs in batch as weight for this batch
             weights_list.append(batch_size - jraph.get_number_of_padding_with_graphs_graphs(batch))
             loss_list.append(self._evaluate_step(state, batch))
-        return np.average(loss_list, axis=0, weights=weights_list)"""
+        return np.average(loss_list, axis=0, weights=weights_list)
 
     def evaluate_model(
             self,

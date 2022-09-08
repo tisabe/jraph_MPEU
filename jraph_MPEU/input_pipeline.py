@@ -254,8 +254,12 @@ def asedb_to_graphslist(
     labels = []
     ids = []
     ase_db = ase.db.connect(file)
-    count = 0
-    #print(f'Selection: {selection}')
+    if limit is None:
+        count = ase_db.count(selection=selection)
+    else:
+        count = limit
+    logging.info(f'Number of entries selected: {count}')
+
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge)
@@ -269,7 +273,6 @@ def asedb_to_graphslist(
         label = row.key_value_pairs[label_str]
         labels.append(label)
         ids.append(row.id)
-        count += 1
 
     return graphs, labels, ids
 

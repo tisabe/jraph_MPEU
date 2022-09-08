@@ -46,7 +46,8 @@ class TestTrain(unittest.TestCase):
         We want to test the loss looks ok. Maybe we also want to test that
         things have been written like the metrics.
         """
-
+        lowest_val_loss = .0
+        lowest_val_loss2 = .0
         config = cfg_num.get_config()
         with tempfile.TemporaryDirectory() as test_dir:
             evaluater, lowest_val_loss = train.train_and_evaluate(
@@ -54,10 +55,11 @@ class TestTrain(unittest.TestCase):
 
             self.assertIsInstance(evaluater.best_state, dict)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            self.assertIsInstance(lowest_val_loss, np.float32)
+            print(type(lowest_val_loss))
+            self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
 
-            # reset temp directory
-            self.test_dir = tempfile.TemporaryDirectory()
+        # reset temp directory
+        with tempfile.TemporaryDirectory() as test_dir:
 
             evaluater, lowest_val_loss2 = train.train_and_evaluate(
                 config, test_dir)
@@ -77,7 +79,7 @@ class TestTrain(unittest.TestCase):
 
             self.assertIsInstance(evaluater.best_state, dict)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            self.assertIsInstance(lowest_val_loss, np.float32)
+            self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
 
             evaluater, lowest_val_loss2 = train.train_and_evaluate(
                 config, test_dir)
@@ -98,7 +100,7 @@ class TestTrain(unittest.TestCase):
             # it was only evaluated at step 10, so check that the step number
             # of the best state is correct
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            self.assertIsInstance(lowest_val_loss, np.float32)
+            self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
 
             config.num_train_steps_max = 100
             evaluater, lowest_val_loss2 = train.train_and_evaluate(
