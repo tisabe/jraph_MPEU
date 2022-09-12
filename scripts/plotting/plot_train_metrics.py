@@ -16,7 +16,7 @@ def main(args_parsed):
 
     splits = ['train', 'validation', 'test']
     split_convert = {
-        'train': 'training', 'validation': 'validation', 'test': 'testing'}
+        'train': 'training', 'validation': 'validation', 'test': 'test'}
 
     # plot learning curves
     try:
@@ -37,8 +37,10 @@ def main(args_parsed):
 
         ax[0].legend(title='Split')
         ax[1].set_xlabel('Gradient step', fontsize=12)
-        ax[0].set_ylabel(r'MSE $(eV^2)$', fontsize=12)
-        ax[1].set_ylabel('MAE (eV)', fontsize=12)
+        #ax[0].set_ylabel(r'MSE $(eV^2)$', fontsize=12)
+        ax[0].set_ylabel(r'MSE $(eV^2/atom^2)$', fontsize=12)
+        #ax[1].set_ylabel('MAE (eV)', fontsize=12)
+        ax[1].set_ylabel('MAE (eV/atom)', fontsize=12)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
         plt.tight_layout()

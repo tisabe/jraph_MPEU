@@ -309,7 +309,7 @@ class Evaluater:
     def check_early_stopping(self):
         """Check the early stopping criterion.
 
-        If the newest validaiton loss in self.early_stopping_queue is higher
+        If the newest validation loss in self.early_stopping_queue is higher
         than the zeroth one return True for early stopping. Otherwise, delete
         the zeroth element in queue and return False for no early stopping.
         """
@@ -557,6 +557,7 @@ def train_and_evaluate(
         # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits)
+        print(early_stop)
 
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')

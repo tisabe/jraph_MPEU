@@ -21,11 +21,11 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 
 #PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
-#PREDICT_LABEL = r'Predicted $U_0$ (eV)'
-PREDICT_LABEL = r'Predicted band gap $(eV)$'
+PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+#PREDICT_LABEL = r'Predicted band gap $(eV)$'
 #CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
-#CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
-CALCULATE_LABEL = r'Calculated band gap $(eV)$'
+CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+#CALCULATE_LABEL = r'Calculated band gap $(eV)$'
 RESIDUAL_LABEL = r'Residual $U_0^{Model} - U_0^{Target}$ (eV)'
 ABS_ERROR_LABEL = 'MAE (eV)'
 
@@ -46,7 +46,7 @@ def main(argv):
     plt.colorbar()
     plt.show()
 
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(6, 4))
     sns.histplot(
         x='target',  # plot prediction vs label
         y='prediction',
@@ -57,6 +57,9 @@ def main(argv):
         bins=(100, 100),
         #norm=mpl.colors.LogNorm()
     )
+    cbar = ax.collections[0].colorbar
+    # here set the labelsize by 14
+    cbar.ax.tick_params(labelsize=14)
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax.set_xlabel(CALCULATE_LABEL, fontsize=14)
@@ -67,20 +70,21 @@ def main(argv):
 
     df['residual'] = df['prediction'] - df['target']
     print(df)
-    fig, ax = plt.subplots(figsize=(4, 3))
-    sns.histplot(
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.scatterplot(
         x='target',  # plot prediction vs label
         y='residual',
         data=df,
-        #hue='split',
-        cbar=True, cbar_kws={'label': 'Count'},
+        #cbar=True, cbar_kws={'label': 'Count'},
         ax=ax,
+        alpha=0.4
     )
     ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
     ax.set_ylabel(RESIDUAL_LABEL, fontsize=12)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/residuals.png', bbox_inches='tight', dpi=600)
+
 
 
 if __name__ == "__main__":
