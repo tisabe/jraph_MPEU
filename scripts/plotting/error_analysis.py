@@ -8,6 +8,7 @@ from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -21,12 +22,17 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 
-PREDICT_LABEL = 'Predicted band gap (eV)'
-CALCULATE_LABEL = 'Calculated band gap (eV)'
-ABS_ERROR_LABEL = 'MAE (eV)'
+PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
+CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
+ABS_ERROR_LABEL = 'MAE (eV/atom)'
+
+#PREDICT_LABEL = 'Predicted band gap (eV)'
+#CALCULATE_LABEL = 'Calculated band gap (eV)'
+#ABS_ERROR_LABEL = 'MAE (eV)'
+
 
 def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
-    fig, ax = plt.subplots()
+    """fig, ax = plt.subplots()
     sns.histplot(
         x=config.label_str,  # plot prediction vs label
         y='prediction',
@@ -42,7 +48,27 @@ def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
     ax.set_ylabel(PREDICT_LABEL, fontsize=12)
     plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)"""
+    #rcParams['figure.figsize'] = 6, 6
+    #sns.set(rc={'figure.figsize':(20, 6)})
+    g = sns.JointGrid(
+        data=df, x=config.label_str, y='prediction', marginal_ticks=False,
+        height=5,
+    )
+
+    # Add the joint and marginal histogram plots
+    g.plot_joint(
+        sns.histplot, discrete=(False, False), #bins=(100, 100),
+    )
+    g.plot_marginals(sns.histplot, element="step", color=None)
+    g.ax_marg_x.set_xlabel('Count', fontsize=12)
+    g.ax_marg_y.set_ylabel('Count', fontsize=12)
+    g.set_axis_labels(xlabel=CALCULATE_LABEL, ylabel=PREDICT_LABEL, fontsize=12)
+    x_ref = np.linspace(*g.ax_joint.get_xlim())
+    g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
+    plt.show()
+    g.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def plot_dft_type(df, workdir, plot_name):
@@ -208,9 +234,9 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
-    sns.scatterplot(x=config.label_str, y='prediction', hue='split', data=df)
-    plt.show()
-
+    #sns.scatterplot(x=config.label_str, y='prediction', hue='split', data=df)
+    #plt.show()
+    """
     fig, ax = plt.subplots()
     sns.boxplot(
         x='num_species',
@@ -242,24 +268,24 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
-
+    """
     plot_regression(df_test, workdir, config, '/regression_test.png', color=u'#1f77b4')
     #plot_regression(df_train, workdir, config, '/regression_train.png', color=u'#2ca02c')
     #plot_regression(df_val, workdir, config, '/regression_val.png', color=u'#ff7f0e')
 
-    plot_dft_type(df_test, workdir, '/dft_type_error.png')
+    #plot_dft_type(df_test, workdir, '/dft_type_error.png')
     col = df['dft_type']
     print(Counter(col))
 
-    plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+    #plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
 
-    plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
+    #plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
     col = df['Egap_type']
     print(Counter(col))
 
-    plot_density(df_test, workdir, '/error_vs_density.png')
+    #plot_density(df_test, workdir, '/error_vs_density.png')
 
-    plot_ldau(df, workdir, '/error_vs_ldau.png')
+    #plot_ldau(df, workdir, '/error_vs_ldau.png')
 
 
 if __name__ == "__main__":

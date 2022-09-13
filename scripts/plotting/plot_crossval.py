@@ -49,8 +49,8 @@ def main(args):
             min_step_mse = step[np.argmin(loss_mse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
-                'mp_steps': config_dict['message_passing_steps'],
-                'latent_size': config_dict['latent_size'],
+                'mp_steps': int(config_dict['message_passing_steps']),
+                'latent_size': int(config_dict['latent_size']),
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'mae': min_mae,
@@ -92,6 +92,8 @@ def main(args):
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
         'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate'}
+    df = df.astype({'latent_size': 'int32'})
+    df = df.astype({'mp_steps': 'int32'})
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
@@ -101,6 +103,8 @@ def main(args):
             ax[i].set_ylabel('MAE (eV/atom)', fontsize=22)
         else:
             ax[i].set_ylabel('')
+        ax[i].tick_params(axis='both', which='major', labelsize=14)
+        ax[i].tick_params(axis='both', which='minor', labelsize=12)
     plt.yscale('log')
     plt.rc('font', size=16)
     plt.tight_layout()
