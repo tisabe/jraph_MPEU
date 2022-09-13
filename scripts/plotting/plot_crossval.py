@@ -89,13 +89,16 @@ def main(args):
 
     # plot mse for main hyperparameters with logscale
     box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
+    col_to_label = {
+        'latent_size': 'Latent size', 'mp_steps': 'MP steps',
+        'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate'}
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
         sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
-        ax[i].set_xlabel(f'{name}', fontsize=15)
+        ax[i].set_xlabel(col_to_label[name], fontsize=22)
         if i == 0:
-            ax[i].set_ylabel('MAE (eV/atom)', fontsize=15)
+            ax[i].set_ylabel('MAE (eV/atom)', fontsize=22)
         else:
             ax[i].set_ylabel('')
     plt.yscale('log')
