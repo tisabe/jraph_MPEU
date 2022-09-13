@@ -39,8 +39,10 @@ def main(argv):
     inference_dict = load_inference_file(workdir, redo=FLAGS.redo)
 
     df = pd.DataFrame({})
-    df['prediction'] = inference_dict['test']['preds']
-    df['target'] = inference_dict['test']['targets']
+    len_dim0 = len(inference_dict['test']['preds'])
+    print(np.shape(inference_dict['test']['preds']))
+    df['prediction'] = inference_dict['test']['preds'] if len_dim0 > 1 else inference_dict['test']['preds'][0]
+    df['target'] = inference_dict['test']['targets'] if len_dim0 > 1 else inference_dict['test']['targets'][0]
 
     plt.hist2d(df['target'], df['prediction'], bins=100, norm=mpl.colors.LogNorm())
     plt.colorbar()
