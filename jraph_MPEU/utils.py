@@ -276,6 +276,7 @@ def estimate_padding_budget_for_batch_size(
     total_num_edges = 0
     max_nodes = 0
     max_edges = 0
+    num_estimation_graphs = min((num_estimation_graphs, len(dataset)))
     for graph in dataset[:num_estimation_graphs]:
         graph_size = get_graphs_tuple_size(graph)
         if graph_size.n_graph != 1:
@@ -290,10 +291,10 @@ def estimate_padding_budget_for_batch_size(
     num_edges_per_graph_estimate = total_num_edges / num_estimation_graphs
 
     n_node = max(
-        (next_multiple_of_64(num_nodes_per_graph_estimate * batch_size),)
+        (next_multiple_of_64(num_nodes_per_graph_estimate * batch_size), max_nodes)
     )
     n_edge = max(
-        (next_multiple_of_64(num_edges_per_graph_estimate * batch_size),)
+        (next_multiple_of_64(num_edges_per_graph_estimate * batch_size), max_edges)
     )
 
     padding_budget = GraphsTupleSize(

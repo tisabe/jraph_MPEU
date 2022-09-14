@@ -113,7 +113,6 @@ class CheckpointingUpdater:
 
     def init(self, rng, data):
         """Initialize experiment state."""
-        # TODO: include argument to ignore previous checkpoints
         if not os.path.exists(self._checkpoint_dir) or not self._checkpoint_paths():
             os.makedirs(self._checkpoint_dir, exist_ok=True)
             return self._inner.init(rng, data)
@@ -183,17 +182,19 @@ class Evaluater:
     """
     def __init__(
             self, net, loss_fn, checkpoint_dir: str,
-            checkpoint_every_n: int, eval_every_n: int):
+            checkpoint_every_n: int, eval_every_n: int,
+            early_stopping_steps: int):
         self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
-        self.val_queue = []
+        self.early_stopping_queue = []
         self.loss_dict = {}
         self.rng = None  # initialize rng for later assign in evaluate model
         self.best_state = None # save the state with lowest validation error in best state
         self.lowest_val_loss = None
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_every_n = checkpoint_every_n
+        self._early_stopping_steps = early_stopping_steps
         self._eval_every_n = eval_every_n
         self._loss_scalar = 1.0
         # load loss curve if metrics file exists in checkpoint_dir
@@ -253,8 +254,6 @@ class Evaluater:
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=False)
 
-        """loss_list = [self._evaluate_step(state, batch) for batch in reader]
-        return np.mean(loss_list, axis=0)"""
         loss_list = []
         weights_list = []
         for batch in reader:
@@ -306,7 +305,7 @@ class Evaluater:
             if split == 'validation':
                 self.early_stopping_queue.append(loss_dict[split][0])
 
-    def check_early_stopping(self):
+    def check_early_stopping(self, step):
         """Check the early stopping criterion.
 
         If the newest validation loss in self.early_stopping_queue is higher
@@ -314,11 +313,12 @@ class Evaluater:
         the zeroth element in queue and return False for no early stopping.
         """
         queue = self.early_stopping_queue  # abbreviation
-        if queue[-1] > queue[0]:  # check for early stopping condition
-            return True
-        else:
-            queue.pop(0)  # Note: also modifies self.early_stopping_queue
-            return False
+        if step > self._early_stopping_steps:
+            if queue[-1] > queue[0]:  # check for early stopping condition
+                return True
+            else:
+                queue.pop(0)  # Note: also modifies self.early_stopping_queue
+                return False
 
     def checkpoint_losses(self):
         """Save metrics to a dictionary at checkpoint."""
@@ -341,7 +341,7 @@ class Evaluater:
             for split in eval_splits:
                 logging.info(f'MSE/MAE {split}: {eval_loss[split]}')
             self.save_losses(eval_loss, eval_splits, step)
-            early_stop = self.check_early_stopping()
+            early_stop = self.check_early_stopping(step)
         else:
             early_stop = False
 
@@ -377,7 +377,6 @@ def cosine_warm_restarts(
         raise ValueError('The cosine_decay_schedule requires positive decay_steps!')
 
     def schedule(count):
-        # TODO: implement multiplier
         count_since_restart = count % decay_steps
         cosine = 0.5 * (1 + jnp.cos(jnp.pi * count_since_restart / decay_steps))
         return init_value * cosine
@@ -388,7 +387,6 @@ def cosine_warm_restarts(
 def create_optimizer(
         config: ml_collections.ConfigDict) -> optax.GradientTransformation:
     """Create an Optax optimizer object."""
-    # TODO: consider including gradient clipping
     if config.schedule == 'exponential_decay':
         learning_rate = optax.exponential_decay(
             init_value=config.init_lr,
@@ -456,7 +454,8 @@ def init_state(
         net_eval, loss_fn,
         os.path.join(workdir, 'checkpoints'),
         config.checkpoint_every_steps,
-        config.eval_every_steps)
+        config.eval_every_steps,
+        config.early_stopping_steps)
 
     state = updater.init(init_rng, init_graphs)
 
@@ -549,18 +548,19 @@ def train_and_evaluate(
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
-            # TODO: Add timing metrics.
-            #time_logger.log_eta(step)
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits)
-        print(early_stop)
 
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + 'STOPPED_EARLY'):
+                with open(workdir + 'STOPPED_EARLY', 'w'):
+                    pass
             break
 
         # No need to break if it's the last step since the loop terminates

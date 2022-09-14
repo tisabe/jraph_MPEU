@@ -38,6 +38,53 @@ def get_random_graph(key) -> jraph.GraphsTuple:
 
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def test_estimate_padding_budget(self):
+        """Test estimator by generating graph lists with different
+        distributions of n_node and n_edge."""
+        # first example has one outlier, so outlier should fit in budget
+        single_graph_10 = jraph.GraphsTuple(
+            n_node=np.asarray([10]), n_edge=np.asarray([10]),
+            nodes=np.ones((10, 4)), edges=np.ones((10, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((10)), receivers=np.zeros((10))
+        )
+        single_graph_100 = jraph.GraphsTuple(
+            n_node=np.asarray([100]), n_edge=np.asarray([100]),
+            nodes=np.ones((100, 4)), edges=np.ones((100, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((100)), receivers=np.zeros((100))
+        )
+        dataset = [single_graph_10]*10
+        dataset.append(single_graph_100)
+        batch_size = 2
+        num_estimation_graphs = 100
+        estimate = estimate_padding_budget_for_batch_size(
+            dataset, batch_size, num_estimation_graphs)
+        self.assertEqual(estimate.n_node, 100)
+        self.assertEqual(estimate.n_edge, 100)
+        self.assertEqual(estimate.n_graph, batch_size)
+
+        # second example has graphs of all same sizes
+        dataset = [single_graph_10]*10
+        batch_size = 2
+        num_estimation_graphs = 100
+        estimate = estimate_padding_budget_for_batch_size(
+            dataset, batch_size, num_estimation_graphs)
+        self.assertEqual(estimate.n_node, 64)
+        self.assertEqual(estimate.n_edge, 64)
+        self.assertEqual(estimate.n_graph, batch_size)
+
+        # third example has one outlier, but it fits in normal budget
+        dataset = [single_graph_10]*100
+        dataset.append(single_graph_100)
+        batch_size = 10
+        num_estimation_graphs = 1000
+        estimate = estimate_padding_budget_for_batch_size(
+            dataset, batch_size, num_estimation_graphs)
+        self.assertEqual(estimate.n_node, 128)
+        self.assertEqual(estimate.n_edge, 128)
+        self.assertEqual(estimate.n_graph, batch_size)
+
     def test_str_to_list(self):
         text = '[1  2 3 4]'
         res = str_to_list(text)
