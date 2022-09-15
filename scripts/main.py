@@ -27,6 +27,14 @@ def main(argv):
     """Check GPU, flags and perform model training."""
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
+
+    if os.path.exists(FLAGS.workdir + '/STOPPED_EARLY'):
+        logging.warning('Started training on model that stopped early.')
+        return
+    if os.path.exists(FLAGS.workdir + '/REACHED_MAX_STEPS'):
+        logging.warning('Started training on model that \
+            reached maximum number of steps.')
+        return
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.
     tf.config.experimental.set_visible_devices([], 'GPU')

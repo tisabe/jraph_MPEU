@@ -558,8 +558,8 @@ def train_and_evaluate(
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')
             # create a file that signals that training stopped early
-            if not os.path.exists(workdir + 'STOPPED_EARLY'):
-                with open(workdir + 'STOPPED_EARLY', 'w'):
+            if not os.path.exists(workdir + '/STOPPED_EARLY'):
+                with open(workdir + '/STOPPED_EARLY', 'w'):
                     pass
             break
 
@@ -568,6 +568,9 @@ def train_and_evaluate(
         if is_last_step:
             logging.info(
                 'Reached maximum number of steps without early stopping.')
+            if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+                    pass
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
