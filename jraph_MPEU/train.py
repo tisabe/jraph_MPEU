@@ -184,7 +184,6 @@ class Evaluater:
             self, net, loss_fn, checkpoint_dir: str,
             checkpoint_every_n: int, eval_every_n: int,
             early_stopping_steps: int):
-        self._net_init = net.init
         self._net_apply = net.apply
         self._loss_fn = loss_fn
         self.early_stopping_queue = []
@@ -238,18 +237,20 @@ class Evaluater:
     @functools.partial(jax.jit, static_argnums=0)
     def _evaluate_step(
             self, state: dict, graphs: jraph.GraphsTuple) -> float:
-        """Calculate the mean loss for a batch of graphs."""
+        """Calculate the mean loss for a batch of graphs. Returns scaled MSE
+        and MAE over batch"""
         state['rng'], new_rng = jax.random.split(state['rng'])
         (mean_loss, (mae, _)) = self._loss_fn(
             state['params'], state['hk_state'], new_rng, graphs, self._net_apply)
-        return [mean_loss*self._loss_scalar, mae*self._loss_scalar]
+        return [mean_loss, mae]
 
     def evaluate_split(
             self,
             state: dict,
             graphs: Sequence[jraph.GraphsTuple],
             batch_size: int) -> float:
-        """Return mean loss for all graphs in graphs."""
+        """Return mean loss for all graphs in graphs. First return value is
+        RMSE, second value is MAE, both scaled back using std of dataset."""
 
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=False)
@@ -260,7 +261,8 @@ class Evaluater:
             # get number of graphs in batch as weight for this batch
             weights_list.append(batch_size - jraph.get_number_of_padding_with_graphs_graphs(batch))
             loss_list.append(self._evaluate_step(state, batch))
-        return np.average(loss_list, axis=0, weights=weights_list)
+        averaged = np.average(loss_list, axis=0, weights=weights_list)
+        return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
 
     def evaluate_model(
             self,

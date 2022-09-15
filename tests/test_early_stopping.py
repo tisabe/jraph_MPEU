@@ -92,12 +92,12 @@ class UnitTests(absltest.TestCase):
         logging.set_verbosity(logging.WARNING)
         config = cfg.get_config()
         with tempfile.TemporaryDirectory() as test_dir:
-            self.assertFalse(os.path.exists(test_dir + 'STOPPED_EARLY'))
+            self.assertFalse(os.path.exists(test_dir + '/STOPPED_EARLY'))
 
             train_and_evaluate(config, test_dir)
-            #plot_curves(test_dir)
+            plot_curves(test_dir)
             # check that STOPPED_EARLY file has been created
-            self.assertTrue(os.path.exists(test_dir + 'STOPPED_EARLY'))
+            self.assertTrue(os.path.exists(test_dir + '/STOPPED_EARLY'))
 
 
 if __name__ == "__main__":
