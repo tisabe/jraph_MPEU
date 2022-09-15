@@ -32,8 +32,8 @@ def main(args_parsed):
             loss_mse = [row[1][0] for row in metrics]
             loss_mae = [row[1][1] for row in metrics]
             step = [int(row[0]) for row in metrics]
-            ax[0].plot(step, loss_mae, label=split_convert[split])
-            ax[1].plot(step, loss_mse, label=split_convert[split])
+            ax[0].plot(step, loss_mse, label=split_convert[split])
+            ax[1].plot(step, loss_mae, label=split_convert[split])
 
         ax[0].legend()
         ax[1].set_xlabel('Gradient step', fontsize=12)
