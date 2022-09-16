@@ -9,7 +9,6 @@ def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
 
     config.data_file = 'aflow/graphs_knn.db'
-    config.selection = None
     config.label_str = 'enthalpy_formation_atom'
     #config.label_str = 'Egap'
     config.init_lr = 1e-4

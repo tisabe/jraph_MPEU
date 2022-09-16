@@ -159,7 +159,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     _, mean, std = normalize_targets_dict(
         graphs_dict, labels_dict, config)
     graphs = list(graphs_dict.values())
-    labels = list(graphs_dict.values())
+    #labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params, hk_state, mc_dropout)

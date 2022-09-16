@@ -234,8 +234,12 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
-    #sns.scatterplot(x=config.label_str, y='prediction', hue='split', data=df)
-    #plt.show()
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x=config.label_str, y='prediction', hue='split', data=df, ax=ax)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.show()
     """
     fig, ax = plt.subplots()
     sns.boxplot(
