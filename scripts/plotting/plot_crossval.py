@@ -17,12 +17,12 @@ def min_of_previous(array):
 def main(args):
     # plot learning curves
     df = pd.DataFrame({})
-    df_minima = pd.DataFrame({})
+    dict_minima = {}
     print(args.max_step)
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
-            #print(metrics_path)
+            # open the file with evaluation metrics
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
 
@@ -32,21 +32,22 @@ def main(args):
 
             split = 'validation'
             metrics = metrics_dict[split]
-            loss_mse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
+            # get arrays with mae and rmse for this run
+            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
             loss_mae = [row[1][1] for row in metrics if int(row[0]) < args.max_step]
-            n_mean = 5 # number of points for running mean
+            n_mean = 1 # number of points for running mean
             #  compute running mean using convolution
+            loss_rmse = np.convolve(loss_rmse, np.ones(n_mean)/n_mean, mode='valid')
             loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
-            loss_mse = np.convolve(loss_mse, np.ones(n_mean)/n_mean, mode='valid')
             min_mae = min(loss_mae)
-            min_mse = min(loss_mse)
-            if min_mae > 1e4 or min_mse > 1e4:
-                print(f'mae or mse too high for path {dirname}')
+            min_rmse = min(loss_rmse)
+            if min_mae > 1e4 or min_rmse > 1e4:
+                print(f'mae or rmse too high for path {dirname}')
                 continue
 
-            df_minima[dirname] = list(loss_mae)
+            dict_minima[dirname] = list(loss_mae)
             step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
-            min_step_mse = step[np.argmin(loss_mse)]
+            min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
                 'mp_steps': int(config_dict['message_passing_steps']),
@@ -54,40 +55,46 @@ def main(args):
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'mae': min_mae,
-                'mse': min_mse,
+                'rmse': min_rmse,
                 'min_step_mae': min_step_mae,
-                'min_step_mse': min_step_mse,
+                'min_step_rmse': min_step_rmse,
                 'directory': dirname
             }
             #print(row_dict)
             df = df.append(row_dict, ignore_index=True)
 
         except OSError:
-            a = 1
+            pass
             #print(f'{dirname} not a valid path, path is skipped.')
 
-    df_minima_top = pd.DataFrame({})
+    dict_minima_top = {}
 
     # print the best 10 configs
     df_copy = df.copy()
-    for i in range(20):
-        i_min = df_copy['mae'].idxmin()
-        print(f'{i}. minimum mae configuration: \n', df_copy.iloc[i_min])
+    df_copy = df_copy.sort_values(by='rmse', axis='index')
+    for i in range(10):
+        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
+    """
+    for i in range(10):
+        # get index for lowest mae
+        i_min = df_copy['rmse'].idxmin()
+        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i_min])
         name = df_copy.iloc[i_min]['directory']
         df_copy = df_copy.drop([i_min])
-        df_minima_top[name] = df_minima[name]
-
-    for column in df_minima_top:
-        plt.plot(df_minima_top[column], label=column)
+        dict_minima_top[name] = dict_minima[name]
+    """
+    """
+    for column in dict_minima_top:
+        plt.plot(dict_minima_top[column], label=column)
     plt.legend()
     plt.show()
-
-    # drop the worst 50 configs
-    for i in range(50):
+    """
+    # drop the worst 10 configs
+    for i in range(10):
         i_max = df['mae'].idxmax()
         df = df.drop([i_max])
 
-    # plot mse for main hyperparameters with logscale
+    # plot rmse for main hyperparameters with logscale
     box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
@@ -96,11 +103,11 @@ def main(args):
     df = df.astype({'mp_steps': 'int32'})
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
-        sns.boxplot(ax=ax[i], x=name, y='mae', data=df)
-        sns.swarmplot(ax=ax[i], x=name, y='mae', data=df, color='.25')
+        sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
+        sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
         ax[i].set_xlabel(col_to_label[name], fontsize=22)
         if i == 0:
-            ax[i].set_ylabel('MAE (eV/atom)', fontsize=22)
+            ax[i].set_ylabel('RMSE (eV/atom)', fontsize=22)
         else:
             ax[i].set_ylabel('')
         ax[i].tick_params(axis='both', which='major', labelsize=14)

@@ -240,7 +240,7 @@ def main(argv):
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     plt.show()
-    """
+    
     fig, ax = plt.subplots()
     sns.boxplot(
         x='num_species',
@@ -272,7 +272,7 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
-    """
+
     plot_regression(df_test, workdir, config, '/regression_test.png', color=u'#1f77b4')
     #plot_regression(df_train, workdir, config, '/regression_train.png', color=u'#2ca02c')
     #plot_regression(df_val, workdir, config, '/regression_val.png', color=u'#ff7f0e')
@@ -281,15 +281,15 @@ def main(argv):
     col = df['dft_type']
     print(Counter(col))
 
-    #plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+    plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
 
-    #plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
+    plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
     col = df['Egap_type']
     print(Counter(col))
 
-    #plot_density(df_test, workdir, '/error_vs_density.png')
+    plot_density(df_test, workdir, '/error_vs_density.png')
 
-    #plot_ldau(df, workdir, '/error_vs_ldau.png')
+    plot_ldau(df, workdir, '/error_vs_ldau.png')
 
 
 if __name__ == "__main__":

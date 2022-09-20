@@ -36,8 +36,8 @@ def main(args):
         except OSError:
             print(f'{dirname} not a valid path, path is skipped.')
 
-    ax[0].legend()
-    ax[1].legend()
+    #ax[0].legend()
+    #ax[1].legend()
     ax[0].set_xlabel('gradient step', fontsize=12)
     ax[1].set_xlabel('gradient step', fontsize=12)
     ax[0].set_ylabel('MSE (eV)', fontsize=12)
