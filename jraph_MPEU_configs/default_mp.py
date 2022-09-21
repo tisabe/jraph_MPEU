@@ -17,6 +17,8 @@ def get_config() -> ml_collections.ConfigDict():
     # data selection parameters
     config.selection = 'fold>=0'
 
+    config.init_lr = 1e-4
+
     # MPNN hyperparameters
     config.latent_size = 256
     config.max_input_feature_size = 100
