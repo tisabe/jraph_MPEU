@@ -69,11 +69,16 @@ def main(args):
 
     dict_minima_top = {}
 
-    # print the best 10 configs
+    # print the best 5 configs
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
-    for i in range(10):
+    for i in range(5):
         print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
+
+    # print the worst 5 configs
+    df_copy = df_copy.sort_values(by='rmse', axis='index', ascending=False)
+    for i in range(5):
+        print(f'{i}. maximum rmse configuration: \n', df_copy.iloc[i])
     """
     for i in range(10):
         # get index for lowest mae
@@ -91,7 +96,7 @@ def main(args):
     """
     # drop the worst 10 configs
     for i in range(10):
-        i_max = df['mae'].idxmax()
+        i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
     # plot rmse for main hyperparameters with logscale
