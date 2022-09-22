@@ -71,6 +71,20 @@ def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
     g.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
+def plot_regression_oxides(df, workdir, config, plot_name):
+    """Plot the regression results for only oxide materials."""
+    df_copy = df.copy()  # dataframe will be modified, so copy it before
+    # filter dataframe rows for oxides
+    df_copy = df_copy[df_copy['formula'].map(lambda formula: 'Fe' in formula)]
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x=config.label_str, y='prediction', hue='split', data=df_copy, ax=ax)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.show()
+
+
 def plot_dft_type(df, workdir, plot_name):
     fig, ax = plt.subplots()
     sns.boxplot(
@@ -233,14 +247,16 @@ def main(argv):
     mean_target = df.mean(0, numeric_only=True)[config.label_str]
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
-
+    
     fig, ax = plt.subplots()
     sns.scatterplot(
         x=config.label_str, y='prediction', hue='split', data=df, ax=ax)
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     plt.show()
-    
+
+    plot_regression_oxides(df_test, workdir, config, '/regression_oxides.png')
+
     fig, ax = plt.subplots()
     sns.boxplot(
         x='num_species',
@@ -277,6 +293,7 @@ def main(argv):
     #plot_regression(df_train, workdir, config, '/regression_train.png', color=u'#2ca02c')
     #plot_regression(df_val, workdir, config, '/regression_val.png', color=u'#ff7f0e')
 
+    
     #plot_dft_type(df_test, workdir, '/dft_type_error.png')
     col = df['dft_type']
     print(Counter(col))
