@@ -16,17 +16,18 @@ def get_config() -> ml_collections.ConfigDict():
     config.init_lr = [1e-4] # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = [100_000]
-    config.decay_rate = [0.92]
+    config.decay_rate = [1.0]
 
     config.loss_type = ['MSE']
 
     # Training hyperparameters
     config.batch_size = [32]
-    config.num_train_steps_max = [2_000_000]
+    config.num_train_steps_max = [10_000_000]
     config.log_every_steps = [10_000]
     config.eval_every_steps = [50_000]
     config.early_stopping_steps = [1_000_000]
     config.checkpoint_every_steps = [500_000]
+    config.num_checkpoints = [1]
     config.restore = [False] # whether to restore from previous checkpoint
     # data split settings
     config.data_file = ['aflow/graphs_knn.db']
@@ -35,13 +36,13 @@ def get_config() -> ml_collections.ConfigDict():
     config.test_frac = [0.1] # fraction of total data used for testing
 
     # data selection parameters
-    config.selection = [None]
+    config.selection = ["dft_type=['PAW_PBE']"]
     config.limit_data = [None]
     config.num_edges_max = [None]
 
     # MPNN hyperparameters
     config.message_passing_steps = [5]
-    config.latent_size = [384]
+    config.latent_size = [128]
     config.hk_init = [None]
     config.max_input_feature_size = [100]
     config.aggregation_message_type = ['mean']

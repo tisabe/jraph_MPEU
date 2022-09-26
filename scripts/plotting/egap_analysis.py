@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
+from sklearn.metrics import RocCurveDisplay
 
 from jraph_MPEU.utils import load_config
 from jraph_MPEU.inference import get_results_df
@@ -127,22 +128,17 @@ def classify_egap(dataframe, workdir):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/egap_classify.png', bbox_inches='tight', dpi=600)
-    '''
+
     # calculate and display ROC curve
-    targets = df_test['egap_class'].to_numpy()
-    preds = df_test['egap_class_predict'].to_numpy()
-    fpr, tpr, thresholds = metrics.roc_curve(targets, preds)
-    roc_auc = metrics.auc(fpr, tpr)
-    display = metrics.RocCurveDisplay(
-        fpr=fpr, tpr=tpr, roc_auc=roc_auc,
-        estimator_name='example estimator'
-    )
+    x_test = df_test['prediction'].to_numpy().reshape(-1, 1)
+    y_test = df_test['egap_class'].to_numpy()
+    display = RocCurveDisplay.from_estimator(clf, x_test, y_test)
     fig, ax = plt.subplots()
     display.plot()
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
-    '''
+
     return df_test
 
 
