@@ -13,6 +13,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from sklearn.metrics import RocCurveDisplay
+from sklearn.metrics import roc_auc_score
 
 from jraph_MPEU.utils import load_config
 from jraph_MPEU.inference import get_results_df
@@ -139,6 +140,10 @@ def classify_egap(dataframe, workdir):
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
 
+    # print ROC-AUC score
+    auc = roc_auc_score(y_test, clf.predict_proba(x_test)[:, 1])
+    print(f"ROC-AUC score on test set: {auc}")
+
     return df_test
 
 
@@ -187,13 +192,18 @@ def main(argv):
 
     #plot_egap_hist(df)
     df_classes = classify_egap(df, workdir)
-
     df_non_metals_predicted_test = df_classes.loc[
         lambda df_temp: df_temp['egap_class_predict'] == 1
     ]
-    mean_abs_err = df_non_metals_predicted_test.mean(
-        0, numeric_only=True)['abs. error']
+    df_nm = df_non_metals_predicted_test
+    mean_abs_err = df_nm['abs. error'].mean()
     print(f'MAE on test set, predicted non_metals: {mean_abs_err}')
+
+    rmse = ((df_nm['abs. error'] ** 2).mean()) ** .5
+    print(f'RMSE on test set, predicted non_metals: {rmse}')
+
+    r2_test = 1 - (df_nm['abs. error'] ** 2).mean()/(df_nm['Egap'].std()) ** 2
+    print(f'R^2 on test set, predicted non_metals: {r2_test}')
 
 
 if __name__ == "__main__":
