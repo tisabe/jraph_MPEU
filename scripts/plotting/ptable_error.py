@@ -125,7 +125,7 @@ def main(argv):
         data={'species': species, 'counts': counts, 'maes': maes}
     )
     df_plot['element class'] = df_plot['species'].apply(get_type)
-    df_plot = df_plot.sort_values('element class', axis=0)
+    df_plot = df_plot.sort_values('element class', axis=0, ascending=False)
     print(df_plot)
     sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
 
@@ -134,9 +134,8 @@ def main(argv):
     ax.set_xlabel(
         'Number of compounds in training split containing species', fontsize=12
     )
-    ax.set_ylabel(
-        'MAE per species (formation energy per atom / eV)', fontsize=12
-    )
+    ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
+    #ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
     plt.yscale('log')
     #plt.legend([], [], frameon=False)  # remove legend if necessary
     plt.tight_layout()
