@@ -54,6 +54,8 @@ def main(args):
                 'latent_size': int(config_dict['latent_size']),
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
+                'dropout_rate': config_dict['dropout_rate'],
+                'seed': config_dict['seed'],
                 'mae': min_mae,
                 'rmse': min_rmse,
                 'min_step_mae': min_step_mae,
@@ -100,12 +102,21 @@ def main(args):
         df = df.drop([i_max])
 
     # plot rmse for main hyperparameters with logscale
-    box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
+    #box_xnames = ['latent_size', 'mp_steps', 'init_lr', 'decay_rate']
+    #box_xnames = ['seed', 'dropout_rate']
+    n_unique = df.nunique()
+    n_dropped = n_unique.drop(n_unique[n_unique < 2].index)
+    n_dropped = n_dropped.drop(
+        labels=['mae', 'rmse', 'min_step_mae', 'min_step_rmse', 'directory'])
+    print(n_dropped)
+    box_xnames = list(n_dropped.keys())
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
-        'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate'}
+        'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate',
+        'dropout_rate': 'Dropout rate', 'seed': 'Split seed'}
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
+    df = df.astype({'seed': 'int32'})
     fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
     for i, name in enumerate(box_xnames):
         sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
@@ -117,7 +128,7 @@ def main(args):
             ax[i].set_ylabel('')
         ax[i].tick_params(axis='both', which='major', labelsize=14)
         ax[i].tick_params(axis='both', which='minor', labelsize=12)
-    plt.yscale('log')
+    #plt.yscale('log')
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
