@@ -134,13 +134,27 @@ def main(argv):
     ax.set_xlabel(
         'Number of compounds in training split containing species', fontsize=12
     )
-    ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
-    #ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
+    #ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
+    ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
     plt.yscale('log')
-    #plt.legend([], [], frameon=False)  # remove legend if necessary
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/species_vs_count.png', bbox_inches='tight', dpi=600)
+
+    # make the same plot but without text to add again manually
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
+    ax.set_xlabel(
+        'Number of compounds in training split containing species', fontsize=12
+    )
+    #ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
+    ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
+    ax.legend().set_visible(False)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)
+
 
     with open(workdir + '/species_count.csv', 'w') as csv_file:
         writer = csv.writer(csv_file)

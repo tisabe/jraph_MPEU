@@ -104,7 +104,7 @@ def classify_egap(dataframe, workdir):
     )
     df_test['correct_class'] = df_test['egap_class_predict'] == df_test['egap_class']
     df_test['correct_class'] = df_test['correct_class'].apply(
-        lambda x: 'right classification' if x else 'wrong classification'
+        lambda x: 'correct classification' if x else 'incorrect classification'
     )
     matrix = metrics.confusion_matrix(df_test['egap_class'], df_test['egap_class_predict'])
     print(matrix)

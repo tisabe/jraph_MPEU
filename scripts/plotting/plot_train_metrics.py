@@ -8,6 +8,7 @@ import argparse
 import pickle
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 
 def main(args_parsed):
@@ -43,6 +44,7 @@ def main(args_parsed):
         ax[1].set_ylabel('MAE (eV/atom)', fontsize=12)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
+        ax[0].xaxis.set_major_formatter(ticker.EngFormatter())
         plt.tight_layout()
 
         plt.show()
