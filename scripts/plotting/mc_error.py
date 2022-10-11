@@ -1,5 +1,6 @@
 """This script plots and generates monte-carlo dropout inferences."""
 import os
+from collections import Counter
 
 from absl import app
 from absl import flags
@@ -42,9 +43,13 @@ def main(argv):
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
     df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
-    
+
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
+    mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
+    print(f'MAE on train set: {mean_abs_err_train}')
+
+    df_train_test = df.loc[lambda df_temp: df_temp['split'] != 'validation']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on train set: {mean_abs_err_train}')
 
@@ -60,22 +65,34 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
+    tick_size = 12
+
+    # convert split labels for dataframe with all splits
+    split_convert = {
+        'train': 'Training', 'validation': 'Validation', 'test': 'Test'}
+    df_train_test['split'] = df_train_test['split'].apply(
+        lambda x: split_convert[x])
+
     sns.set_context('paper')
     fig, ax = plt.subplots()
     sns.scatterplot(
         ax=ax,
         x='abs. error',
         y='prediction_std',
-        data=df,
+        data=df_train_test,
         hue='split'
     )
-    ax.set_xlabel('absolute error', fontsize=12)
-    ax.set_ylabel('prediction std', fontsize=12)
+    ax.set_xlabel('Absolute error', fontsize=12)
+    ax.set_ylabel('Prediction STDEV', fontsize=12)
+    ax.tick_params(which='both', labelsize=tick_size)
+    ax.legend(title='')  # disable 'split' title
     plt.xscale('log')
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/mc_error', bbox_inches='tight', dpi=600)
+    corr = df_test['abs. error'].corr(df_test['prediction_std'])
+    print(f"Correlation on test split: {corr}")
 
     fig, ax = plt.subplots()
     sns.violinplot(
@@ -83,14 +100,39 @@ def main(argv):
         x='crystal system',
         y='prediction_std',
         data=df_test,
-        inner='quart',
         linewidth=1,
+        color=u'#1f77b4',
+        #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('prediction std', fontsize=12)
+    ax.set_ylabel('Prediction STDEV', fontsize=12)
+    ax.tick_params(which='both', labelsize=tick_size, width=0)
+    ax.set_xlabel('')
+    ax.set_ylim(bottom=0, top=0.72)
+
+    col = df_train['crystal system']
+    counts = Counter(col)
+    ax.text(0.04, 0.90, counts['Triclinic'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.17, 0.90, counts['Monoclinic'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.31, 0.90, counts['Orthorhombic'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.455, 0.90, counts['Tetragonal'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.60, 0.90, counts['Trigonal'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.74, 0.90, counts['Hexagonal'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.88, 0.90, counts['Cubic'], fontsize=12, transform=ax.transAxes)
+
+    plt.xticks(rotation=60)
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/mc_crystal_system', bbox_inches='tight', dpi=600)
+    # print counts of different crystal systems
+    col = df_train['crystal system']
+    print(Counter(col))
+    print(f"Minimum std: {df_test['prediction_std'].min()}")
+
+    # convert integer dft_type to string type
+    int_to_string_type = {0: 'No correction', 2: 'DFT+U correction'}
+    df_test['ldau_type'] = df_test['ldau_type'].apply(
+        lambda x: int_to_string_type[x])
 
     fig, ax = plt.subplots()
     sns.violinplot(
@@ -98,14 +140,26 @@ def main(argv):
         x='ldau_type',
         y='prediction_std',
         data=df_test,
-        inner='quart',
         linewidth=1,
+        color=u'#1f77b4',
+        #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('prediction std', fontsize=12)
+    ax.set_ylabel('Prediction STDEV', fontsize=12)
+    ax.tick_params(which='both', labelsize=tick_size, width=0)
+    ax.set_xlabel('')
+    ax.set_ylim(bottom=0, top=0.72)
+
+    col = df_train['ldau_type']
+    counts = Counter(col)
+    ax.text(0.2, 0.90, counts[0.0], fontsize=12, transform=ax.transAxes)
+    ax.text(0.72, 0.90, counts[2.0], fontsize=12, transform=ax.transAxes)
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/mc_ldau_type', bbox_inches='tight', dpi=600)
+    # print counts of different dft types
+    col = df_train['ldau_type']
+    print(Counter(col))
 
 
 

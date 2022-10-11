@@ -126,8 +126,7 @@ def main(args):
             ax[i].set_ylabel('RMSE (eV/atom)', fontsize=22)
         else:
             ax[i].set_ylabel('')
-        ax[i].tick_params(axis='both', which='major', labelsize=14)
-        ax[i].tick_params(axis='both', which='minor', labelsize=12)
+        ax[i].tick_params(axis='both', which='both', labelsize=18)
     #plt.yscale('log')
     plt.rc('font', size=16)
     plt.tight_layout()

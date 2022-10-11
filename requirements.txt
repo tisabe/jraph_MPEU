@@ -1,6 +1,5 @@
 jax
 tensorflow  
-spektral  
 numpy  
 jraph  
 dm-haiku  
@@ -9,3 +8,4 @@ pandas
 tqdm  
 sklearn 
 ase
+ml_collections
