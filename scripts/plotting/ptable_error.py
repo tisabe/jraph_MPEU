@@ -147,9 +147,9 @@ def main(argv):
     ax.set_xlabel(
         'Number of compounds in training split containing species', fontsize=12
     )
-    #ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
-    ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
-    ax.legend().set_visible(False)
+    ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
+    #ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
+    ax.legend(title='').set_visible(True)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
