@@ -165,13 +165,18 @@ def normalize_targets(inputs, outputs, aggregation_type):
         n_atoms[i] = inputs[i].n_node[0]
 
     if aggregation_type == 'sum':
+        print("calculating scaled targets with sum")
         scaled_targets = np.array(outputs)/n_atoms
-    else:
+    elif aggregation_type == 'mean':
+        print("calculating scaled targets with mean")
         scaled_targets = outputs
+    else:
+        raise Exception(f"Unrecognized readout type: {aggregation_type}")
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
     if aggregation_type == 'sum':
+        print("returning sum normalized labels")
         return (outputs - (mean*n_atoms))/std, mean, std
     else:
         return (scaled_targets - mean)/std, mean, std

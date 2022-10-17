@@ -513,7 +513,7 @@ def get_datasets(config, workdir):
     config.max_atomic_number = num_classes
 
     labels_dict, mean, std = normalize_targets_dict(
-        graphs_dict, labels_dict, config)
+        graphs_dict, labels_dict, config.aggregation_readout_type)
     logging.info(f'Mean: {mean}, Std: {std}')
     # add the labels to graphs as globals
     #graphs_dict = add_labels_to_graphs(graphs_dict, labels_dict)

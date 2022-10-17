@@ -156,15 +156,17 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     graphs_dict = dict(enumerate(graphs))
     labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+    pooling = config.aggregation_readout_type  # abbreviation
     _, mean, std = normalize_targets_dict(
-        graphs_dict, labels_dict, config)
+        graphs_dict, labels_dict, pooling)
     graphs = list(graphs_dict.values())
     #labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(graphs, net, params, hk_state, mc_dropout)
     # scale the predictions using the std and mean
-    pooling = config.aggregation_readout_type  # abbreviation
+    print(f'using {pooling} pooling function')
+    #preds = np.array(preds)*std + mean
     preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
 
     if mc_dropout:

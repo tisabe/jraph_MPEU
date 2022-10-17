@@ -22,13 +22,16 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 
-PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
-CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
+#PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
+#CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
 ABS_ERROR_LABEL = 'MAE (eV/atom)'
 
 #PREDICT_LABEL = 'Predicted band gap (eV)'
 #CALCULATE_LABEL = 'Calculated band gap (eV)'
 #ABS_ERROR_LABEL = 'MAE (eV)'
+
+PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
 
 
 def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
@@ -200,7 +203,7 @@ def main(argv):
 
     if not os.path.exists(df_path) or FLAGS.redo:
         logging.info('Did not find csv path, generating DataFrame.')
-        df = get_results_df(workdir)
+        df = get_results_df(workdir, FLAGS.limit)
         df.head()
         print(df)
         df.to_csv(df_path, index=False)
@@ -237,7 +240,7 @@ def main(argv):
     r2_test = 1 - (df_test['abs. error'] ** 2).mean()/df_test[
             config.label_str].std()
     print(f'R^2 on test set: {r2_test}')
-
+    """
     # print rows with highest and lowest error
     row_max_err = df_test.loc[df_test['abs. error'].idxmax()]
     print(row_max_err)
@@ -247,7 +250,7 @@ def main(argv):
     mean_target = df.mean(0, numeric_only=True)[config.label_str]
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
-    
+    """
     fig, ax = plt.subplots()
     sns.scatterplot(
         x=config.label_str, y='prediction', hue='split', data=df, ax=ax)
@@ -255,7 +258,7 @@ def main(argv):
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     plt.show()
 
-    plot_regression_oxides(df_test, workdir, config, '/regression_oxides.png')
+    #plot_regression_oxides(df_test, workdir, config, '/regression_oxides.png')
 
     fig, ax = plt.subplots()
     sns.boxplot(
