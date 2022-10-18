@@ -4,16 +4,27 @@ Plot MSE and MAE. In training MSE is optimized, but MSE will be the final
 metric. Both metrics have been scaled back to the real un-normalized value,
 using the standard deviation of the labels."""
 
-import argparse
 import pickle
 
+from absl import app
+from absl import flags
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
 
+FLAGS = flags.FLAGS
+flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
+
+ABS_ERROR_LABEL = ''
+
+
 def main(args_parsed):
     """Plot training curves."""
-    folder = args_parsed.file
+    folder = FLAGS.file
 
     splits = ['train', 'validation', 'test']
     split_convert = {
@@ -36,15 +47,15 @@ def main(args_parsed):
             ax[0].plot(step, loss_mse, label=split_convert[split])
             ax[1].plot(step, loss_mae, label=split_convert[split])
 
-        ax[0].legend()
-        ax[1].set_xlabel('Gradient step', fontsize=12)
-        #ax[0].set_ylabel(r'MSE $(eV^2)$', fontsize=12)
-        ax[0].set_ylabel('RMSE (eV/atom)', fontsize=12)
-        #ax[1].set_ylabel('MAE (eV)', fontsize=12)
-        ax[1].set_ylabel('MAE (eV/atom)', fontsize=12)
+        ax[1].legend(fontsize=FLAGS.font_size-3)
+        ax[1].set_xlabel('Gradient step', fontsize=FLAGS.font_size)
+        ax[0].set_ylabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.font_size)
+        ax[1].set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.font_size)
         ax[0].set_yscale('log')
         ax[1].set_yscale('log')
         ax[0].xaxis.set_major_formatter(ticker.EngFormatter())
+        ax[0].tick_params(which='both', labelsize=FLAGS.tick_size)
+        ax[1].tick_params(which='both', labelsize=FLAGS.tick_size)
         plt.tight_layout()
 
         plt.show()
@@ -54,10 +65,4 @@ def main(args_parsed):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Show regression plot and loss curve.')
-    parser.add_argument(
-        '-f', '-F', type=str, dest='file', default='results/mp/cutoff/lowlr',
-        help='input directory name')
-    args = parser.parse_args()
-    main(args)
+    app.run(main)

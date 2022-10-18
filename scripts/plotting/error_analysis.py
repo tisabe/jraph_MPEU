@@ -21,17 +21,14 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
+flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 
-#PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
-#CALCULATE_LABEL = 'Calculated formation energy (eV/atom)'
-ABS_ERROR_LABEL = 'MAE (eV/atom)'
-
-#PREDICT_LABEL = 'Predicted band gap (eV)'
-#CALCULATE_LABEL = 'Calculated band gap (eV)'
-#ABS_ERROR_LABEL = 'MAE (eV)'
-
-PREDICT_LABEL = r'Predicted $U_0$ (eV)'
-CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+PREDICT_LABEL = ''
+CALCULATE_LABEL = ''
+ABS_ERROR_LABEL = ''
 
 
 def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
@@ -47,8 +44,9 @@ def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
     )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel(CALCULATE_LABEL, fontsize=12)
-    ax.set_ylabel(PREDICT_LABEL, fontsize=12)
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)"""
@@ -64,11 +62,15 @@ def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
         sns.histplot, discrete=(False, False), #bins=(100, 100),
     )
     g.plot_marginals(sns.histplot, element="step", color=None)
-    g.ax_marg_x.set_xlabel('Count', fontsize=12)
-    g.ax_marg_y.set_ylabel('Count', fontsize=12)
-    g.set_axis_labels(xlabel=CALCULATE_LABEL, ylabel=PREDICT_LABEL, fontsize=12)
+    g.ax_marg_x.set_xlabel('Count', fontsize=FLAGS.font_size)
+    g.ax_marg_y.set_ylabel('Count', fontsize=FLAGS.font_size)
+    g.ax_joint.tick_params(which='both', labelsize=FLAGS.tick_size)
+    g.ax_joint.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
+    g.ax_joint.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
+    #plt.xlabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
     plt.tight_layout()
     plt.show()
     g.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
@@ -99,8 +101,9 @@ def plot_dft_type(df, workdir, plot_name):
     )
     plt.legend([], [], frameon=False)
     plt.xticks(rotation=90)
-    ax.set_xlabel('AFLOW DFT type label', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('AFLOW DFT type label', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -126,8 +129,9 @@ def plot_space_groups(df, workdir, plot_name):
     plt.legend([], [], frameon=False)
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
     plt.xticks(rotation=90)
-    ax.set_xlabel('Crystal system', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('Crystal system', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -148,8 +152,9 @@ def plot_bandgap_type(df, workdir, plot_name):
     )
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
     plt.xticks(rotation=90)
-    ax.set_xlabel('AFLOW band gap-type label', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('AFLOW band gap-type label', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -166,8 +171,8 @@ def plot_density(df, workdir, plot_name):
         cbar=True, cbar_kws={'label': 'Count'},
         log_scale=True
     )
-    ax.set_xlabel(r'Density $(g/cm^3)$', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel(r'Density $(g/cm^3)$', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -183,8 +188,9 @@ def plot_ldau(df, workdir, plot_name):
         hue='split',
         ax=ax
     )
-    ax.set_xlabel('AFLOW LDAU-type label', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('AFLOW LDAU-type label', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
     plt.yscale('log')
     plt.tight_layout()
@@ -197,6 +203,22 @@ def main(argv):
     logging.set_verbosity(logging.INFO)
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
+    # set correct axis labels
+    global PREDICT_LABEL
+    global CALCULATE_LABEL
+    global ABS_ERROR_LABEL
+    if FLAGS.label == 'egap':
+        PREDICT_LABEL = r'Predicted $E_{BG}$ (eV)'
+        CALCULATE_LABEL = r'Calculated $E_{BG}$ (eV)'
+        ABS_ERROR_LABEL = 'MAE (eV)'
+    elif FLAGS.label == 'energy':
+        PREDICT_LABEL = r'Predicted $U_0$ (eV)'
+        CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
+        ABS_ERROR_LABEL = 'MAE (eV)'
+    else:
+        PREDICT_LABEL = r'Predicted $E_{F}$ (eV/atom)'
+        CALCULATE_LABEL = r'Calculated $E_{F}$ (eV/atom)'
+        ABS_ERROR_LABEL = 'MAE (eV/atom)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
     config = load_config(workdir)
@@ -269,8 +291,9 @@ def main(argv):
         ax=ax,
     )
     plt.legend([], [], frameon=False)
-    ax.set_xlabel('Number of species in compound', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('Number of species in compound', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -286,8 +309,9 @@ def main(argv):
         log_scale=(False, True),
         bins=max(df_test['num_atoms'])
     )
-    ax.set_xlabel('Number of atoms in unit cell', fontsize=12)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=12)
+    ax.set_xlabel('Number of atoms in unit cell', fontsize=FLAGS.font_size)
+    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)

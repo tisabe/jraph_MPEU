@@ -17,6 +17,10 @@ flags.DEFINE_string('file', 'results/test_dropout', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -65,8 +69,6 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
 
-    tick_size = 12
-
     # convert split labels for dataframe with all splits
     split_convert = {
         'train': 'Training', 'validation': 'Validation', 'test': 'Test'}
@@ -82,10 +84,10 @@ def main(argv):
         data=df_train_test,
         hue='split'
     )
-    ax.set_xlabel('Absolute error', fontsize=12)
-    ax.set_ylabel('Prediction STDEV', fontsize=12)
-    ax.tick_params(which='both', labelsize=tick_size)
-    ax.legend(title='')  # disable 'split' title
+    ax.set_xlabel('Absolute error', fontsize=FLAGS.font_size)
+    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
     plt.xscale('log')
     plt.yscale('log')
     plt.tight_layout()
@@ -104,20 +106,27 @@ def main(argv):
         color=u'#1f77b4',
         #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('Prediction STDEV', fontsize=12)
-    ax.tick_params(which='both', labelsize=tick_size, width=0)
+    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
     ax.set_ylim(bottom=0, top=0.72)
 
     col = df_train['crystal system']
     counts = Counter(col)
-    ax.text(0.04, 0.90, counts['Triclinic'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.17, 0.90, counts['Monoclinic'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.31, 0.90, counts['Orthorhombic'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.455, 0.90, counts['Tetragonal'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.60, 0.90, counts['Trigonal'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.74, 0.90, counts['Hexagonal'], fontsize=12, transform=ax.transAxes)
-    ax.text(0.88, 0.90, counts['Cubic'], fontsize=12, transform=ax.transAxes)
+    ax.text(0.04, 0.90, counts['Triclinic'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.17, 0.90, counts['Monoclinic'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.31, 0.90, counts['Orthorhombic'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.455, 0.90, counts['Tetragonal'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.60, 0.90, counts['Trigonal'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.74, 0.90, counts['Hexagonal'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    ax.text(0.88, 0.90, counts['Cubic'],
+        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
 
     plt.xticks(rotation=60)
     #plt.yscale('log')
@@ -144,15 +153,15 @@ def main(argv):
         color=u'#1f77b4',
         #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('Prediction STDEV', fontsize=12)
-    ax.tick_params(which='both', labelsize=tick_size, width=0)
+    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
     ax.set_ylim(bottom=0, top=0.72)
 
     col = df_train['ldau_type']
     counts = Counter(col)
-    ax.text(0.2, 0.90, counts[0.0], fontsize=12, transform=ax.transAxes)
-    ax.text(0.72, 0.90, counts[2.0], fontsize=12, transform=ax.transAxes)
+    ax.text(0.2, 0.90, counts[0.0], fontsize=FLAGS.font_size, transform=ax.transAxes)
+    ax.text(0.72, 0.90, counts[2.0], fontsize=FLAGS.font_size, transform=ax.transAxes)
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
