@@ -102,16 +102,16 @@ def main(args):
     ids = [
         'aflow:09e8e3c8f41716e4',
         'aflow:20a474bdfc8057ac',
-        #'aflow:6454e4f00b068452',
-        #'aflow:2bb55fb3d0b119fb'
+        'aflow:6454e4f00b068452',
+        'aflow:13398b3b86de2c68'
         ]
-    ids = [
+    """ids = [
         'mp-149', 'mp-165', 'mp-1',
         'mp-1105', 'mp-1265', 'mp-69',
-        'mp-10779', 'mp-126', 'mp-1840']
+        'mp-10779', 'mp-126', 'mp-1840']"""
     for id_single in ids:
-        row = ase_db.get(selection=f'mp_id={id_single}')
-        #row = ase_db.get(selection=f'auid={id_single}')
+        #row = ase_db.get(selection=f'mp_id={id_single}')
+        row = ase_db.get(selection=f'auid={id_single}')
         cutoff_type = row['cutoff_type']
         cutoff_val = row['cutoff_val']
         atoms = row.toatoms()
