@@ -19,6 +19,10 @@ from jraph_MPEU.inference import load_inference_file
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 
 #PREDICT_LABEL = 'Predicted formation energy (eV/atom)'
 PREDICT_LABEL = r'Predicted $U_0$ (eV)'
@@ -64,8 +68,9 @@ def main(argv):
     cbar.ax.tick_params(labelsize=14)
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel(CALCULATE_LABEL, fontsize=14)
-    ax.set_ylabel(PREDICT_LABEL, fontsize=14)
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/fit.png', bbox_inches='tight', dpi=600)

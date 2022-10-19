@@ -8,7 +8,6 @@ from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -31,27 +30,8 @@ CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
 
 
-def plot_regression(df, workdir, config, plot_name, color=u'#1f77b4'):
-    """fig, ax = plt.subplots()
-    sns.histplot(
-        x=config.label_str,  # plot prediction vs label
-        y='prediction',
-        data=df,
-        #hue='split',
-        cbar=True, cbar_kws={'label': 'Count'},
-        ax=ax,
-        color=color
-    )
-    x_ref = np.linspace(*ax.get_xlim())
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
-    ax.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)"""
-    #rcParams['figure.figsize'] = 6, 6
-    #sns.set(rc={'figure.figsize':(20, 6)})
+def plot_regression(df, workdir, config, plot_name):
+    """Plot the regression using joint plot with marginal histograms."""
     g = sns.JointGrid(
         data=df, x=config.label_str, y='prediction', marginal_ticks=False,
         height=5,
@@ -87,7 +67,9 @@ def plot_regression_oxides(df, workdir, config, plot_name):
         x=config.label_str, y='prediction', hue='split', data=df_copy, ax=ax)
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def plot_dft_type(df, workdir, plot_name):
@@ -260,7 +242,7 @@ def main(argv):
     rmse_test = (df_test['abs. error'] ** 2).mean() ** .5
     print(f'RMSE on test set: {rmse_test}')
     r2_test = 1 - (df_test['abs. error'] ** 2).mean()/df_test[
-            config.label_str].std()
+        config.label_str].std()
     print(f'R^2 on test set: {r2_test}')
     """
     # print rows with highest and lowest error
@@ -274,11 +256,17 @@ def main(argv):
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
     """
     fig, ax = plt.subplots()
-    sns.scatterplot(
-        x=config.label_str, y='prediction', hue='split', data=df, ax=ax)
+    sns.histplot(
+        x=config.label_str, y='prediction', data=df_test, ax=ax,
+        cbar=True, cbar_kws={'label': 'Count'}, bins=(100, 100))
     x_ref = np.linspace(*ax.get_xlim())
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
     plt.show()
+    fig.savefig(workdir+'/hist_simple.png', bbox_inches='tight', dpi=600)
 
     #plot_regression_oxides(df_test, workdir, config, '/regression_oxides.png')
 
@@ -316,9 +304,9 @@ def main(argv):
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
 
-    plot_regression(df_test, workdir, config, '/regression_test.png', color=u'#1f77b4')
-    #plot_regression(df_train, workdir, config, '/regression_train.png', color=u'#2ca02c')
-    #plot_regression(df_val, workdir, config, '/regression_val.png', color=u'#ff7f0e')
+    plot_regression(df_test, workdir, config, '/regression_test.png')
+    #plot_regression(df_train, workdir, config, '/regression_train.png')
+    #plot_regression(df_val, workdir, config, '/regression_val.png')
 
     
     #plot_dft_type(df_test, workdir, '/dft_type_error.png')
