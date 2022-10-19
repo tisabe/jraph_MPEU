@@ -21,6 +21,8 @@ from jraph_MPEU.inference import get_results_df
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 
 
 def plot_egap_hist(dataframe: pd.DataFrame, workdir):
@@ -122,10 +124,11 @@ def classify_egap(dataframe, workdir):
     )
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel(r'Target E$_{BG}$ (eV)', fontsize=12)
-    ax.set_ylabel(r'Predicted E$_{BG}$ (eV)', fontsize=12)
+    ax.set_xlabel(r'Target E$_{BG}$ (eV)', fontsize=FLAGS.font_size)
+    ax.set_ylabel(r'Predicted E$_{BG}$ (eV)', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.set_box_aspect(1)
-    ax.legend(title='')
+    ax.legend(title='', fontsize=FLAGS.font_size-5)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/egap_classify.png', bbox_inches='tight', dpi=600)
@@ -137,8 +140,9 @@ def classify_egap(dataframe, workdir):
     display = RocCurveDisplay.from_estimator(clf, x_test, y_test, ax=ax)
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax.set_xlabel('False positive rate', fontsize=12)
-    ax.set_ylabel('True positive rate', fontsize=12)
+    ax.set_xlabel('False positive rate', fontsize=FLAGS.font_size)
+    ax.set_ylabel('True positive rate', fontsize=FLAGS.font_size)
+    ax.legend(title='', fontsize=FLAGS.font_size-5)
     ax.set_box_aspect(1)
     plt.tight_layout()
     plt.show()

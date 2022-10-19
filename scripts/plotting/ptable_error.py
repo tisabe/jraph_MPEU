@@ -21,6 +21,13 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
+flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
+flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+
+X_LABEL = ''
+Y_LABEL = ''
 
 # define the element types from the periodic table
 element_types = {
@@ -55,6 +62,16 @@ def main(argv):
     logging.set_verbosity(logging.INFO)
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
+    # set correct axis labels
+    global X_LABEL
+    global Y_LABEL
+    X_LABEL = '# compounds in training split with species'
+    if FLAGS.label == 'egap':
+        Y_LABEL = r'MAE per species ($E_{BG}$/eV)'
+    elif FLAGS.label == 'energy':
+        Y_LABEL = r'Calculated $U_0$ (eV)'
+    else:
+        Y_LABEL = r'MAE per species ($E_{F}$ per atom/eV)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
     config = load_config(workdir)
@@ -131,11 +148,9 @@ def main(argv):
 
     for txt, x, y in zip(keys_intersect, counts, maes):
         ax.annotate(txt, (x, y))
-    ax.set_xlabel(
-        'Number of compounds in training split containing species', fontsize=12
-    )
-    #ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
-    ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
+    ax.set_xlabel(X_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel(Y_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -144,11 +159,9 @@ def main(argv):
     # make the same plot but without text to add again manually
     fig, ax = plt.subplots()
     sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
-    ax.set_xlabel(
-        'Number of compounds in training split containing species', fontsize=12
-    )
-    ax.set_ylabel('MAE per species (formation energy per atom / eV)', fontsize=12)
-    #ax.set_ylabel(r'MAE per species (E$_{BG}$ / eV)', fontsize=12)
+    ax.set_xlabel(X_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel(Y_LABEL, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.legend(title='').set_visible(True)
     plt.yscale('log')
     plt.tight_layout()
