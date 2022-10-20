@@ -25,6 +25,37 @@ flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 
 
+def plot_space_groups(df, workdir, plot_name):
+    # group the spacegoups into crystal systems
+    #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
+    bins = [0, 2, 15, 74, 142, 167, 194, 230]
+    labels = [
+        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
+        'Trigonal', 'Hexagonal', 'Cubic']
+    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    fig, ax = plt.subplots()
+    sns.boxplot(
+        x='crystal system', # plot error vs space group
+        y='abs. error',
+        data=df,
+        hue='split',
+        ax=ax
+    )
+    plt.legend([], [], frameon=False)
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.xticks(rotation=90)
+    ax.set_xlabel('Crystal system', fontsize=FLAGS.font_size)
+    ax.set_ylabel('MAE (eV)', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+    col = df['crystal system']
+    print(Counter(col))
+
+
 def plot_egap_hist(dataframe: pd.DataFrame, workdir):
     egaps = dataframe['Egap']
     egaps = egaps[egaps > 0]  # filter metals, to make log hist possible
@@ -212,6 +243,8 @@ def main(argv):
 
     r2_test = 1 - (df_nm['abs. error'] ** 2).mean()/(df_nm['Egap'].std()) ** 2
     print(f'R^2 on test set, predicted non_metals: {r2_test}')
+
+    plot_space_groups(df_nm, workdir, '/error_vs_crystal_non_metals.png')
 
 
 if __name__ == "__main__":
