@@ -15,11 +15,11 @@ from asedb_to_graphs import (
 
 
 def str_to_array(str_array):
-    '''Return a numpy array converted from a single string, representing an array.'''
+    """Return a numpy array converted from a single string, representing an array."""
     return np.array(literal_eval(str_array))
 
 def dict_to_ase(aflow_dict):
-    '''Return ASE atoms object from a pandas dict, produced by AFLOW json response.'''
+    """Return ASE atoms object from a pandas dict, produced by AFLOW json response."""
     cell = str_to_array(aflow_dict['geometry_orig'])
     positions = str_to_array(aflow_dict['positions_fractional'])
     symbols = aflow_dict['compound']
@@ -33,8 +33,10 @@ def dict_to_ase(aflow_dict):
 
 
 def main(args):
-    """Load aflow data from csv file into ase database with graph features,
-    i.e. edges and adjacency list."""
+    """Load aflow data from csv file into ase database with graph features.
+    
+    We add edges and adjacency list.
+    """
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
     aflow_df = pandas.read_csv(args.file_in, index_col=0)
     with ase.db.connect(args.file_out, append=False) as db_out:
@@ -73,11 +75,11 @@ def main(args):
             # save in new database
             db_out.write(atoms, key_value_pairs=prop_dict, data=data)
 
-            if i<3:
+            if i < 3:
                 print(prop_dict)
                 print(atoms)
                 view(atoms)
-            if i%1000 == 0:
+            if i % 1000 == 0:
                 print(f'Step {i}')
     return 0
 
