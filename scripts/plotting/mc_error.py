@@ -84,8 +84,8 @@ def main(argv):
         data=df_train_test,
         hue='split'
     )
-    ax.set_xlabel('Absolute error', fontsize=FLAGS.font_size)
-    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.set_xlabel(f'Absolute error ({FLAGS.unit})', fontsize=FLAGS.font_size)
+    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
     plt.xscale('log')
@@ -106,7 +106,7 @@ def main(argv):
         color=u'#1f77b4',
         #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
     ax.set_ylim(bottom=0, top=0.72)
@@ -114,19 +114,19 @@ def main(argv):
     col = df_train['crystal system']
     counts = Counter(col)
     ax.text(0.04, 0.90, counts['Triclinic'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.17, 0.90, counts['Monoclinic'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.31, 0.90, counts['Orthorhombic'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.455, 0.90, counts['Tetragonal'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.60, 0.90, counts['Trigonal'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.74, 0.90, counts['Hexagonal'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
     ax.text(0.88, 0.90, counts['Cubic'],
-        fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
 
     plt.xticks(rotation=60)
     #plt.yscale('log')
@@ -153,7 +153,7 @@ def main(argv):
         color=u'#1f77b4',
         #cut=0,  # limit the violins to data range
     )
-    ax.set_ylabel('Prediction STDEV', fontsize=FLAGS.font_size)
+    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
     ax.set_ylim(bottom=0, top=0.72)
