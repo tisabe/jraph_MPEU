@@ -36,7 +36,7 @@ def main(args):
     num_nodes = []
     num_edges = []
     atomic_numbers_all = np.array([])
-    #edges_all = np.array([]) # collect all edge distances for histogram
+    edges_all = np.array([]) # collect all edge distances for histogram
     key_val_list = [] # list of key-value-pairs
 
     with ase.db.connect(file) as asedb:
@@ -54,7 +54,15 @@ def main(args):
             #receivers = data['receivers']
             edges = data['edges']
             num_edges.append(len(edges))
-            #edges_all = np.concatenate((edges_all, np.array(edges)))
+            edges_all = np.concatenate((edges_all, np.array(edges)))
+
+    fig, ax = plt.subplots()
+    ax.hist(edges_all, bins=100, log=True)
+    ax.set_xlabel('distance (Ang)', fontsize=12)
+    ax.set_ylabel('Number of edges', fontsize=12)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(folder+'/dist_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
     ax.hist(atomic_numbers_all, bins=int(max(atomic_numbers_all))+1, log=True)
