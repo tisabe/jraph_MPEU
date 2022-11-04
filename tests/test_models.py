@@ -221,6 +221,12 @@ class TestModelFunctions(unittest.TestCase):
         np.testing.assert_array_equal(edge_updated, graph_pred.edges['edges'])
         self.assertEqual(prediction_expected, prediction)
 
+    def test_output_size(self):
+        """Test that the output dimensions of the GNN function are as intended.
+        The output shape should be:
+        [batch_size, 1] for single regression.
+        TODO: [batch_size, 2] for binary classification."""
+        self.assertTrue(False)
 
     def test_edge_update_fn(self):
         """Test the expected edge and message feature vector in the edge update.
