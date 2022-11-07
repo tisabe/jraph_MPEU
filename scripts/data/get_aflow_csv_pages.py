@@ -9,17 +9,19 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/?"
 MATCHBOOK = (
-    'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
+    'Egap(*),'#'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
     #'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
     #'energy_atom(*),density(*),'#volume_cell(*),'
-    'geometry_orig,positions_cartesian,compound' # geometry parameters needed for unit cell
+    'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
     )
 print("URL:", SERVER+API+MATCHBOOK)
+
+df_all = pandas.DataFrame({})
 
 i = 1
 while i < 50:
     print("Page: " + str(i))
-    DIRECTIVES = f'$paging({int(i)},100000)'
+    DIRECTIVES = f'$paging({int(i)},10000)'
     summons = MATCHBOOK+","+DIRECTIVES
 
     response = urlopen(SERVER+API+summons)
@@ -32,8 +34,11 @@ while i < 50:
     if df.empty:
         break
     else:
+        df_all = df_all.append(df, ignore_index=True)
         i += 1
 
-"""if input("Save the dataset? [y/n]") == "y":
+print(df_all.head())
+print(df_all.describe())
+if input("Save the dataset? [y/n]") == "y":
     df.to_csv(
-        (input('Type directory and filename as "dir/filename.csv": ')))"""
+        (input('Type directory and filename as "dir/filename.csv": ')))
