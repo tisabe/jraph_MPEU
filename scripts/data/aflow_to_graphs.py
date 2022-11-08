@@ -20,7 +20,7 @@ def str_to_array(str_array):
 
 def dict_to_ase(aflow_dict):
     """Return ASE atoms object from a pandas dict, produced by AFLOW json response."""
-    cell = str_to_array(aflow_dict['geometry_orig'])
+    cell = str_to_array(aflow_dict['geometry'])
     positions = str_to_array(aflow_dict['positions_fractional'])
     symbols = aflow_dict['compound']
     structure = Atoms(
@@ -34,7 +34,7 @@ def dict_to_ase(aflow_dict):
 
 def main(args):
     """Load aflow data from csv file into ase database with graph features.
-    
+
     We add edges and adjacency list.
     """
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
@@ -43,7 +43,7 @@ def main(args):
         for i, row in aflow_df.iterrows():
             atoms = dict_to_ase(row)  # get the atoms object from each row
             row = row.to_dict()
-            row.pop('geometry_orig', None)
+            row.pop('geometry', None)
             row.pop('positions_fractional', None)
             row.pop('compound', None)
 

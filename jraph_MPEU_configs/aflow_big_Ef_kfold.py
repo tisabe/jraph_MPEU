@@ -30,7 +30,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_checkpoints = [1]
     config.restore = [False] # whether to restore from previous checkpoint
     # data split settings
-    config.data_file = ['aflow/graphs_knn.db']
+    config.data_file = ['aflow/graphs_knn_fix.db']
     config.label_str = ['enthalpy_formation_atom']
     config.val_frac = [0.1] # fraction of total data used for validation
     config.test_frac = [0.1] # fraction of total data used for testing
