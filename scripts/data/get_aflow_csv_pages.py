@@ -21,7 +21,7 @@ df_all = pandas.DataFrame({})
 i = 1
 while i < 50:
     print("Page: " + str(i))
-    DIRECTIVES = f'$paging({int(i)},10000)'
+    DIRECTIVES = f'$paging({int(i)},100000)'
     summons = MATCHBOOK+","+DIRECTIVES
 
     response = urlopen(SERVER+API+summons)
