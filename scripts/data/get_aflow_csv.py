@@ -9,8 +9,9 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'enthalpy_formation_atom(-20.0000*,*0.0000),'#Egap(*),Egap_type(*),'
-    'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
+    'Egap(*),Egap_type(metal),'
+    #'Egap(*),Egap_type(!metal),'
+    'dft_type(*),ldau_type(*),energy_cutoff(*),'
     'energy_atom(*),density(*),'#volume_cell(*),'
     'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
     )
