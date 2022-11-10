@@ -471,6 +471,14 @@ def load_split_dict(workdir):
     return {int(k): v for k, v in splits_dict.items()}
 
 
+def cut_egap(egap: float, threshold: float = 0.0):
+    """Turn egap into metal or non-metal class by applying threshold."""
+    if egap > threshold:
+        return 1
+    else:
+        return 0
+
+
 def get_datasets(config, workdir):
     """New version of dataset getter."""
     # TODO: put in real docstring.
@@ -526,11 +534,16 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    labels_dict, mean, std = normalize_targets_dict(
-        graphs_dict, labels_dict, config.aggregation_readout_type)
-    logging.info(f'Mean: {mean}, Std: {std}')
-    # add the labels to graphs as globals
-    #graphs_dict = add_labels_to_graphs(graphs_dict, labels_dict)
+    # convert labels depending on which type is set in config
+    if config.label_type == 'scalar':
+        labels_dict, mean, std = normalize_targets_dict(
+            graphs_dict, labels_dict, config.aggregation_readout_type)
+        logging.info(f'Mean: {mean}, Std: {std}')
+    elif config.label_type == 'class':
+        labels_dict = {key: cut_egap(value, config.egap_cutoff) \
+            for key, value in labels_dict.items()}
+        mean = None
+        std = None
 
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
         graphs_dict[id_single] = graph._replace(globals=np.array([label]))
