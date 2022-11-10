@@ -320,6 +320,20 @@ def get_atom_num_list(graphs_dict):
     return num_list
 
 
+def label_list_to_class_dict(label_list):
+    """Return class dict, i.e. which class corresponds to which integer.
+    example: label_list = ['metal', 'metal', 'non-metal'],
+    then class_dict = {'metal': 0, 'non-metal': 1}
+    """
+    unique_labels = sorted(set(label_list))  # ensure reproducibility by sorted
+    return {key: value for (value, key) in enumerate(unique_labels)}
+
+
+def label_list_to_int_class_list(label_list, class_dict):
+    """Convert string or numerical classes to integers using class_dict."""
+    return [class_dict[label] for label in label_list]
+
+
 class DataReader:
     """Data reader class.
 

@@ -20,12 +20,25 @@ from jraph_MPEU.input_pipeline import (
     save_split_dict,
     load_split_dict,
     get_datasets,
-    get_atom_num_list
+    get_atom_num_list,
+    label_list_to_class_dict,
+    label_list_to_int_class_list
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def test_class_conversion(self):
+        """Test converting label list with string classes to int classes."""
+        label_list = ['A', 'A', 'B', 'A', 'C', 'C', 'B']
+        class_dict_expected = {'A': 0, 'B': 1, 'C': 2}
+        class_dict = label_list_to_class_dict(label_list)
+        self.assertTrue(class_dict_expected == class_dict)
+
+        class_list_expected = [0, 0, 1, 0, 2, 2, 1]
+        class_list = label_list_to_int_class_list(label_list, class_dict)
+        self.assertTrue(class_list_expected == class_list)
+
     def test_get_datasets(self):
         """Test new version of get_datasets.
 
@@ -40,6 +53,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed = 42
+        config.aggregation_readout_type = 'mean'
         num_rows = 20  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
@@ -166,7 +180,7 @@ class TestPipelineFunctions(unittest.TestCase):
         db_names = [
             'matproj/mp_graphs.db',
             'matproj/mp_graphs_knn.db',
-            'aflow/graphs_cutoff_6A.db',
+            'aflow/graphs_knn_fix.db',
             'QM9/qm9_graphs.db'
         ]
         for db_name in db_names:
