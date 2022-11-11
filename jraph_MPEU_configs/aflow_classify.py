@@ -43,8 +43,8 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
 
     # MPNN hyperparameters
-    config.message_passing_steps = 3
-    config.latent_size = 128
+    config.message_passing_steps = 5
+    config.latent_size = 256
     config.hk_init = None
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'mean'
