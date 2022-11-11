@@ -57,6 +57,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.max_atomic_number = 5
         self.config.extra_mlp = False
         self.config.dropout_rate = 0.0
+        self.config.label_type = 'scalar'
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.

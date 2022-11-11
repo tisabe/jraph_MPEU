@@ -408,6 +408,45 @@ def create_optimizer(
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 
+def loss_fn_mse(params, state, rng, graphs, net_apply):
+    """Mean squared error loss function for regression."""
+    labels = graphs.globals
+    graphs = replace_globals(graphs)
+
+    mask = get_valid_mask(graphs)
+    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    predictions = pred_graphs.globals
+    labels = jnp.expand_dims(labels, 1)
+    sq_diff = jnp.square((predictions - labels)*mask)
+
+    loss = jnp.sum(sq_diff)
+    mean_loss = loss / jnp.sum(mask)
+    absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
+    mae = absolute_error /jnp.sum(mask)
+
+    return mean_loss, (mae, new_state)
+
+
+def loss_fn_bce(params, state, rng, graphs, net_apply):
+    """Binary cross entropy loss function for classification."""
+    labels = graphs.globals
+    graphs = replace_globals(graphs)
+    targets = jax.nn.one_hot(labels, 2)
+
+    # try get_valid_mask function instead
+    mask = jraph.get_graph_padding_mask(graphs)
+    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    # compute class probabilities
+    preds = jax.nn.log_softmax(pred_graphs.globals)
+    # Cross entropy loss, note: we average only over valid (unmasked) graphs
+    loss = -jnp.sum(preds * targets * mask[:, None])/jnp.sum(mask)
+
+    # Accuracy taking into account the mask.
+    accuracy = jnp.sum(
+        (jnp.argmax(pred_graphs.globals, axis=1) == labels) * mask)/jnp.sum(mask)
+    return loss, (accuracy, new_state)
+
+
 def init_state(
         config: ml_collections.ConfigDict,
         init_graphs: jraph.GraphsTuple,
@@ -431,42 +470,13 @@ def init_state(
     # Create the optimizer
     optimizer = create_optimizer(config)
 
+    # determine which loss function to use
     if config.label_type == 'scalar':
-        def loss_fn(params, state, rng, graphs, net_apply):
-            labels = graphs.globals
-            graphs = replace_globals(graphs)
-
-            mask = get_valid_mask(graphs)
-            pred_graphs, new_state = net_apply(params, state, rng, graphs)
-            predictions = pred_graphs.globals
-            labels = jnp.expand_dims(labels, 1)
-            sq_diff = jnp.square((predictions - labels)*mask)
-
-            loss = jnp.sum(sq_diff)
-            mean_loss = loss / jnp.sum(mask)
-            absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
-            mae = absolute_error /jnp.sum(mask)
-
-            return mean_loss, (mae, new_state)
+        loss_fn = loss_fn_mse
+        metric_names = 'RMSE/MAE'
     else:
-        def loss_fn(params, state, rng, graphs, net_apply):
-            labels = graphs.globals
-            graphs = replace_globals(graphs)
-            targets = jax.nn.one_hot(labels, 2)
-
-            # try get_valid_mask function instead
-            mask = jraph.get_graph_padding_mask(graphs)
-            pred_graphs, new_state = net_apply(params, state, rng, graphs)
-            # compute class probabilities
-            preds = jax.nn.log_softmax(pred_graphs.globals)
-
-            # Cross entropy loss
-            loss = -jnp.mean(preds * targets * mask[:, None])
-
-            # Accuracy taking into account the mask.
-            accuracy = jnp.sum(
-                (jnp.argmax(pred_graphs.globals, axis=1) == labels) * mask)/jnp.sum(mask)
-            return loss, (accuracy, new_state)
+        loss_fn = loss_fn_bce
+        metric_names = 'BCE/Acc.'
 
     updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
@@ -474,10 +484,6 @@ def init_state(
         config.checkpoint_every_steps,
         config.num_checkpoints)
 
-    if config.label_type == 'scalar':
-        metric_names = 'RMSE/MAE'
-    else:
-        metric_names = 'BCE/Acc.'
     evaluater = Evaluater(
         net_eval, loss_fn,
         os.path.join(workdir, 'checkpoints'),

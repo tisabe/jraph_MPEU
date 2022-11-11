@@ -116,6 +116,31 @@ class TestPipelineFunctions(unittest.TestCase):
                 for node, node_old in zip(nodes, nodes_old):
                     np.testing.assert_array_equal(node, node_old)
 
+    def test_get_datasets_class(self):
+        """Test get_dataset function using classification label."""
+        config = ml_collections.ConfigDict()
+        config.train_frac = 0.5
+        config.val_frac = 0.3
+        config.test_frac = 0.2
+        config.label_str = 'Egap'
+        config.egap_cutoff = 0.0
+        config.selection = None
+        config.limit_data = 10000
+        config.num_edges_max = None
+        config.seed = 42
+        config.aggregation_readout_type = 'mean'
+        config.label_type = 'class'
+        config.data_file = 'aflow/graphs_knn_fix.db'
+
+        with tempfile.TemporaryDirectory() as workdir:
+            graphs_split, mean, std = get_datasets(config, workdir)
+            globals_list = []
+            for graph in graphs_split['train']:
+                globals_list.append(graph.globals[0])
+            # check that there are only zeros and ones in the list
+            self.assertTrue(sorted(set(globals_list)) == [0, 1])
+            # TODO: check that threshold is evaluated correctly
+
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving
         and loading a split dict in a temporary file."""
