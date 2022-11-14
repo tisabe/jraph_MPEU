@@ -57,7 +57,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_atomic_number = 5
     # Regularization parameters
     config.extra_mlp = True
-    config.dropout_rate = 0.0
+    config.dropout_rate = 0.2
 
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
