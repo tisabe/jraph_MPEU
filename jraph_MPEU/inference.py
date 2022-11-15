@@ -5,6 +5,8 @@ import pickle
 import json
 
 import jax
+import jax.numpy as jnp
+import jraph
 import numpy as np
 from absl import logging
 import ase.db
@@ -20,7 +22,7 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, mc_dropout=False):
+def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False):
     """Get predictions for a single dataset split.
 
     Args:
@@ -29,6 +31,8 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False):
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
         hk_state: haiku state for batch norm in apply function
+        label_type: if the predictions are scalars for regression (value: 
+            'scalar') or logits for classification (value: 'class')
         mc_dropout: whether to use monte-carlo dropout to estimate the
             uncertainty of the model. If true, preds gets and extra dimension
             for the extra sampling of each graph
@@ -42,10 +46,9 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False):
 
     @jax.jit
     def predict_batch(graphs, rng, hk_state):
-        mask = get_valid_mask(graphs)
         pred_graphs, _ = net.apply(params, hk_state, rng, graphs)
         predictions = pred_graphs.globals
-        return predictions, mask
+        return predictions
     preds = []
     for _ in range(n_samples):
         reader = DataReader(
@@ -53,7 +56,19 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False):
         preds_sample = np.array([])
         for graph in reader:
             key, subkey = jax.random.split(key)
-            preds_batch, mask = predict_batch(graph, subkey, hk_state)
+
+            mask = get_valid_mask(graph)
+            preds_batch = predict_batch(graph, subkey, hk_state)
+            if label_type == 'class':
+                # turn logits into probabilities by applying softmax function
+                #print('Converted array: ', jnp.array(preds_batch))
+                preds_batch = jax.nn.softmax(jnp.array(preds_batch), axis=1)
+                # get only one probability p, the other one is just 1-p
+                # this corresponds to the predicted probability of being in the
+                # zeroth class
+                preds_batch = preds_batch[:, 0]
+                preds_batch = jnp.expand_dims(preds_batch, 1)
+
             # get only the valid, unmasked predictions
             preds_valid = preds_batch[mask]
             preds_sample = np.concatenate([preds_sample, preds_valid], axis=0)
@@ -70,6 +85,7 @@ def load_inference_file(workdir, redo=False):
     If there is no file with inferences in workdir or 'redo' is true, the model
     is loaded and inferences are calculated.
     """
+    config = load_config(workdir)
     inference_dict = {}
     path = workdir + '/inferences.pkl'
     if not os.path.exists(path) or redo:
@@ -84,7 +100,8 @@ def load_inference_file(workdir, redo=False):
         for split in splits:
             data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
-            preds = get_predictions(data_list, net, params, hk_state)
+            preds = get_predictions(
+                data_list, net, params, hk_state, config.label_type)
             targets = [graph.globals[0] for graph in data_list]
             # scale the predictions and targets using the std
             preds = np.array(preds)*float(std) + mean
@@ -163,11 +180,13 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     #labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
-    preds = get_predictions(graphs, net, params, hk_state, mc_dropout)
-    # scale the predictions using the std and mean
-    print(f'using {pooling} pooling function')
-    #preds = np.array(preds)*std + mean
-    preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
+    preds = get_predictions(
+        graphs, net, params, hk_state, config.label_type, mc_dropout)
+    if config.label_type == 'scalar':
+        # scale the predictions using the std and mean
+        print(f'using {pooling} pooling function')
+        #preds = np.array(preds)*std + mean
+        preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
 
     if mc_dropout:
         preds = np.transpose(np.array(preds))
