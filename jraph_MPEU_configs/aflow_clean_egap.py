@@ -8,12 +8,13 @@ def get_config() -> ml_collections.ConfigDict():
     Returns a ml_collections.ConfigDict() object."""
     config = get_config_super() # inherit from default mp config
 
-    config.data_file = 'aflow/graphs_knn.db'
+    config.data_file = 'aflow/graphs_knn_fix.db'
     config.selection = None
     #config.label_str = 'enthalpy_formation_atom'
     config.label_str = 'Egap'
     config.init_lr = 1e-4
     # remove outliers in formation enthalpy and other dft types
-    config.selection = "dft_type=['PAW_PBE']"
+    #config.selection = "dft_type=['PAW_PBE']"
+    config.selection = None
 
     return config
