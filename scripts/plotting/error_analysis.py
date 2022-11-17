@@ -94,12 +94,15 @@ def plot_dft_type(df, workdir, plot_name):
 
 def plot_space_groups(df, workdir, plot_name):
     # group the spacegoups into crystal systems
-    #df['spacegroup_relax'] = df['spacegroup_relax'].astype('category')
     bins = [0, 2, 15, 74, 142, 167, 194, 230]
     labels = [
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
     df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+
+    col = df['crystal system']
+    print(Counter(col))
+
     fig, ax = plt.subplots()
     sns.boxplot(
         x='crystal system', # plot error vs space group
@@ -119,11 +122,11 @@ def plot_space_groups(df, workdir, plot_name):
     plt.show()
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
-    col = df['crystal system']
-    print(Counter(col))
-
 
 def plot_bandgap_type(df, workdir, plot_name):
+    col = df['Egap_type']
+    print(Counter(col))
+
     fig, ax = plt.subplots()
     sns.boxplot(
         x='Egap_type', # plot error vs bandgap type
@@ -162,6 +165,9 @@ def plot_density(df, workdir, plot_name):
 
 
 def plot_ldau(df, workdir, plot_name):
+    col = df['ldau_type']
+    print(Counter(col))
+
     fig, ax = plt.subplots()
     sns.boxplot(
         x='ldau_type', # plot error vs ldau type
@@ -308,17 +314,10 @@ def main(argv):
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
 
-    
-    #plot_dft_type(df_test, workdir, '/dft_type_error.png')
-    col = df['dft_type']
-    print(Counter(col))
-
     plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
 
     plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
-    col = df['Egap_type']
-    print(Counter(col))
-
+    
     plot_density(df_test, workdir, '/error_vs_density.png')
 
     plot_ldau(df, workdir, '/error_vs_ldau.png')
