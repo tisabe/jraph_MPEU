@@ -15,6 +15,7 @@ import seaborn as sns
 
 from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
+from jraph_MPEU.input_pipeline import cut_egap
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
@@ -25,9 +26,6 @@ flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
-
-X_LABEL = ''
-Y_LABEL = ''
 
 # define the element types from the periodic table
 element_types = {
@@ -62,19 +60,22 @@ def main(argv):
     logging.set_verbosity(logging.INFO)
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
-    # set correct axis labels
-    global X_LABEL
-    global Y_LABEL
-    X_LABEL = '# compounds in training split with species'
-    if FLAGS.label == 'egap':
-        Y_LABEL = r'MAE per species ($E_{BG}$/eV)'
-    elif FLAGS.label == 'energy':
-        Y_LABEL = r'Calculated $U_0$ (eV)'
-    else:
-        Y_LABEL = r'MAE per species ($E_{F}$ per atom/eV)'
+
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
     config = load_config(workdir)
+
+    # set correct axis labels
+    x_label = '# compounds in training split with species'
+    if config.label_type == 'scalar':
+        if FLAGS.label == 'egap':
+            y_label = r'MAE per species ($E_{BG}$/eV)'
+        elif FLAGS.label == 'energy':
+            y_label = r'Calculated $U_0$ (eV)'
+        else:
+            y_label = r'MAE per species ($E_{F}$ per atom/eV)'
+    else:
+        y_label = 'Accuracy per species'
 
     if not os.path.exists(df_path) or FLAGS.redo:
         logging.info('Did not find csv path, generating DataFrame.')
@@ -87,7 +88,17 @@ def main(argv):
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
 
-    df['abs. error'] = abs(df['prediction'] - df[config.label_str])
+    if config.label_type == 'scalar':
+        df['abs. error'] = abs(df['prediction'] - df[config.label_str])
+    else:
+        df['class_true'] = df['Egap'].apply(cut_egap) #  1 is insulator, 0 is metal
+        df['p_insulator'] = 1 - df['prediction']
+        # calculate the class prediction by applying a threshold. Because of the
+        # softmax outputs probability, the threshold is exactly 1/2
+        df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
+        df['class_correct'] = df['class_true'] == df['class_pred']
+        # make column with accuracy. TODO: explain better
+        df['abs. error'] = 1 * df['class_correct']
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     df = df.loc[lambda df_temp: df_temp['split'] == 'test']
 
@@ -143,13 +154,12 @@ def main(argv):
     )
     df_plot['element class'] = df_plot['species'].apply(get_type)
     df_plot = df_plot.sort_values('element class', axis=0, ascending=False)
-    print(df_plot)
     sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
 
-    for txt, x, y in zip(keys_intersect, counts, maes):
-        ax.annotate(txt, (x, y))
-    ax.set_xlabel(X_LABEL, fontsize=FLAGS.font_size)
-    ax.set_ylabel(Y_LABEL, fontsize=FLAGS.font_size)
+    for txt, count, mae in zip(keys_intersect, counts, maes):
+        ax.annotate(txt, (count, mae))
+    ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
+    ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
     plt.tight_layout()
@@ -159,8 +169,8 @@ def main(argv):
     # make the same plot but without text to add again manually
     fig, ax = plt.subplots()
     sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
-    ax.set_xlabel(X_LABEL, fontsize=FLAGS.font_size)
-    ax.set_ylabel(Y_LABEL, fontsize=FLAGS.font_size)
+    ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
+    ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.legend(title='').set_visible(True)
     plt.yscale('log')
