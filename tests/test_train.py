@@ -10,6 +10,8 @@ import unittest
 import numpy as np
 import jax
 from absl import logging
+import jax.numpy as jnp
+import jraph
 
 from jraph_MPEU import train
 from jraph_MPEU.input_pipeline import get_datasets
@@ -27,6 +29,57 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             datasets, _, _ = get_datasets(self.config, test_dir)
             self.datasets = datasets
+
+    def test_cross_entropy(self):
+        """Test the binary cross entropy loss function."""
+        # create a dummy graph batch
+        n_node = jnp.array([1, 1, 1, 1, 1, 1])
+        n_edge = jnp.array([1, 1, 1, 1, 1, 1])
+
+        graphs = jraph.GraphsTuple(
+            nodes=None,
+            edges=None,
+            n_node=n_node,
+            n_edge=n_edge,
+            receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+            senders=jnp.array([0, 1, 2, 3, 4, 5]),
+            globals=jnp.array([0, 1, 1, 0, 1, 1])
+        )
+        # pad the graphs with two additional one-node, one-edge graphs
+        graphs_padded = jraph.pad_with_graphs(graphs, 8, 8, 8)
+
+        def net_apply(params, state, rng, graph):
+            """Dummy function that changes the global to fixed vector"""
+            graph = jraph.GraphsTuple(
+                nodes=None,
+                edges=None,
+                n_node=n_node,
+                n_edge=n_edge,
+                receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+                senders=jnp.array([0, 1, 2, 3, 4, 5]),
+                globals=jnp.array(
+                    [[1, 0.1], [0.1, 1], [1./2, 1./3], [0.1, 1],
+                     [0.1, 1], [1./3, 1./2], [3.0, 2.0], [3.0, 2.0]]
+                )
+            )
+            return graph, state
+        # test parameters
+        params = {}
+        state = 'state'
+        rng = 1
+
+        loss, (acc, new_state) = train.loss_fn_bce(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertTrue(new_state == state)
+
+        # calculate expected loss
+        a = np.exp(1.)/(np.exp(1.)+np.exp(0.1))
+        b = np.exp(1./2)/(np.exp(1./2)+np.exp(1./3))
+        loss_expected = -1./6*(3*np.log(a)+np.log(1-a)+np.log(b)+np.log(1-b))
+        acc_expected = 2./3
+        self.assertAlmostEqual(loss, loss_expected)
+        self.assertAlmostEqual(acc, acc_expected)
+
 
     def test_init_state(self):
         """Test that init optimizer state is the right class."""

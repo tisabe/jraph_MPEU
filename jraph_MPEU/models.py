@@ -304,7 +304,8 @@ def get_node_update_fn(latent_size, hk_init):
 
 
 def get_readout_global_fn(
-        latent_size, dropout_rate=0.0, extra_mlp: bool = False, is_training=True
+        latent_size, dropout_rate=0.0, extra_mlp: bool = False,
+        label_type: str = 'scalar', is_training=True
     ):
     """Return the readout global function."""
     def readout_global_fn(
@@ -339,7 +340,11 @@ def get_readout_global_fn(
                     x = hk.dropout(hk.next_rng_key(), dropout_rate, x)
                 return x
             nodes = mlp(node_attributes, [latent_size//4, latent_size//8])
-            return hk.Linear(1, with_bias=False)(nodes)
+            if label_type == 'class':
+                # return logits, softmax happens in loss function
+                return hk.Linear(2, with_bias=False)(nodes)
+            else:
+                return hk.Linear(1, with_bias=False)(nodes)
         else:
             return node_attributes
     return readout_global_fn
@@ -481,6 +486,7 @@ class GNN:
                 latent_size=self.config.latent_size,
                 dropout_rate=dropout_rate,
                 extra_mlp=self.config.extra_mlp,
+                label_type=self.config.label_type,
                 is_training=self.is_training),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
