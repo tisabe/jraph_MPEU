@@ -17,9 +17,9 @@ import jax
 from jraph_MPEU.utils import Config_iterator
 from jraph_MPEU.train import train_and_evaluate
 
-flags.DEFINE_integer('index', 0, help='cross validation grid index')
 FLAGS = flags.FLAGS
 
+flags.DEFINE_integer('index', 0, help='cross validation grid index')
 flags.DEFINE_string('workdir', None, 'Directory to store model data.')
 config_flags.DEFINE_config_file(
     'config',

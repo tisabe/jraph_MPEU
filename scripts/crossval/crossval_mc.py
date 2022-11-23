@@ -16,12 +16,15 @@ from ml_collections import config_flags
 import tensorflow as tf
 import jax
 
-from utils import Config_iterator
-from train import train_and_evaluate
+from jraph_MPEU.utils import Config_iterator
+from jraph_MPEU.train import train_and_evaluate
 
-flags.DEFINE_integer('seed', 0, help='cross validation seed index')
 FLAGS = flags.FLAGS
 
+flags.DEFINE_integer('n_fold', 0, help='number of folds to run')
+flags.DEFINE_integer(
+    'index', 0, help='calculation index, determines which'
+    'random config and data fold is used')
 flags.DEFINE_string('workdir', None, 'Directory to store model data.')
 config_flags.DEFINE_config_file(
     'config',
@@ -34,6 +37,15 @@ def main(argv):
     """Start training with a randomly sampled config."""
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
+
+    if os.path.exists(FLAGS.workdir + '/STOPPED_EARLY'):
+        logging.warning('Started training on model that stopped early.')
+        return
+    if os.path.exists(FLAGS.workdir + '/REACHED_MAX_STEPS'):
+        logging.warning('Started training on model that \
+            reached maximum number of steps.')
+        return
+
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.
     tf.config.experimental.set_visible_devices([], 'GPU')
@@ -50,13 +62,16 @@ def main(argv):
     logging.info('JAX local devices: %r', jax.local_devices())
 
     # set the random seed, so in each run we get a different choice of config
-    random.seed(FLAGS.seed)
+    random.seed(FLAGS.index // FLAGS.n_fold)
 
     iterator = Config_iterator(FLAGS.config)
     # get all possible configs
     configs = [config for config in iterator]
     # get a random config
     config = random.choice(configs)
+    # set the seed that determines which data fold is used
+    # i.e. how data is split
+    config.seed = FLAGS.index % FLAGS.n_fold + config.base_data_seed
     train_and_evaluate(config, FLAGS.workdir)
 
 
