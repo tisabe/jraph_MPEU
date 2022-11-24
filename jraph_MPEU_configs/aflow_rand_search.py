@@ -33,6 +33,7 @@ def get_config() -> ml_collections.ConfigDict():
     # data split settings
     config.data_file = ['aflow/graphs_knn_fix.db']
     config.label_str = ['enthalpy_formation_atom']
+    config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation
     config.test_frac = [0.1] # fraction of total data used for testing
 
@@ -42,7 +43,7 @@ def get_config() -> ml_collections.ConfigDict():
         "enthalpy_formation_atom<70,"
         "enthalpy_formation_atom>-10,"
         "dft_type=['PAW_PBE']")]
-    config.limit_data = [None]
+    config.limit_data = [10_000]
     config.num_edges_max = [None]
 
     # MPNN hyperparameters
