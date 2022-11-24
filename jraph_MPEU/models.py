@@ -71,7 +71,8 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
 
 
 def get_edge_embedding_fn(
-        latent_size: int, k_max: int, delta: float, mu_min: float):
+        latent_size: int, k_max: int, delta: float, mu_min: float,
+        noise_factor: float = 0.0):
     """Return the edge embedding function.
 
     The distance between nodes gets passed into radial basis functions to
@@ -94,6 +95,11 @@ def get_edge_embedding_fn(
     def edge_embedding_fn(edges) -> jnp.ndarray:
         """Edge embedding function for general data."""
         distances = edges
+        # add noise to distances
+        distances = distances + jax.random.normal(
+            hk.next_rng_key(), shape=distances.shape) * noise_factor
+        # make distances non-negative
+        distances = jnp.abs(distances)
         k_vals = jnp.arange(0, k_max)
         # Create tiled matrices with distances and k values.
         k_mesh, d_mesh = jnp.meshgrid(k_vals, distances)
@@ -155,11 +161,12 @@ def get_embedder(config: ml_collections.ConfigDict):
     mu_min = config.mu_min
     max_atomic_number = config.max_atomic_number
     hk_init = config.hk_init
+    noise_factor = config.noise_factor
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=get_edge_embedding_fn(
-            latent_size, k_max, delta, mu_min),
+            latent_size, k_max, delta, mu_min, noise_factor),
         embed_node_fn=get_node_embedding_fn(
             latent_size, max_atomic_number, hk_init),
         embed_global_fn=None)

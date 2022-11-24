@@ -55,6 +55,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.k_max = 150
     config.delta = 0.1
     config.mu_min = 0.0
+    config.noise_factor = 0.0
     # Node embedding parameters
     config.max_atomic_number = 5
     # Regularization parameters
