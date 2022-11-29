@@ -8,9 +8,15 @@ log.txt
 *.slurm
 output_slurm
 *.out
+job.out.*
+job.err.*
 *venv/
+*envs/
 scripts/plots
 *.egg*
 databases*
 scripts/figs*
 .pytest_cache
+core.*
+*.lprof
+*.nsys-rep

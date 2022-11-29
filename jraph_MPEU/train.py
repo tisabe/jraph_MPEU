@@ -21,6 +21,7 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
+import time
 
 # import custom functions
 from jraph_MPEU.models import GNN
@@ -66,6 +67,8 @@ class Updater:
     @functools.partial(jax.jit, static_argnums=0)
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
+        print('Print Message: RECOMPILING')
+        logging.info('LOG Message: Recompiling!')
         rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
         hk_state = state['hk_state']
@@ -543,7 +546,8 @@ def train_and_evaluate(
         data=datasets['train'],
         batch_size=config.batch_size,
         repeat=True,
-        seed=config.seed)
+        seed=config.seed,
+        dynamic_batch=config.dynamic_batch)
 
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
@@ -576,13 +580,24 @@ def train_and_evaluate(
     # time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
-        # Perform a training step. Get next training graphs.
+        # logging.info(f'step: {step}')
+        start_loop_time = time.time()
         graphs = next(train_reader)
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
+        after_getting_graphs = time.time()
         state, loss_metrics = updater.update(state, graphs)
-
+        # logging.info(state['opt_state'])
+        # logging.info('Type of state opt state: %s' % type(state['step']))
+        state['step'].block_until_ready() 
+        after_running_update = time.time()
+        # logging.info('Time to get batch: %f' % (after_getting_graphs-start_loop_time))
+        # logging.info('Time to run update: %f' % (after_running_update-after_getting_graphs))
+        train_reader._timing_measurements_batching.append(
+            after_getting_graphs-start_loop_time)
+        train_reader._update_measurements.append(
+            after_running_update-start_loop_time)        
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
@@ -612,5 +627,11 @@ def train_and_evaluate(
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
+
+    mean_batching_time = np.mean(train_reader._timing_measurements_batching)
+    logging.info(f'Mean batching time: {mean_batching_time}')
+
+    mean_updating_time = np.mean(train_reader._update_measurements)
+    logging.info(f'Mean update time: {mean_updating_time}')
 
     return evaluater, lowest_val_loss

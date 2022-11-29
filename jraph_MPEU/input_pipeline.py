@@ -21,11 +21,15 @@ import ase
 from ase import Atoms
 from ase.neighborlist import NeighborList
 
+import functools
+import jax
+
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     normalize_targets_dict,
     add_labels_to_graphs,
-    load_config
+    load_config,
+    pad_graph_to_nearest_power_of_two
 )
 
 
@@ -347,13 +351,16 @@ class DataReader:
     """
     def __init__(
             self, data: Sequence[jraph.GraphsTuple],
-            batch_size: int, repeat: Boolean, seed: int = None):
+            batch_size: int, repeat: Boolean, seed: int = None,
+            dynamic_batch: bool = True):
         self.data = data[:]  # Pass a copy of the list.
         self.batch_size = batch_size
         self.repeat = repeat
         self.total_num_graphs = len(data)
         self.seed = seed
         self._generator = self._make_generator()
+        self._timing_measurements_batching = []
+        self._update_measurements = []
 
         self.budget = estimate_padding_budget_for_batch_size(
             self.data, batch_size,
@@ -362,17 +369,40 @@ class DataReader:
         # This makes this thing complicated. From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
-        self.batch_generator = jraph.dynamically_batch(
-            self._generator,
-            self.budget.n_node,
-            self.budget.n_edge,
-            self.budget.n_graph)
+        if dynamic_batch is True:
+            self.batch_generator = jraph.dynamically_batch(
+                self._generator,
+                self.budget.n_node,
+                self.budget.n_edge,
+                self.budget.n_graph)
+        else:
+            self.batch_generator = self.static_batch()
+
+    def static_batch(self):
+        # logging.info('STATIC batch: grab another graph')
+        graphs = []
+        for _ in range(self.batch_size):
+            graph = next(self._generator)
+            graphs.append(graph)
+        graphs = jraph.batch(graphs)
+        # logging.info('STATIC batch: yield graphs')
+        yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):
         return self
 
+    @functools.partial(jax.jit, static_argnums=0)
     def __next__(self):
+        # # logging.info('STATIC batch: grab another graph')
+        # graphs = []
+        # for _ in range(self.batch_size):
+        #     graph = next(self._generator)
+        #     graphs.append(graph)
+        # graphs = jraph.batch(graphs)
+        # # logging.info('STATIC batch: yield graphs')
+        # return pad_graph_to_nearest_power_of_two(graphs)
         return next(self.batch_generator)
+
 
     def _make_generator(self):
         random.seed(a=self.seed)
@@ -381,6 +411,8 @@ class DataReader:
             # If not repeating, exit when we've cycled through all the graphs.
             # Only return graphs within the split.
             if not self.repeat:
+                # logging.info('Make gen: REPEAT IS NOT TRUE')
+
                 if idx == self.total_num_graphs:
                     idx = 0
                     # Here's the problem. At the end of iterating through this
@@ -389,6 +421,7 @@ class DataReader:
                     # returned.
                     return
             else:
+                # logging.info('Make gen: REPEAT TRUE')
                 if idx == self.total_num_graphs:
                     random.shuffle(self.data)
                 # This will reset the index to 0 if we are at the end of the
