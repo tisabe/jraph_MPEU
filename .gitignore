@@ -14,3 +14,9 @@ scripts/plots
 databases*
 scripts/figs*
 .pytest_cache
+*envs/
+job.err*
+job.out*
+core.*
+*.nsys-rep
+*.lprof
