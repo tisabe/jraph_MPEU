@@ -54,6 +54,7 @@ def main(args):
                 'latent_size': int(config_dict['latent_size']),
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
+                'noise_factor': config_dict['noise_factor'],
                 'dropout_rate': config_dict['dropout_rate'],
                 'seed': config_dict['seed'],
                 'mae': min_mae,
@@ -113,7 +114,8 @@ def main(args):
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
         'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate',
-        'dropout_rate': 'Dropout rate', 'seed': 'Split seed'}
+        'dropout_rate': 'Dropout rate', 'seed': 'Split seed',
+        'noise_factor': 'Noise STDEV'}
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'seed': 'int32'})
