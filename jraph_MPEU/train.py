@@ -447,6 +447,46 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     return loss, (accuracy, new_state)
 
 
+def _get_node_auxiliary_loss(
+        graph, pred, targets, is_regression, additional_mask=None):
+    "Arrays pred and targets need to have the same zero padding as graph."
+    loss = _get_loss(pred, targets, is_regression)
+    target_mask = jraph.get_node_padding_mask(graph)
+
+    if additional_mask is not None:
+        loss *= additional_mask
+        target_mask = jnp.logical_and(target_mask, additional_mask)
+
+    return _mean_with_mask(loss, target_mask)
+
+
+def _get_loss(pred, targets, is_regression):
+    "Arrays pred and targets are not padded, or zero padded."
+    if is_regression:
+        loss = ((pred - targets)**2).mean(axis=-1)
+    else:
+        targets /= jnp.maximum(1., jnp.sum(targets, axis=-1, keepdims=True))
+        loss = _softmax_cross_entropy(pred, targets)
+    return loss
+
+
+def _softmax_cross_entropy(
+        logits: jnp.DeviceArray,
+        targets: jnp.DeviceArray,
+    ) -> jnp.DeviceArray:
+    logits = jax.nn.log_softmax(logits)
+    return -jnp.sum(targets * logits, axis=-1)
+
+
+def _sum_with_mask(array: jnp.ndarray, mask: jnp.ndarray) -> jnp.ndarray:
+    return (mask * array).sum(0)
+
+
+def _mean_with_mask(array: jnp.ndarray, mask: jnp.ndarray) -> jnp.ndarray:
+    num_valid_rows = mask.sum(0)
+    return _sum_with_mask(array, mask) / num_valid_rows
+
+
 def init_state(
         config: ml_collections.ConfigDict,
         init_graphs: jraph.GraphsTuple,

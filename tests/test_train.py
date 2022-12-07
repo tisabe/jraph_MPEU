@@ -8,8 +8,8 @@ import tempfile
 import unittest
 
 import numpy as np
-import jax
 from absl import logging
+import jax
 import jax.numpy as jnp
 import jraph
 
@@ -29,6 +29,32 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             datasets, _, _ = get_datasets(self.config, test_dir)
             self.datasets = datasets
+        # create a dummy graph batch
+        n_node = jnp.array([1, 1, 1, 1, 1, 1])
+        n_edge = jnp.array([1, 1, 1, 1, 1, 1])
+
+        graphs = jraph.GraphsTuple(
+            nodes=jnp.array([[1], [1], [1], [1], [1], [1]]),
+            edges=None,
+            n_node=n_node,
+            n_edge=n_edge,
+            receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+            senders=jnp.array([0, 1, 2, 3, 4, 5]),
+            globals=jnp.array([0, 1, 1, 0, 1, 1])
+        )
+        # pad the graphs with two additional one-node, one-edge graphs
+        graphs_padded = jraph.pad_with_graphs(graphs, 8, 8, 8)
+        self.graphs_padded = graphs_padded
+
+    def test_aux_losses(self):
+        """Test auxiliary loss functions. Mainly for node reconstruction."""
+        aux_loss = train._get_node_auxiliary_loss(
+            graph=self.graphs_padded,
+            pred=jnp.array([0]),  # TODO: fill in
+            targets=jnp.array([0]),
+            is_regression=True
+        )
+        print('Auxiliary loss: ', aux_loss)
 
     def test_cross_entropy(self):
         """Test the binary cross entropy loss function."""
@@ -50,6 +76,8 @@ class TestTrain(unittest.TestCase):
 
         def net_apply(params, state, rng, graph):
             """Dummy function that changes the global to fixed vector"""
+            del params
+            del rng
             graph = jraph.GraphsTuple(
                 nodes=None,
                 edges=None,
