@@ -28,7 +28,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_checkpoints = 1  # number of checkpoints to keep
     config.restore = False # whether to restore from previous checkpoint
     # data split settings
-    config.data_file = 'aflow/graphs_knn_fix.db'
+    config.data_file = 'aflow/egap_full_graphs.db'
     config.label_str = 'Egap' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
@@ -38,7 +38,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.egap_cutoff = 0.0  # below which band structures are counted as metals
 
     # data selection parameters
-    config.selection = None
+    config.selection = ("dft_type=['PAW_PBE']")
     config.limit_data = None
     config.num_edges_max = None
 
@@ -54,7 +54,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.delta = 0.1
     config.mu_min = 0.0
     # Node embedding parameters
-    config.max_atomic_number = 5
+    config.max_atomic_number = 100
     # Regularization parameters
     config.extra_mlp = True
     config.dropout_rate = 0.2
