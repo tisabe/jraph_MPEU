@@ -3,10 +3,18 @@ import os
 import pickle
 import json
 
+from absl import app
+from absl import flags
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string('file', 'results/aflow/crossval_grid', 'input super directory name')
+flags.DEFINE_integer('max_step', 10000000, 'maximum number of steps to take the mse/mae minimum from.')
+flags.DEFINE_integer('n_drop', 0, 'Number of worst entries to drop, for non-converged calculations')
 
 
 def min_of_previous(array):
@@ -14,27 +22,27 @@ def min_of_previous(array):
 
 
 
-def main(args):
+def main(argv):
     # plot learning curves
     df = pd.DataFrame({})
     dict_minima = {}
-    print(args.max_step)
-    for dirname in os.listdir(args.file):
+    print(FLAGS.max_step)
+    for dirname in os.listdir(FLAGS.file):
         try:
-            metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
+            metrics_path = FLAGS.file + '/'+dirname+'/checkpoints/metrics.pkl'
             # open the file with evaluation metrics
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
 
-            config_path = args.file + '/' + dirname + '/config.json'
+            config_path = FLAGS.file + '/' + dirname + '/config.json'
             with open(config_path, 'r') as config_file:
                 config_dict = json.load(config_file)
 
             split = 'validation'
             metrics = metrics_dict[split]
             # get arrays with mae and rmse for this run
-            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
-            loss_mae = [row[1][1] for row in metrics if int(row[0]) < args.max_step]
+            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < FLAGS.max_step]
+            loss_mae = [row[1][1] for row in metrics if int(row[0]) < FLAGS.max_step]
             n_mean = 1 # number of points for running mean
             #  compute running mean using convolution
             loss_rmse = np.convolve(loss_rmse, np.ones(n_mean)/n_mean, mode='valid')
@@ -46,7 +54,7 @@ def main(args):
                 continue
 
             dict_minima[dirname] = list(loss_mae)
-            step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
+            step = [int(row[0]) for row in metrics if int(row[0]) < FLAGS.max_step]
             min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
@@ -98,7 +106,7 @@ def main(args):
     plt.show()
     """
     # drop the worst 10 configs
-    for i in range(10):
+    for i in range(FLAGS.n_drop):
         i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
@@ -133,22 +141,10 @@ def main(args):
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
-    fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
-
+    fig.savefig(FLAGS.file+'/grid_search.png', bbox_inches='tight', dpi=600)
 
     return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Show ensemble of loss curves.')
-    parser.add_argument(
-        '-f', '-F', type=str, dest='file',
-        default='results/aflow/crossval_grid',
-        help='input super directory name')
-    parser.add_argument(
-        '-step', type=int, dest='max_step',
-        default=100000000,  # an arbitrary large number...
-        help='maximum number of steps to take the mse/mae minimum from'
-    )
-    args_main = parser.parse_args()
-    main(args_main)
+    app.run(main)
