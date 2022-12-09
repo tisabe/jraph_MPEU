@@ -28,7 +28,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_checkpoints = 1  # number of checkpoints to keep
     config.restore = False # whether to restore from previous checkpoint
     # data split settings
-    config.data_file = 'aflow/graphs_knn_fix.db'
+    config.data_file = 'aflow/egap_full_graphs.db'
     config.label_str = 'Egap' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
