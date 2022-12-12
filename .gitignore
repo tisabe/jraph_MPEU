@@ -6,6 +6,7 @@ results*
 QM9
 log.txt
 *.slurm
+*.sh
 output_slurm
 *.out
 job.out.*
