@@ -22,4 +22,4 @@ module load nsight_systems/2022
 export OMP_NUM_THREADS=72
 
 # export JAX_LOG_COMPILES=1
-python3.7 scripts/main.py --workdir=results/aflow/default_aflow_fe_cpu_1M_steps_profiling --config=jraph_MPEU_configs/default_aflow_profile_test.py
+python3.7 scripts/main.py --workdir=results/aflow/default_aflow_fe_cpu_1M_steps_profiling_v2 --config=jraph_MPEU_configs/default_aflow_profile_test.py
