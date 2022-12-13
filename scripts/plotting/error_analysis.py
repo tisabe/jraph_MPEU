@@ -93,16 +93,6 @@ def plot_dft_type(df, workdir, plot_name):
 
 
 def plot_space_groups(df, workdir, plot_name):
-    # group the spacegoups into crystal systems
-    bins = [0, 2, 15, 74, 142, 167, 194, 230]
-    labels = [
-        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
-        'Trigonal', 'Hexagonal', 'Cubic']
-    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
-
-    col = df['crystal system']
-    print(Counter(col))
-
     fig, ax = plt.subplots()
     sns.boxplot(
         x='crystal system', # plot error vs space group
@@ -124,9 +114,6 @@ def plot_space_groups(df, workdir, plot_name):
 
 
 def plot_bandgap_type(df, workdir, plot_name):
-    col = df['Egap_type']
-    print(Counter(col))
-
     fig, ax = plt.subplots()
     sns.boxplot(
         x='Egap_type', # plot error vs bandgap type
@@ -165,9 +152,6 @@ def plot_density(df, workdir, plot_name):
 
 
 def plot_ldau(df, workdir, plot_name):
-    col = df['ldau_type']
-    print(Counter(col))
-
     fig, ax = plt.subplots()
     sns.boxplot(
         x='ldau_type', # plot error vs ldau type
@@ -225,6 +209,14 @@ def main(argv):
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
+    
+    # group the spacegoups into crystal systems
+    bins = [0, 2, 15, 74, 142, 167, 194, 230]
+    labels = [
+        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
+        'Trigonal', 'Hexagonal', 'Cubic']
+    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    
     try:
         df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
     except KeyError:
@@ -261,6 +253,7 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
     """
+    
     fig, ax = plt.subplots()
     sns.histplot(
         x=config.label_str, y='prediction', data=df_test, ax=ax,
@@ -313,13 +306,21 @@ def main(argv):
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
-
+    col = df_train['crystal system']
+    counts = dict(Counter(col))
+    print(counts)
     plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+    plt.pie(counts.values(), labels=counts.keys())
+    plt.show()
 
+    col = df_train['Egap_type']
+    print(Counter(col))
     plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
-    
+
     plot_density(df_test, workdir, '/error_vs_density.png')
 
+    col = df_train['ldau_type']
+    print(Counter(col))
     plot_ldau(df, workdir, '/error_vs_ldau.png')
 
 
