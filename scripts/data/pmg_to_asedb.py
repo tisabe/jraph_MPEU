@@ -6,6 +6,7 @@ import json
 from absl import app
 from absl import flags
 
+import ase
 import ase.db
 import pymatgen
 import pymatgen.io.ase
@@ -25,15 +26,15 @@ def main(argv):
         for i, row in enumerate(pmg_list):
             if i%10000 == 0:
                 print(f'Step {i}/{len(pmg_list)}')
-                pmg_struct = pymatgen.core.IStructure.from_str(
-                    row['structure'], fmt='cif')
-                atoms = adaptor.get_atoms(pmg_struct)
-                assert atoms is not None
-                key_value_pairs = {}
-                key_value_pairs['delta_e'] = row['formation_energy_per_atom']
-                key_value_pairs['band_gap'] = row['band_gap']
-                key_value_pairs['material_id'] = row['material_id']
-                db_out.write(atoms, key_value_pairs=key_value_pairs)
+            pmg_struct = pymatgen.core.IStructure.from_str(
+                row['structure'], fmt='cif')
+            atoms = adaptor.get_atoms(pmg_struct)
+            key_value_pairs = {}
+            key_value_pairs['delta_e'] = row['formation_energy_per_atom']
+            key_value_pairs['band_gap'] = row['band_gap']
+            key_value_pairs['material_id'] = row['material_id']
+            assert type(atoms) == ase.Atoms
+            db_out.write(atoms, key_value_pairs=key_value_pairs)
         print(f'Count of rows in ase.db: {len(db_out)}')
     return 0
 
