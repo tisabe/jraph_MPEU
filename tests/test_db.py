@@ -25,9 +25,10 @@ flags.DEFINE_integer(
 class UnitTests(absltest.TestCase):
     """Unit test class. This string only exists to make my linter happy."""
     def test_not_empty(self):
-        """Test that the database is not empty."""
+        """Test that the db has entries."""
         database = ase.db.connect(FLAGS.file)
         self.assertTrue(len(database) > 0)
+
     def test_vis_and_print(self):
         """Test db by visualizing and printing database entries."""
         database = ase.db.connect(FLAGS.file)
