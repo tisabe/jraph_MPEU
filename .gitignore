@@ -20,3 +20,5 @@ job.out*
 core.*
 *.nsys-rep
 *.lprof
+jax*
+activate_venv.sh
