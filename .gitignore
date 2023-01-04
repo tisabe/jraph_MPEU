@@ -5,7 +5,6 @@ matproj
 results*
 QM9
 log.txt
-*.slurm
 output_slurm
 *.out
 *venv/
