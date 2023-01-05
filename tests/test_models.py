@@ -222,12 +222,55 @@ class TestModelFunctions(unittest.TestCase):
         np.testing.assert_array_equal(edge_updated, graph_pred.edges['edges'])
         self.assertEqual(prediction_expected, prediction)
 
-    def test_output_size(self):
+    def test_output_size_class(self):
         """Test that the output dimensions of the GNN function are as intended.
         The output shape should be:
-        [batch_size, 1] for single regression.
-        TODO: [batch_size, 2] for binary classification."""
-        self.assertTrue(False)
+        [batch_size, 2] for binary classification task.
+        """
+        n_node = 10
+        n_edge = 4
+        init_graphs = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0, 0, 1, 2]),
+            receivers=jnp.array([1, 2, 0, 0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+
+        n_node = jnp.array([3])
+        n_edge = jnp.array([4])
+        node_features = jnp.array([0, 1, 2])
+        edge_features = jnp.array([1, 2, 3, 4])
+        senders = jnp.array([0, 1, 2, 0])
+        receivers = jnp.array([1, 0, 1, 2])
+
+        graph = jraph.GraphsTuple(
+            nodes=node_features,
+            edges=edge_features,
+            senders=senders,
+            receivers=receivers,
+            n_node=n_node,
+            n_edge=n_edge,
+            globals=None
+        )
+        graphs = jraph.pad_with_graphs(graph, n_node=8, n_edge=8)
+
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        from jraph_MPEU_configs.aflow_class_test import get_config
+        config = get_config()
+        net_fn = GNN(config)
+        net = hk.with_empty_state(hk.transform(net_fn))
+        # Create weights for the model
+        params, state = net.init(init_rng, init_graphs)
+
+        graphs_pred = net.apply(params, state, rng, graphs)
+        self.assertEqual(len(graphs_pred), 2)
+        prediction = graphs_pred[0].globals
+        self.assertEqual(np.shape(prediction)[-1], 2)
 
     def test_edge_update_fn(self):
         """Test the expected edge and message feature vector in the edge update.
