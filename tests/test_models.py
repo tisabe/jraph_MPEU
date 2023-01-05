@@ -21,7 +21,9 @@ from jraph_MPEU.models import (
     get_edge_update_fn,
     get_edge_embedding_fn,
     get_node_embedding_fn,
-    get_node_update_fn
+    get_node_update_fn,
+    get_readout_node_update_fn,
+    get_readout_global_fn
 )
 
 
@@ -47,6 +49,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config = ml_collections.ConfigDict()
         self.config.batch_size = 32
         self.config.latent_size = 64
+        self.config.use_layer_norm = False
         self.config.message_passing_steps = 3
         self.hk_init = hk.initializers.Identity()
         self.config.aggregation_message_type = 'sum'
@@ -262,6 +265,7 @@ class TestModelFunctions(unittest.TestCase):
 
         from jraph_MPEU_configs.aflow_class_test import get_config
         config = get_config()
+        config.use_layer_norm = False
         net_fn = GNN(config)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
@@ -280,7 +284,8 @@ class TestModelFunctions(unittest.TestCase):
         """
         latent_size = 10
         hk_init = hk.initializers.Identity()
-        edge_update_fn = get_edge_update_fn(latent_size, hk_init)
+        edge_update_fn = get_edge_update_fn(
+            latent_size, hk_init, use_layer_norm=False)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -353,7 +358,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
-        node_embedding_fn = get_node_embedding_fn(latent_size, max_atomic_number, hk_init)
+        node_embedding_fn = get_node_embedding_fn(
+            latent_size, max_atomic_number, False, hk_init)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
 
         nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
@@ -379,7 +385,8 @@ class TestModelFunctions(unittest.TestCase):
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        node_update_fn = get_node_update_fn(latent_size, hk_init)
+        node_update_fn = get_node_update_fn(
+            latent_size, hk_init, use_layer_norm=False)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -407,6 +414,18 @@ class TestModelFunctions(unittest.TestCase):
         np.testing.assert_allclose(
             nodes_updated,
             shifted_softplus(received_message['messages']) + nodes)
+
+    def test_readout_function(self):
+        """Test the output of the readout function against the expected result.
+        """
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        latent_size = 16
+        hk_init = hk.initializers.Identity()
+        readout_node_update_fn = get_readout_node_update_fn(
+            latent_size, hk_init, use_layer_norm=False)
+        # TODO: finish test
 
 if __name__ == '__main__':
     unittest.main()

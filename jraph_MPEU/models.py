@@ -18,6 +18,8 @@ of size C (latent_size).
 """
 
 import pickle
+from typing import Sequence
+import functools
 
 import jax
 import jax.numpy as jnp
@@ -70,6 +72,29 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     return jnp.logaddexp(x, 0) - LOG2
 
 
+def _build_mlp(
+        name: str,
+        output_sizes: Sequence[int],
+        use_layer_norm=False,
+        activation=shifted_softplus,
+        with_bias=False,
+        activate_final=True,
+        w_init=None
+):
+    """Builds an MLP, optionally with layernorm."""
+    net = hk.nets.MLP(
+        output_sizes=output_sizes, name=name + "_mlp", activation=activation,
+        with_bias=with_bias, activate_final=activate_final, w_init=w_init)
+    if use_layer_norm:
+        layer_norm = hk.LayerNorm(
+            axis=-1,
+            create_scale=True,
+            create_offset=True,
+            name=name + "_layer_norm")
+        net = hk.Sequential([net, layer_norm])
+    return net
+
+
 def get_edge_embedding_fn(
         latent_size: int, k_max: int, delta: float, mu_min: float):
     """Return the edge embedding function.
@@ -113,7 +138,7 @@ def get_edge_embedding_fn(
 
 
 def get_node_embedding_fn(
-        latent_size: int, max_atomic_number: int, hk_init=None):
+        latent_size: int, max_atomic_number: int, use_layer_norm, hk_init=None):
     """Return the node embedding function.
 
     We take the node atomic number and one hot encode the number. At this point
@@ -136,7 +161,10 @@ def get_node_embedding_fn(
 
         Uses a linear dense nn layer.
         """
-        net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        #net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
+        net = _build_mlp(
+            "node_embedding_layer", [latent_size], use_layer_norm=use_layer_norm,
+            w_init=hk_init, activate_final=False)
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)
     return node_embedding_fn
@@ -155,18 +183,19 @@ def get_embedder(config: ml_collections.ConfigDict):
     mu_min = config.mu_min
     max_atomic_number = config.max_atomic_number
     hk_init = config.hk_init
+    use_layer_norm = config.use_layer_norm
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=get_edge_embedding_fn(
             latent_size, k_max, delta, mu_min),
         embed_node_fn=get_node_embedding_fn(
-            latent_size, max_atomic_number, hk_init),
+            latent_size, max_atomic_number, use_layer_norm, hk_init),
         embed_global_fn=None)
     return embedder
 
 
-def get_edge_update_fn(latent_size: int, hk_init):
+def get_edge_update_fn(latent_size: int, hk_init, use_layer_norm):
     """Return the edge update function and message update function.
 
     Takes in the previous edge vector value e_vw(t-1) and concatenates with
@@ -225,10 +254,14 @@ def get_edge_update_fn(latent_size: int, hk_init):
         # for first iteration), output size 2C with shifted softplus
         # activation. Second network is FC, input 2C, output C, identity as
         # actiavtion (e.g. linear network).
-        net_edge = hk.Sequential([
-            hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
-            shifted_softplus,
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+        #net_edge = hk.Sequential([
+            #hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
+            #shifted_softplus,
+            #hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+        net_edge = _build_mlp(
+            'edge_update', [2 * latent_size, latent_size],
+            use_layer_norm=use_layer_norm, activate_final=False, w_init=hk_init
+        )
 
         edge_message['edges'] = net_edge(edge_node_concat)
 
@@ -236,15 +269,21 @@ def get_edge_update_fn(latent_size: int, hk_init):
         # vector. See Figure 1 middle figure for details. The edge feature
         # vector gets passed through two FC layers with shifted softplus.
         # Dimensionality doesn't change at all from input to output here.
-        net_message_edge = hk.Sequential([
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-            shifted_softplus,
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-            shifted_softplus])
+        #net_message_edge = hk.Sequential([
+        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
+        #    shifted_softplus,
+        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
+        #    shifted_softplus])
+        net_message_edge = _build_mlp(
+            'message_edge_net', [latent_size] * 2, use_layer_norm=use_layer_norm,
+            activate_final=True, w_init=hk_init)
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
-        net_message_node = hk.Linear(
-            latent_size, with_bias=False, w_init=hk_init)
+        #net_message_node = hk.Linear(
+        #    latent_size, with_bias=False, w_init=hk_init)
+        net_message_node = _build_mlp(
+            'message_node_net', [latent_size], use_layer_norm=use_layer_norm,
+            activate_final=False, w_init=hk_init)
         # Then element wise multiply together the output of the
         # net_emessage_edge and the output from feeding the sending/receiving
         # node feature vectors to the net_message node.
@@ -255,7 +294,7 @@ def get_edge_update_fn(latent_size: int, hk_init):
     return edge_update_fn
 
 
-def get_node_update_fn(latent_size, hk_init):
+def get_node_update_fn(latent_size, hk_init, use_layer_norm):
     """Return the node update function.
 
     Wrapper function so that we can interface with jraph.
@@ -291,10 +330,13 @@ def get_node_update_fn(latent_size, hk_init):
         del sent_attributes, global_attributes
         # First layer is FC with shifted_softplus actiavtion. Second layer
         # is linear.
-        net = hk.Sequential([
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-            shifted_softplus,
-            hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+        #net = hk.Sequential([
+        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
+        #    shifted_softplus,
+        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
+        net = _build_mlp(
+            'node_update', [latent_size] * 2, use_layer_norm=use_layer_norm,
+            activate_final=False, w_init=hk_init)
         # Get the messages term of Equation 9 which is the net applied to
         # the aggregation of incoming messages to the node.
         messages_propagated = net(received_attributes['messages'])
@@ -304,7 +346,7 @@ def get_node_update_fn(latent_size, hk_init):
 
 
 def get_readout_global_fn(
-        latent_size, dropout_rate=0.0, extra_mlp: bool = False,
+        latent_size, use_layer_norm, dropout_rate=0.0, extra_mlp: bool = False,
         label_type: str = 'scalar', is_training=True
     ):
     """Return the readout global function."""
@@ -325,32 +367,24 @@ def get_readout_global_fn(
         del edge_attributes, global_attributes
 
         if extra_mlp:
-            def mlp(x, hidden_sizes):
-                for layer_output_size in hidden_sizes:
-                    x = hk.Linear(layer_output_size, with_bias=False)(x)
-                    # parameters taken from ResNet example in Haiku
-                    '''
-                    x = hk.BatchNorm(
-                        create_scale=True,
-                        create_offset=True,
-                        decay_rate=0.99, # NOTE: might need to change this
-                        name='batchnorm_final')(x, is_training=is_training)
-                    '''
-                    x = shifted_softplus(x)
-                    x = hk.dropout(hk.next_rng_key(), dropout_rate, x)
-                return x
-            nodes = mlp(node_attributes, [latent_size//4, latent_size//8])
             if label_type == 'class':
                 # return logits, softmax happens in loss function
-                return hk.Linear(2, with_bias=False)(nodes)
+                net = _build_mlp(
+                    'readout', [latent_size//4, latent_size//8, 2],
+                    use_layer_norm=use_layer_norm, activate_final=False)
+                return net(node_attributes)
             else:
-                return hk.Linear(1, with_bias=False)(nodes)
+                net = _build_mlp(
+                    'readout', [latent_size//4, latent_size//8, 1],
+                    use_layer_norm=use_layer_norm, activate_final=False)
+            return net(node_attributes)
         else:
             return node_attributes
     return readout_global_fn
 
 
-def get_readout_node_update_fn(latent_size, hk_init, output_size=1):
+def get_readout_node_update_fn(
+        latent_size, hk_init, use_layer_norm, output_size=1):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -385,17 +419,27 @@ def get_readout_node_update_fn(latent_size, hk_init, output_size=1):
         if output_size == 1:
             # NN. First layer has output size of latent_size/2 (C/2) with
             # shifted softplus. Then we have a linear FC layer with no softplus.
-            net = hk.Sequential([
-                hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
-                shifted_softplus,
-                hk.Linear(output_size, with_bias=False, w_init=hk_init)])
+            #net = hk.Sequential([
+            #    hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
+            #    shifted_softplus,
+            #    hk.Linear(output_size, with_bias=False, w_init=hk_init)])
+            net = _build_mlp(
+                'readout_node', [latent_size//2, output_size],
+                use_layer_norm=use_layer_norm, activate_final=False,
+                w_init=hk_init
+            )
         else:
             # add extra shsp and larger hidden layer
-            net = hk.Sequential([
-                hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-                shifted_softplus,
-                hk.Linear(output_size, with_bias=False, w_init=hk_init),
-                shifted_softplus])
+            #net = hk.Sequential([
+            #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
+            #    shifted_softplus,
+            #    hk.Linear(output_size, with_bias=False, w_init=hk_init),
+            #    shifted_softplus])
+            net = _build_mlp(
+                'readout_node', [latent_size, output_size],
+                use_layer_norm=use_layer_norm, activate_final=True,
+                w_init=hk_init
+            )
         # Apply the network to the nodes.
         return net(nodes)
     return readout_node_update_fn
@@ -411,6 +455,7 @@ class GNN:
         """
         self.config = config
         self.is_training = is_training
+        self.norm = config.use_layer_norm
 
         if self.config.aggregation_message_type == 'sum':
             self.aggregation_message_fn = jraph.segment_sum
@@ -461,9 +506,9 @@ class GNN:
             # we don't do yet).
             net = jraph.GraphNetwork(
                 update_node_fn=get_node_update_fn(
-                    self.config.latent_size, self.config.hk_init),
+                    self.config.latent_size, self.config.hk_init, self.norm),
                 update_edge_fn=get_edge_update_fn(
-                    self.config.latent_size, self.config.hk_init),
+                    self.config.latent_size, self.config.hk_init, self.norm),
                 update_global_fn=None,
                 aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
             # Update the graphs by applying our message passing step on graphs.
@@ -484,6 +529,7 @@ class GNN:
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
+                use_layer_norm=self.norm,
                 dropout_rate=dropout_rate,
                 extra_mlp=self.config.extra_mlp,
                 label_type=self.config.label_type,
