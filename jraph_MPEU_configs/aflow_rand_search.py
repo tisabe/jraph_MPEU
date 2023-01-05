@@ -31,23 +31,20 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_checkpoints = [1]
     config.restore = [False] # whether to restore from previous checkpoint
     # data split settings
-    config.data_file = ['aflow/graphs_knn_fix.db']
-    config.label_str = ['enthalpy_formation_atom']
+    config.data_file = ['aflow/egap_full_graphs.db']
+    config.label_str = ['Egap']
     config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation
     config.test_frac = [0.1] # fraction of total data used for testing
 
     # data selection parameters
     # remove outliers in formation enthalpy and other dft types
-    config.selection = [(
-        "enthalpy_formation_atom<70,"
-        "enthalpy_formation_atom>-10,"
-        "dft_type=['PAW_PBE']")]
-    config.limit_data = [10_000]
+    config.selection = [("dft_type=['PAW_PBE']")]
+    config.limit_data = [None]
     config.num_edges_max = [None]
 
     # MPNN hyperparameters
-    config.message_passing_steps = [3]
+    config.message_passing_steps = [1, 2, 3]
     config.latent_size = [32, 64, 128, 256]
     config.hk_init = [None]
     config.max_input_feature_size = [100]

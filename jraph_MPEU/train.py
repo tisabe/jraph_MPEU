@@ -35,6 +35,8 @@ from jraph_MPEU.input_pipeline import (
     DataReader,
 )
 
+# maximum loss, if training batch loss exceeds this, stop training
+_MAX_TRAIN_LOSS = 1e10
 
 class Updater:
     """A stateless abstraction around an init_fn/update_fn pair.
@@ -627,6 +629,17 @@ def train_and_evaluate(
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
+
+        # catch a NaN or too high loss, stop training if it happens
+        if (np.isnan(loss_metrics["loss"]) or
+                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+            logging.info('Invalid loss, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                with open(workdir + '/ABORTED_EARLY', 'w'):
+                    pass
+            break
+
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
