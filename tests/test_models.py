@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax.nn import relu
 import jraph
 import haiku as hk
 
@@ -23,7 +24,8 @@ from jraph_MPEU.models import (
     get_node_embedding_fn,
     get_node_update_fn,
     get_readout_node_update_fn,
-    get_readout_global_fn
+    get_readout_global_fn,
+    _build_mlp
 )
 
 
@@ -427,6 +429,20 @@ class TestModelFunctions(unittest.TestCase):
         readout_node_update_fn = get_readout_node_update_fn(
             latent_size, hk_init, use_layer_norm=False)
         # TODO: finish test
+
+    def test_mlp(self):
+        """Test the _build_mlp function."""
+        output_sizes = [16, 16, 8]
+        # test with relu activation, and identity weight-matrices
+        mlp = hk.transform(
+            _build_mlp(
+                'test_name', output_sizes, use_layer_norm=False,
+                activation=relu, with_bias=False, activate_final=False,
+                w_init=self.hk_init)
+        )
+        inputs = np.ones((1, 8))
+        outputs = mlp(inputs)
+        print(outputs)
 
 if __name__ == '__main__':
     unittest.main()
