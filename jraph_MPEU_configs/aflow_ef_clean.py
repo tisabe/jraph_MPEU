@@ -17,5 +17,6 @@ def get_config() -> ml_collections.ConfigDict():
         "enthalpy_formation_atom<70,"
         "enthalpy_formation_atom>-10,"
         "dft_type=['PAW_PBE']")
+    config.use_layer_norm = True
 
     return config
