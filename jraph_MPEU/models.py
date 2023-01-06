@@ -525,6 +525,7 @@ class GNN:
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
                 self.config.hk_init,
+                self.norm,
                 node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(

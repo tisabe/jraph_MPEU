@@ -183,6 +183,7 @@ class TestModelFunctions(unittest.TestCase):
         params = net.init(init_rng, init_graphs)
 
         graph_pred = net.apply(params, graph)
+        print(graph_pred)
         prediction = graph_pred.globals
 
         # Here, we calculate the expected result, starting with the embeddings.
