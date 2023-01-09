@@ -161,7 +161,6 @@ def get_node_embedding_fn(
 
         Uses a linear dense nn layer.
         """
-        #net = hk.Linear(latent_size, with_bias=False, w_init=hk_init)
         net = _build_mlp(
             "node_embedding_layer", [latent_size], use_layer_norm=use_layer_norm,
             w_init=hk_init, activate_final=False)
@@ -254,10 +253,6 @@ def get_edge_update_fn(latent_size: int, hk_init, use_layer_norm):
         # for first iteration), output size 2C with shifted softplus
         # activation. Second network is FC, input 2C, output C, identity as
         # actiavtion (e.g. linear network).
-        #net_edge = hk.Sequential([
-            #hk.Linear(2 * latent_size, with_bias=False, w_init=hk_init),
-            #shifted_softplus,
-            #hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
         net_edge = _build_mlp(
             'edge_update', [2 * latent_size, latent_size],
             use_layer_norm=use_layer_norm, activate_final=False, w_init=hk_init
@@ -269,18 +264,11 @@ def get_edge_update_fn(latent_size: int, hk_init, use_layer_norm):
         # vector. See Figure 1 middle figure for details. The edge feature
         # vector gets passed through two FC layers with shifted softplus.
         # Dimensionality doesn't change at all from input to output here.
-        #net_message_edge = hk.Sequential([
-        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-        #    shifted_softplus,
-        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-        #    shifted_softplus])
         net_message_edge = _build_mlp(
             'message_edge_net', [latent_size] * 2, use_layer_norm=use_layer_norm,
             activate_final=True, w_init=hk_init)
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
-        #net_message_node = hk.Linear(
-        #    latent_size, with_bias=False, w_init=hk_init)
         net_message_node = _build_mlp(
             'message_node_net', [latent_size], use_layer_norm=use_layer_norm,
             activate_final=False, w_init=hk_init)
@@ -330,10 +318,6 @@ def get_node_update_fn(latent_size, hk_init, use_layer_norm):
         del sent_attributes, global_attributes
         # First layer is FC with shifted_softplus actiavtion. Second layer
         # is linear.
-        #net = hk.Sequential([
-        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-        #    shifted_softplus,
-        #    hk.Linear(latent_size, with_bias=False, w_init=hk_init)])
         net = _build_mlp(
             'node_update', [latent_size] * 2, use_layer_norm=use_layer_norm,
             activate_final=False, w_init=hk_init)
@@ -346,7 +330,7 @@ def get_node_update_fn(latent_size, hk_init, use_layer_norm):
 
 
 def get_readout_global_fn(
-        latent_size, use_layer_norm, dropout_rate=0.0, extra_mlp: bool = False,
+        latent_size, dropout_rate=0.0, extra_mlp: bool = False,
         label_type: str = 'scalar', is_training=True
     ):
     """Return the readout global function."""
@@ -371,12 +355,12 @@ def get_readout_global_fn(
                 # return logits, softmax happens in loss function
                 net = _build_mlp(
                     'readout', [latent_size//4, latent_size//8, 2],
-                    use_layer_norm=use_layer_norm, activate_final=False)
+                    use_layer_norm=False, activate_final=False)
                 return net(node_attributes)
             else:
                 net = _build_mlp(
                     'readout', [latent_size//4, latent_size//8, 1],
-                    use_layer_norm=use_layer_norm, activate_final=False)
+                    use_layer_norm=False, activate_final=False)
             return net(node_attributes)
         else:
             return node_attributes
@@ -419,22 +403,13 @@ def get_readout_node_update_fn(
         if output_size == 1:
             # NN. First layer has output size of latent_size/2 (C/2) with
             # shifted softplus. Then we have a linear FC layer with no softplus.
-            #net = hk.Sequential([
-            #    hk.Linear(latent_size // 2, with_bias=False, w_init=hk_init),
-            #    shifted_softplus,
-            #    hk.Linear(output_size, with_bias=False, w_init=hk_init)])
             net = _build_mlp(
                 'readout_node', [latent_size//2, output_size],
-                use_layer_norm=use_layer_norm, activate_final=False,
+                use_layer_norm=False, activate_final=False,
                 w_init=hk_init
             )
         else:
             # add extra shsp and larger hidden layer
-            #net = hk.Sequential([
-            #    hk.Linear(latent_size, with_bias=False, w_init=hk_init),
-            #    shifted_softplus,
-            #    hk.Linear(output_size, with_bias=False, w_init=hk_init),
-            #    shifted_softplus])
             net = _build_mlp(
                 'readout_node', [latent_size, output_size],
                 use_layer_norm=use_layer_norm, activate_final=True,
@@ -530,7 +505,6 @@ class GNN:
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
-                use_layer_norm=self.norm,
                 dropout_rate=dropout_rate,
                 extra_mlp=self.config.extra_mlp,
                 label_type=self.config.label_type,
