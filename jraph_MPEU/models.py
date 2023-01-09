@@ -196,7 +196,7 @@ def get_embedder(config: ml_collections.ConfigDict):
 
 
 def get_edge_update_fn(
-        latent_size: int, hk_init, use_layer_norm):
+        latent_size: int, hk_init, use_layer_norm, dropout_rate):
     """Return the edge update function and message update function.
 
     Takes in the previous edge vector value e_vw(t-1) and concatenates with
@@ -262,6 +262,8 @@ def get_edge_update_fn(
         )
 
         edge_message['edges'] = net_edge(edge_node_concat)
+        edge_message['edges'] = hk.dropout(
+            hk.next_rng_key(), dropout_rate, edge_message['edges'])
 
         # Then, compute edge-wise messages. The input is the edge feature
         # vector. See Figure 1 middle figure for details. The edge feature
@@ -270,22 +272,27 @@ def get_edge_update_fn(
         net_message_edge = _build_mlp(
             'message_edge_net', [latent_size] * 2, use_layer_norm=use_layer_norm,
             activate_final=True, w_init=hk_init)
+        edges_new = net_message_edge(edge_message['edges'])
+        edges_new = hk.dropout(
+            hk.next_rng_key(), dropout_rate, edges_new)
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
         net_message_node = _build_mlp(
             'message_node_net', [latent_size], use_layer_norm=use_layer_norm,
             activate_final=False, w_init=hk_init)
+        nodes_new = net_message_node(sent_attributes)
+        nodes_new = hk.dropout(
+            hk.next_rng_key(), dropout_rate, nodes_new)
         # Then element wise multiply together the output of the
         # net_emessage_edge and the output from feeding the sending/receiving
         # node feature vectors to the net_message node.
         edge_message['messages'] = jnp.multiply(
-            net_message_edge(edge_message['edges']),
-            net_message_node(sent_attributes))
+            edges_new, nodes_new)
         return edge_message
     return edge_update_fn
 
 
-def get_node_update_fn(latent_size, hk_init, use_layer_norm):
+def get_node_update_fn(latent_size, hk_init, use_layer_norm, dropout_rate):
     """Return the node update function.
 
     Wrapper function so that we can interface with jraph.
@@ -328,6 +335,8 @@ def get_node_update_fn(latent_size, hk_init, use_layer_norm):
         # Get the messages term of Equation 9 which is the net applied to
         # the aggregation of incoming messages to the node.
         messages_propagated = net(received_attributes['messages'])
+        messages_propagated = hk.dropout(
+            hk.next_rng_key(), dropout_rate, messages_propagated)
         # Add the previous value of the node feature vector.
         return nodes + messages_propagated
     return node_update_fn
@@ -487,9 +496,11 @@ class GNN:
             # we don't do yet).
             net = jraph.GraphNetwork(
                 update_node_fn=get_node_update_fn(
-                    self.config.latent_size, self.config.hk_init, self.norm),
+                    self.config.latent_size, self.config.hk_init, self.norm,
+                    dropout_rate),
                 update_edge_fn=get_edge_update_fn(
-                    self.config.latent_size, self.config.hk_init, self.norm),
+                    self.config.latent_size, self.config.hk_init, self.norm, 
+                    dropout_rate),
                 update_global_fn=None,
                 aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
             # Update the graphs by applying our message passing step on graphs.
