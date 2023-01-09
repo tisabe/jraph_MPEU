@@ -19,7 +19,6 @@ of size C (latent_size).
 
 import pickle
 from typing import Sequence
-import functools
 
 import jax
 import jax.numpy as jnp
@@ -154,6 +153,7 @@ def get_node_embedding_fn(
         latent_size: The size of the node feature vectors and node embeddings.
         max_atomic_number: The max atomic number we expect to see from our
             graphs/systems.
+        use_layer_norm: whether layer normalization should be used.
         hk_init: Linear weight intializer function for our linear embedding.
     """
     def node_embedding_fn(nodes) -> jnp.ndarray:
@@ -162,8 +162,9 @@ def get_node_embedding_fn(
         Uses a linear dense nn layer.
         """
         net = _build_mlp(
-            "node_embedding_layer", [latent_size], use_layer_norm=use_layer_norm,
-            w_init=hk_init, activate_final=False)
+            "node_embedding_layer", [latent_size], 
+            use_layer_norm=use_layer_norm, w_init=hk_init, activate_final=False
+        )
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)
     return node_embedding_fn
@@ -194,7 +195,8 @@ def get_embedder(config: ml_collections.ConfigDict):
     return embedder
 
 
-def get_edge_update_fn(latent_size: int, hk_init, use_layer_norm):
+def get_edge_update_fn(
+        latent_size: int, hk_init, use_layer_norm):
     """Return the edge update function and message update function.
 
     Takes in the previous edge vector value e_vw(t-1) and concatenates with
@@ -225,6 +227,7 @@ def get_edge_update_fn(latent_size: int, hk_init, use_layer_norm):
         latent_size: Dimensionality of the edge and node feature vectors.
         hk_init: Weight initializer function of the edge update functon neural
             network.
+        use_layer_norm: whether layer normalization should be used.
     """
     def edge_update_fn(
             edge_message, sent_attributes, received_attributes,
@@ -291,6 +294,7 @@ def get_node_update_fn(latent_size, hk_init, use_layer_norm):
         latent_size: The size of the node feature vector and message vector.
         hk_init: The weight intializer function for the node feature vector
             update network.
+        use_layer_norm: whether layer normalization should be used.
     """
     def node_update_fn(
             nodes, sent_attributes,
@@ -330,8 +334,7 @@ def get_node_update_fn(latent_size, hk_init, use_layer_norm):
 
 
 def get_readout_global_fn(
-        latent_size, dropout_rate=0.0, extra_mlp: bool = False,
-        label_type: str = 'scalar', is_training=True
+        latent_size, extra_mlp: bool = False, label_type: str = 'scalar'
     ):
     """Return the readout global function."""
     def readout_global_fn(
@@ -376,6 +379,7 @@ def get_readout_node_update_fn(
     Args:
         latent_size: The node feature vector dimensionality.
         hk_init: The weight initializer for the the readout NN.
+        use_layer_norm: whether layer normalization should be used.
         output_size: dimensionality of the final node embeddings. If 1, it is
             assumed that this is the final layer and in readout global function
             only the nodes are aggregated.
@@ -467,6 +471,8 @@ class GNN:
         # use global labels. We don't put the graph output labels here since
         # we don't want to carry around the right answer with our input to
         # the GNNs.
+        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
+
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
@@ -495,7 +501,6 @@ class GNN:
         # get the right node output size depending if there is an extra MLP
         # after the node to global aggregation
         node_output_size = self.config.latent_size if self.config.extra_mlp else 1
-        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
@@ -505,10 +510,8 @@ class GNN:
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
-                dropout_rate=dropout_rate,
                 extra_mlp=self.config.extra_mlp,
-                label_type=self.config.label_type,
-                is_training=self.is_training),
+                label_type=self.config.label_type),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
         graphs = net_readout(graphs)
