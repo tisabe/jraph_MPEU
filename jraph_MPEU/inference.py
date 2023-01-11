@@ -6,7 +6,6 @@ import json
 
 import jax
 import jax.numpy as jnp
-import jraph
 import numpy as np
 from absl import logging
 import ase.db
@@ -31,7 +30,7 @@ def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
         hk_state: haiku state for batch norm in apply function
-        label_type: if the predictions are scalars for regression (value: 
+        label_type: if the predictions are scalars for regression (value:
             'scalar') or logits for classification (value: 'class')
         mc_dropout: whether to use monte-carlo dropout to estimate the
             uncertainty of the model. If true, preds gets and extra dimension

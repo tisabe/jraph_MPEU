@@ -351,7 +351,7 @@ def get_node_update_fn(
 def get_readout_global_fn(
         latent_size, global_readout_mlp_layers, label_type: str):
     """Return the readout global function.
-    
+
     Args:
         latent_size: size of hidden layers in MLPs.
         global_readout_mlp_layers: number of MLP layers applied after
