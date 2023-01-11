@@ -27,6 +27,7 @@ from jraph_MPEU.models import (
     get_readout_global_fn,
     _build_mlp
 )
+from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
 
 class TestModelFunctions(unittest.TestCase):
@@ -53,6 +54,8 @@ class TestModelFunctions(unittest.TestCase):
         self.config.latent_size = 64
         self.config.use_layer_norm = False
         self.config.message_passing_steps = 3
+        self.config.global_readout_mlp_layers = 0
+        self.config.mlp_depth = 2
         self.hk_init = hk.initializers.Identity()
         self.config.aggregation_message_type = 'sum'
         self.config.aggregation_readout_type = 'sum'
@@ -60,7 +63,6 @@ class TestModelFunctions(unittest.TestCase):
         self.config.delta = 0.1
         self.config.mu_min = 0.0
         self.config.max_atomic_number = 5
-        self.config.extra_mlp = False
         self.config.dropout_rate = 0.0
         self.config.label_type = 'scalar'
 
@@ -266,8 +268,7 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        from jraph_MPEU_configs.aflow_class_test import get_config
-        config = get_config()
+        config = get_class_config()
         config.use_layer_norm = False
         net_fn = GNN(config)
         net = hk.with_empty_state(hk.transform(net_fn))
@@ -288,7 +289,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 10
         hk_init = hk.initializers.Identity()
         edge_update_fn = get_edge_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0)
+            latent_size, hk_init, use_layer_norm=False, dropout_rate=0,
+            mlp_depth=2)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -387,7 +389,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         node_update_fn = get_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0)
+            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
+            mlp_depth=2)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -424,7 +427,7 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         readout_node_update_fn = get_readout_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False)
+            latent_size, hk_init, use_layer_norm=False, output_size=1)
         # TODO: finish test
 
     def test_mlp(self):

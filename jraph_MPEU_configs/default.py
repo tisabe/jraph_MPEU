@@ -51,6 +51,8 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'sum'
     config.aggregation_readout_type = 'sum'
+    config.global_readout_mlp_layers = 0
+    config.mlp_depth = 2
     # Edge embedding parameters
     config.k_max = 150
     config.delta = 0.1
@@ -58,7 +60,6 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = 5
     # Regularization parameters
-    config.extra_mlp = False
     config.dropout_rate = 0.0
 
     # Logging options
