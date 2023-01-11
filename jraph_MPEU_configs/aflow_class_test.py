@@ -26,7 +26,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.early_stopping_steps = 1_000_000
     config.checkpoint_every_steps = 10_000
     config.num_checkpoints = 1  # number of checkpoints to keep
-    config.restore = False # whether to restore from previous checkpoint
     # data split settings
     config.data_file = 'aflow/egap_full_graphs.db'
     config.label_str = 'Egap' # string to determine which label is used from the dataset
@@ -58,6 +57,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = 5
     # Regularization parameters
+    config.use_layer_norm = False
     config.dropout_rate = 0.0
 
     # Logging options

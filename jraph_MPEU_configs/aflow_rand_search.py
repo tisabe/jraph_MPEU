@@ -29,7 +29,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.early_stopping_steps = [1_000_000]
     config.checkpoint_every_steps = [100_000]
     config.num_checkpoints = [1]
-    config.restore = [False] # whether to restore from previous checkpoint
     # data split settings
     config.data_file = ['aflow/egap_full_graphs.db']
     config.label_str = ['Egap']
@@ -50,13 +49,15 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_input_feature_size = [100]
     config.aggregation_message_type = ['mean']
     config.aggregation_readout_type = ['mean']
+    config.global_readout_mlp_layers = [2]
+    config.mlp_depth = [2]
     # Edge embedding parameters
     config.k_max = [150]
     config.delta = [0.1]
     config.mu_min = [0.0]
     # Node embedding parameters
     config.max_atomic_number = [90]
-    config.extra_mlp = [False]
+    config.use_layer_norm = [False]
     config.dropout_rate = [0.0]
 
     # Logging options
