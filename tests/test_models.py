@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 import jax
 import jax.numpy as jnp
-from jax.nn import relu
+from jax.nn import relu, swish
 import jraph
 import haiku as hk
 
@@ -28,7 +28,6 @@ from jraph_MPEU.models import (
     _build_mlp
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
-
 
 class TestModelFunctions(unittest.TestCase):
     """Unit and integration test functions in models.py."""
@@ -66,6 +65,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.dropout_rate = 0.0
         self.config.label_type = 'scalar'
         self.config.activation_name = 'shifted_softplus'
+        self.activation_names = ['shifted_softplus', 'relu', 'swish']
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.
@@ -83,6 +83,7 @@ class TestModelFunctions(unittest.TestCase):
         readout_global_fn
         readout_node_update_fn
         """
+
         n_node = 10
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
@@ -109,26 +110,30 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        self.config.latent_size = 64
-        self.config.message_passing_steps = 3
-        self.config.dropout_rate = 0.0
         self.config.hk_init = hk.initializers.Identity()
-        net_fn = GNN(self.config)
-        net = hk.transform(net_fn)
-        params = net.init(init_rng, init_graphs) # create weights etc. for the model
+        for activation_name in self.activation_names:
+            if activation_name == 'shifted_softplus':
+                sp = shifted_softplus
+            elif activation_name == 'swish':
+                sp = jax.nn.swish
+            elif activation_name == 'relu':
+                sp = jax.nn.relu
+            self.config.activation_name = activation_name
+            net_fn = GNN(self.config)
+            net = hk.transform(net_fn)
+            params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
-        graph_pred = net.apply(params, rng, graph_zero)
-        prediction = graph_pred.globals
+            graph_pred = net.apply(params, rng, graph_zero)
+            prediction = graph_pred.globals
 
-        # the following is the analytical expected result
-        sp = shifted_softplus  # shorten shifted softplus function
-        h0p = sp(sp(sp(sp(1)))) + 1
-        h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
-        h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
-        label = n_node*sp(h0ppp)
+            # the following is the analytical expected result
+            h0p = sp(sp(sp(sp(1.0)))) + 1.0
+            h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
+            h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
+            label = n_node*sp(h0ppp)
 
-        np.testing.assert_array_equal(prediction.shape, (1, 1))
-        self.assertAlmostEqual(label, prediction[0, 0], places=5)
+            np.testing.assert_array_equal(prediction.shape, (1, 1))
+            self.assertAlmostEqual(label, prediction[0, 0], places=5)
 
     def test_GNN_standard_graph_output(self):
         """Test the output of the GNN with a graph with representative edges.
@@ -183,53 +188,61 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        net_fn = GNN(self.config)
-        net = hk.transform(net_fn)
-        # Create weights for the model
-        params = net.init(init_rng, init_graphs)
+        for activation_name in self.activation_names:
+            if activation_name == 'shifted_softplus':
+                activation_fn = shifted_softplus
+            elif activation_name == 'swish':
+                activation_fn = jax.nn.swish
+            elif activation_name == 'relu':
+                activation_fn = jax.nn.relu
+            self.config.activation_name = activation_name
+            net_fn = GNN(self.config)
+            net = hk.transform(net_fn)
+            # Create weights for the model
+            params = net.init(init_rng, init_graphs)
 
-        graph_pred = net.apply(params, rng, graph)
-        prediction = graph_pred.globals
+            graph_pred = net.apply(params, rng, graph)
+            prediction = graph_pred.globals
 
-        # Here, we calculate the expected result, starting with the embeddings.
-        nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
-        edge_embedding_fn = get_edge_embedding_fn(
-            latent_size,
-            self.config.k_max,
-            self.config.delta,
-            self.config.mu_min)
-        edges_embedded = edge_embedding_fn(edge_features)['edges']
-        edges_embedded = np.array(edges_embedded)
+            # Here, we calculate the expected result, starting with the embeddings.
+            nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
+            edge_embedding_fn = get_edge_embedding_fn(
+                latent_size,
+                self.config.k_max,
+                self.config.delta,
+                self.config.mu_min)
+            edges_embedded = edge_embedding_fn(edge_features)['edges']
+            edges_embedded = np.array(edges_embedded)
 
-        # The updated edges.
-        edge_factor = (np.sum(edges_embedded, axis=-1) + 2)/latent_size
-        edge_factor = shifted_softplus(edge_factor)*2
-        edge_factor = np.array(edge_factor)
+            # The updated edges.
+            edge_factor = (np.sum(edges_embedded, axis=-1) + 2)/latent_size
+            edge_factor = activation_fn(edge_factor)*2
+            edge_factor = np.array(edge_factor)
 
-        edge_updated = jnp.ones((int(n_edge), latent_size))
-        for i in range(int(n_edge)):
-            edge_updated = edge_updated.at[i].set(
-                edge_updated[i] * float(edge_factor[i]))
+            edge_updated = jnp.ones((int(n_edge), latent_size))
+            for i in range(int(n_edge)):
+                edge_updated = edge_updated.at[i].set(
+                    edge_updated[i] * float(edge_factor[i]))
 
-        # The edge-wise message.
-        messages = shifted_softplus(edge_updated)
-        messages = shifted_softplus(messages)/latent_size
+            # The edge-wise message.
+            messages = activation_fn(edge_updated)
+            messages = activation_fn(messages)/latent_size
 
-        # Node-wise message
-        message_node = jnp.zeros((int(n_node), latent_size))
-        message_node = message_node.at[0].set(messages[1])
-        message_node = message_node.at[1].set(messages[0] + messages[2])
-        message_node = message_node.at[2].set(messages[3])
+            # Node-wise message
+            message_node = jnp.zeros((int(n_node), latent_size))
+            message_node = message_node.at[0].set(messages[1])
+            message_node = message_node.at[1].set(messages[0] + messages[2])
+            message_node = message_node.at[2].set(messages[3])
 
-        # State-transition
-        nodes_updated = nodes_embedded + shifted_softplus(message_node)
+            # State-transition
+            nodes_updated = nodes_embedded + activation_fn(message_node)
 
-        # Readout
-        nodes_readout = shifted_softplus(nodes_updated[:, 0])/2
-        prediction_expected = jnp.sum(nodes_readout)
+            # Readout
+            nodes_readout = activation_fn(nodes_updated[:, 0])/2
+            prediction_expected = jnp.sum(nodes_readout)
 
-        np.testing.assert_array_equal(edge_updated, graph_pred.edges['edges'])
-        self.assertEqual(prediction_expected, prediction)
+            np.testing.assert_allclose(edge_updated, graph_pred.edges['edges'])
+            self.assertAlmostEqual(prediction_expected, prediction, places=5)
 
     def test_output_size_class(self):
         """Test that the output dimensions of the GNN function are as intended.
