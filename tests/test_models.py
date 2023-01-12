@@ -65,6 +65,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.max_atomic_number = 5
         self.config.dropout_rate = 0.0
         self.config.label_type = 'scalar'
+        self.config.activation_name = 'shifted_softplus'
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.
@@ -289,8 +290,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 10
         hk_init = hk.initializers.Identity()
         edge_update_fn = get_edge_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0,
-            mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -362,7 +363,8 @@ class TestModelFunctions(unittest.TestCase):
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
         node_embedding_fn = get_node_embedding_fn(
-            latent_size, max_atomic_number, False, hk_init)
+            latent_size, max_atomic_number, False,
+            shifted_softplus, hk_init)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
 
         nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
@@ -389,8 +391,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         node_update_fn = get_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
-            mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -427,7 +429,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         readout_node_update_fn = get_readout_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False, output_size=1)
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, output_size=1)
         # TODO: finish test
 
     def test_mlp(self):

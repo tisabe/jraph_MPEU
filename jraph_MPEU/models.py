@@ -137,7 +137,8 @@ def get_edge_embedding_fn(
 
 
 def get_node_embedding_fn(
-        latent_size: int, max_atomic_number: int, use_layer_norm, hk_init=None):
+        latent_size: int, max_atomic_number: int, use_layer_norm, activation,
+        hk_init=None):
     """Return the node embedding function.
 
     We take the node atomic number and one hot encode the number. At this point
@@ -154,6 +155,7 @@ def get_node_embedding_fn(
         max_atomic_number: The max atomic number we expect to see from our
             graphs/systems.
         use_layer_norm: whether layer normalization should be used.
+        activation: activation function for MLPs.
         hk_init: Linear weight intializer function for our linear embedding.
     """
     def node_embedding_fn(nodes) -> jnp.ndarray:
@@ -163,40 +165,38 @@ def get_node_embedding_fn(
         """
         net = _build_mlp(
             "node_embedding_layer", [latent_size],
-            use_layer_norm=use_layer_norm, w_init=hk_init, activate_final=False
+            use_layer_norm=use_layer_norm, activation=activation,
+            w_init=hk_init, activate_final=False
         )
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)
     return node_embedding_fn
 
 
-def get_embedder(config: ml_collections.ConfigDict):
+def get_embedder(
+        latent_size, k_max, delta, mu_min, max_atomic_number, hk_init,
+        use_layer_norm, activation
+    ):
     """Return embedding function, with hyperparameters defined in config.
 
     This is a wrapper function that maps the embedding function to our graphs
     using jraph.
     """
-    # Set constant values based on config.
-    latent_size = config.latent_size
-    k_max = config.k_max
-    delta = config.delta
-    mu_min = config.mu_min
-    max_atomic_number = config.max_atomic_number
-    hk_init = config.hk_init
-    use_layer_norm = config.use_layer_norm
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=get_edge_embedding_fn(
             latent_size, k_max, delta, mu_min),
         embed_node_fn=get_node_embedding_fn(
-            latent_size, max_atomic_number, use_layer_norm, hk_init),
+            latent_size, max_atomic_number, use_layer_norm, activation,
+            hk_init),
         embed_global_fn=None)
     return embedder
 
 
 def get_edge_update_fn(
-        latent_size: int, hk_init, use_layer_norm, dropout_rate, mlp_depth):
+        latent_size: int, hk_init, use_layer_norm, activation, dropout_rate,
+        mlp_depth):
     """Return the edge update function and message update function.
 
     Takes in the previous edge vector value e_vw(t-1) and concatenates with
@@ -228,6 +228,7 @@ def get_edge_update_fn(
         hk_init: Weight initializer function of the edge update functon neural
             network.
         use_layer_norm: whether layer normalization should be used.
+        activation: activation function for MLPs.
         dropout_rate: dropout rate on the last layer of MLPs.
         mlp_depth: number of weight layers in each MLP.
     """
@@ -260,7 +261,8 @@ def get_edge_update_fn(
         # actiavtion (e.g. linear network).
         net_edge = _build_mlp(
             'edge_update', [2*latent_size] + [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, activation=activation,
+            activate_final=False, w_init=hk_init)
 
         edge_message['edges'] = net_edge(edge_node_concat)
         edge_message['edges'] = hk.dropout(
@@ -272,7 +274,8 @@ def get_edge_update_fn(
         # Dimensionality doesn't change at all from input to output here.
         net_message_edge = _build_mlp(
             'message_edge_net', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, activate_final=True, w_init=hk_init)
+            use_layer_norm=use_layer_norm, activation=activation,
+            activate_final=True, w_init=hk_init)
         edges_new = net_message_edge(edge_message['edges'])
         edges_new = hk.dropout(
             hk.next_rng_key(), dropout_rate, edges_new)
@@ -281,7 +284,8 @@ def get_edge_update_fn(
         # linear embedding layer (FC with no actiavtion).
         net_message_node = _build_mlp(
             'message_node_net', [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, activation=activation,
+            activate_final=False, w_init=hk_init)
         nodes_new = net_message_node(sent_attributes)
         nodes_new = hk.dropout(
             hk.next_rng_key(), dropout_rate, nodes_new)
@@ -296,7 +300,8 @@ def get_edge_update_fn(
 
 
 def get_node_update_fn(
-        latent_size, hk_init, use_layer_norm, dropout_rate, mlp_depth):
+        latent_size, hk_init, use_layer_norm, activation, dropout_rate,
+        mlp_depth):
     """Return the node update function.
 
     Wrapper function so that we can interface with jraph.
@@ -306,6 +311,7 @@ def get_node_update_fn(
         hk_init: The weight intializer function for the node feature vector
             update network.
         use_layer_norm: whether layer normalization should be used.
+        activation: activation function for MLPs.
         dropout_rate: rate with which latent features are dropped out after MLP.
         mlp_depth: number of weight layers in each MLP.
     """
@@ -321,11 +327,6 @@ def get_node_update_fn(
 
         See Equation (9) in the PB Jorgensen paper.
 
-        TODO: Right now we follow the PB Jorgensen paper and use this function
-            with the sum of incoming messages. The Velickovic paper showed
-            different aggregation functions for the messages that might
-            be of interest.
-
         Args:
             nodes: Node feature vector at previous iteration (h_i(t-1)).
             sent_attributes: Not used, but expected by jraph.
@@ -337,7 +338,8 @@ def get_node_update_fn(
         # is linear.
         net = _build_mlp(
             'node_update', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, activation=activation,
+            activate_final=False, w_init=hk_init)
         # Get the messages term of Equation 9 which is the net applied to
         # the aggregation of incoming messages to the node.
         messages_propagated = net(received_attributes['messages'])
@@ -349,13 +351,14 @@ def get_node_update_fn(
 
 
 def get_readout_global_fn(
-        latent_size, global_readout_mlp_layers, label_type: str):
+        latent_size, global_readout_mlp_layers, activation, label_type: str):
     """Return the readout global function.
 
     Args:
         latent_size: size of hidden layers in MLPs.
         global_readout_mlp_layers: number of MLP layers applied after
             aggregating node features.
+        activation: activation function for MLPs.
         label_type: type of the label that is fitted. Determines output size.
     """
     def readout_global_fn(
@@ -383,12 +386,14 @@ def get_readout_global_fn(
                 # TODO: maybe decrease hidden layers to create funnelling
                 net = _build_mlp(
                     'readout', [latent_size] * global_readout_mlp_layers + [2],
-                    use_layer_norm=False, activate_final=False)
+                    use_layer_norm=False, activation=activation,
+                    activate_final=False)
                 return net(node_attributes)
             else:
                 net = _build_mlp(
                     'readout', [latent_size] * global_readout_mlp_layers + [1],
-                    use_layer_norm=False, activate_final=False)
+                    use_layer_norm=False, activation=activation,
+                    activate_final=False)
             return net(node_attributes)
         else:
             return node_attributes
@@ -396,7 +401,7 @@ def get_readout_global_fn(
 
 
 def get_readout_node_update_fn(
-        latent_size, hk_init, use_layer_norm, output_size):
+        latent_size, hk_init, use_layer_norm, activation, output_size):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -434,15 +439,15 @@ def get_readout_node_update_fn(
             # shifted softplus. Then we have a linear FC layer with no softplus.
             net = _build_mlp(
                 'readout_node', [latent_size//2, output_size],
-                use_layer_norm=False, activate_final=False,
-                w_init=hk_init
+                use_layer_norm=False, activation=activation,
+                activate_final=False, w_init=hk_init
             )
         else:
             # add extra shsp and larger hidden layer
             net = _build_mlp(
                 'readout_node', [latent_size, output_size],
-                use_layer_norm=use_layer_norm, activate_final=True,
-                w_init=hk_init
+                use_layer_norm=use_layer_norm, activation=activation,
+                activate_final=True, w_init=hk_init
             )
         # Apply the network to the nodes.
         return net(nodes)
@@ -460,6 +465,18 @@ class GNN:
         self.config = config
         self.is_training = is_training
         self.norm = config.use_layer_norm
+
+        # figure out which activation function to use
+        if self.config.activation_name == 'shifted_softplus':
+            self.activation = shifted_softplus
+        elif self.config.activation_name == 'swish':
+            self.activation = jax.nn.swish
+        elif self.config.activation_name == 'relu':
+            self.activation = jax.nn.relu
+        else:
+            raise ValueError(f'Activation function \
+                "{self.config.activation_name}" is not known to GNN \
+                initializer')
 
         if self.config.aggregation_message_type == 'sum':
             self.aggregation_message_fn = jraph.segment_sum
@@ -501,7 +518,11 @@ class GNN:
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
-        embedder = get_embedder(self.config)
+        embedder = get_embedder(
+            self.config.latent_size, self.config.k_max, self.config.delta,
+            self.config.mu_min, self.config.max_atomic_number,
+            self.config.hk_init, self.norm, self.activation
+        )
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).
         graphs = embedder(graphs)
@@ -513,10 +534,10 @@ class GNN:
             net = jraph.GraphNetwork(
                 update_node_fn=get_node_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
-                    dropout_rate, self.config.mlp_depth),
+                    self.activation, dropout_rate, self.config.mlp_depth),
                 update_edge_fn=get_edge_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
-                    dropout_rate, self.config.mlp_depth),
+                    self.activation, dropout_rate, self.config.mlp_depth),
                 update_global_fn=None,
                 aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
             # Update the graphs by applying our message passing step on graphs.
@@ -535,15 +556,13 @@ class GNN:
 
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
-                self.config.latent_size,
-                self.config.hk_init,
-                self.norm,
-                node_output_size),
+                self.config.latent_size, self.config.hk_init, self.norm,
+                self.activation, node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 global_readout_mlp_layers=self.config.global_readout_mlp_layers,
-                label_type=self.config.label_type),
+                activation=self.activation, label_type=self.config.label_type),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
         graphs = net_readout(graphs)

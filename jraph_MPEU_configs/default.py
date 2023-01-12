@@ -52,6 +52,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.aggregation_readout_type = 'sum'
     config.global_readout_mlp_layers = 0
     config.mlp_depth = 2
+    config.activation_name = 'shifted_softplus'
     # Edge embedding parameters
     config.k_max = 150
     config.delta = 0.1
