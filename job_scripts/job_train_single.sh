@@ -25,5 +25,5 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=10
 
-python scripts/main.py --workdir=./results/aflow/default \
---config=jraph_MPEU_configs/default_aflow.py
+python scripts/main.py --workdir=./results/aflow/classify_0 \
+--config=jraph_MPEU_configs/aflow_classify.py
