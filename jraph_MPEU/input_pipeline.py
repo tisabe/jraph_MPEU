@@ -24,7 +24,6 @@ from ase.neighborlist import NeighborList
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     normalize_targets_dict,
-    add_labels_to_graphs,
     load_config
 )
 
@@ -409,14 +408,16 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=seed-42)  # seed-42 as seed is 42 by default, but default random state should be 0
+            random_state=seed-42)
+    # seed-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
         test_set) = sklearn.model_selection.train_test_split(
             val_and_test_set,
             test_size=test_frac/(test_frac+val_frac),
-            random_state=1)   # seed-41 as seed is 42 by default, but default random state should be 1
+            random_state=1)
+    # seed-41 as seed is 42 by default, but default random state should be 1
     split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
     return split_dict
 

@@ -215,16 +215,20 @@ def main(argv):
     labels = [
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
-    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    if 'spacegroup_relax' in df.columns:
+        df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    else:
+        print('Skipping spacegroup conversion.')
     
-    try:
+    if 'Egap_type' in df.columns:
         df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
-    except KeyError:
+    else:
         print("Egap_type not found in properties, continuing without.")
-    try:
+    if 'dft_type' in df.columns:
         df['dft_type'] = df['dft_type'].apply(lambda dft: dft.strip(" '[]"))
-    except KeyError:
+    else:
         print("dft_type not found in properties, continuing without.")
+
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
@@ -306,22 +310,29 @@ def main(argv):
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
-    col = df_train['crystal system']
-    counts = dict(Counter(col))
-    print(counts)
-    plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
-    plt.pie(counts.values(), labels=counts.keys())
-    plt.show()
+    
+    if 'spacegroup_relax' in df.columns:
+        col = df_train['crystal system']
+        counts = dict(Counter(col))
+        print(counts)
+        plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+        plt.pie(counts.values(), labels=counts.keys())
+        plt.show()
+    else:
+        print('Skipping spacegroup plots.')
 
-    col = df_train['Egap_type']
-    print(Counter(col))
-    plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
+    if 'Egap_type' in df.columns:
+        col = df_train['Egap_type']
+        print(Counter(col))
+        plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
 
-    plot_density(df_test, workdir, '/error_vs_density.png')
+    if 'density' in df.columns:
+        plot_density(df_test, workdir, '/error_vs_density.png')
 
-    col = df_train['ldau_type']
-    print(Counter(col))
-    plot_ldau(df, workdir, '/error_vs_ldau.png')
+    if 'ldau_type' in df.columns:
+        col = df_train['ldau_type']
+        print(Counter(col))
+        plot_ldau(df, workdir, '/error_vs_ldau.png')
 
 
 if __name__ == "__main__":

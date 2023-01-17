@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax.nn import relu, swish
 import jraph
 import haiku as hk
 
@@ -21,9 +22,12 @@ from jraph_MPEU.models import (
     get_edge_update_fn,
     get_edge_embedding_fn,
     get_node_embedding_fn,
-    get_node_update_fn
+    get_node_update_fn,
+    get_readout_node_update_fn,
+    get_readout_global_fn,
+    _build_mlp
 )
-
+from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
 class TestModelFunctions(unittest.TestCase):
     """Unit and integration test functions in models.py."""
@@ -47,7 +51,10 @@ class TestModelFunctions(unittest.TestCase):
         self.config = ml_collections.ConfigDict()
         self.config.batch_size = 32
         self.config.latent_size = 64
+        self.config.use_layer_norm = False
         self.config.message_passing_steps = 3
+        self.config.global_readout_mlp_layers = 0
+        self.config.mlp_depth = 2
         self.hk_init = hk.initializers.Identity()
         self.config.aggregation_message_type = 'sum'
         self.config.aggregation_readout_type = 'sum'
@@ -55,9 +62,10 @@ class TestModelFunctions(unittest.TestCase):
         self.config.delta = 0.1
         self.config.mu_min = 0.0
         self.config.max_atomic_number = 5
-        self.config.extra_mlp = False
         self.config.dropout_rate = 0.0
         self.config.label_type = 'scalar'
+        self.config.activation_name = 'shifted_softplus'
+        self.activation_names = ['shifted_softplus', 'relu', 'swish']
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.
@@ -75,6 +83,7 @@ class TestModelFunctions(unittest.TestCase):
         readout_global_fn
         readout_node_update_fn
         """
+
         n_node = 10
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
@@ -101,25 +110,30 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        self.config.latent_size = 64
-        self.config.message_passing_steps = 3
         self.config.hk_init = hk.initializers.Identity()
-        net_fn = GNN(self.config)
-        net = hk.without_apply_rng(hk.transform(net_fn))
-        params = net.init(init_rng, init_graphs) # create weights etc. for the model
+        for activation_name in self.activation_names:
+            if activation_name == 'shifted_softplus':
+                sp = shifted_softplus
+            elif activation_name == 'swish':
+                sp = jax.nn.swish
+            elif activation_name == 'relu':
+                sp = jax.nn.relu
+            self.config.activation_name = activation_name
+            net_fn = GNN(self.config)
+            net = hk.transform(net_fn)
+            params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
-        graph_pred = net.apply(params, graph_zero)
-        prediction = graph_pred.globals
+            graph_pred = net.apply(params, rng, graph_zero)
+            prediction = graph_pred.globals
 
-        # the following is the analytical expected result
-        sp = shifted_softplus  # shorten shifted softplus function
-        h0p = sp(sp(sp(sp(1)))) + 1
-        h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
-        h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
-        label = n_node*sp(h0ppp)
+            # the following is the analytical expected result
+            h0p = sp(sp(sp(sp(1.0)))) + 1.0
+            h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
+            h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
+            label = n_node*sp(h0ppp)
 
-        np.testing.assert_array_equal(prediction.shape, (1, 1))
-        self.assertAlmostEqual(label, prediction[0, 0], places=5)
+            np.testing.assert_array_equal(prediction.shape, (1, 1))
+            self.assertAlmostEqual(label, prediction[0, 0], places=5)
 
     def test_GNN_standard_graph_output(self):
         """Test the output of the GNN with a graph with representative edges.
@@ -174,60 +188,111 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        net_fn = GNN(self.config)
-        net = hk.without_apply_rng(hk.transform(net_fn))
-        # Create weights for the model
-        params = net.init(init_rng, init_graphs)
+        for activation_name in self.activation_names:
+            if activation_name == 'shifted_softplus':
+                activation_fn = shifted_softplus
+            elif activation_name == 'swish':
+                activation_fn = jax.nn.swish
+            elif activation_name == 'relu':
+                activation_fn = jax.nn.relu
+            self.config.activation_name = activation_name
+            net_fn = GNN(self.config)
+            net = hk.transform(net_fn)
+            # Create weights for the model
+            params = net.init(init_rng, init_graphs)
 
-        graph_pred = net.apply(params, graph)
-        prediction = graph_pred.globals
+            graph_pred = net.apply(params, rng, graph)
+            prediction = graph_pred.globals
 
-        # Here, we calculate the expected result, starting with the embeddings.
-        nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
-        edge_embedding_fn = get_edge_embedding_fn(
-            latent_size,
-            self.config.k_max,
-            self.config.delta,
-            self.config.mu_min)
-        edges_embedded = edge_embedding_fn(edge_features)['edges']
-        edges_embedded = np.array(edges_embedded)
+            # Here, we calculate the expected result, starting with the embeddings.
+            nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
+            edge_embedding_fn = get_edge_embedding_fn(
+                latent_size,
+                self.config.k_max,
+                self.config.delta,
+                self.config.mu_min)
+            edges_embedded = edge_embedding_fn(edge_features)['edges']
+            edges_embedded = np.array(edges_embedded)
 
-        # The updated edges.
-        edge_factor = (np.sum(edges_embedded, axis=-1) + 2)/latent_size
-        edge_factor = shifted_softplus(edge_factor)*2
-        edge_factor = np.array(edge_factor)
+            # The updated edges.
+            edge_factor = (np.sum(edges_embedded, axis=-1) + 2)/latent_size
+            edge_factor = activation_fn(edge_factor)*2
+            edge_factor = np.array(edge_factor)
 
-        edge_updated = jnp.ones((int(n_edge), latent_size))
-        for i in range(int(n_edge)):
-            edge_updated = edge_updated.at[i].set(
-                edge_updated[i] * float(edge_factor[i]))
+            edge_updated = jnp.ones((int(n_edge), latent_size))
+            for i in range(int(n_edge)):
+                edge_updated = edge_updated.at[i].set(
+                    edge_updated[i] * float(edge_factor[i]))
 
-        # The edge-wise message.
-        messages = shifted_softplus(edge_updated)
-        messages = shifted_softplus(messages)/latent_size
+            # The edge-wise message.
+            messages = activation_fn(edge_updated)
+            messages = activation_fn(messages)/latent_size
 
-        # Node-wise message
-        message_node = jnp.zeros((int(n_node), latent_size))
-        message_node = message_node.at[0].set(messages[1])
-        message_node = message_node.at[1].set(messages[0] + messages[2])
-        message_node = message_node.at[2].set(messages[3])
+            # Node-wise message
+            message_node = jnp.zeros((int(n_node), latent_size))
+            message_node = message_node.at[0].set(messages[1])
+            message_node = message_node.at[1].set(messages[0] + messages[2])
+            message_node = message_node.at[2].set(messages[3])
 
-        # State-transition
-        nodes_updated = nodes_embedded + shifted_softplus(message_node)
+            # State-transition
+            nodes_updated = nodes_embedded + activation_fn(message_node)
 
-        # Readout
-        nodes_readout = shifted_softplus(nodes_updated[:, 0])/2
-        prediction_expected = jnp.sum(nodes_readout)
+            # Readout
+            nodes_readout = activation_fn(nodes_updated[:, 0])/2
+            prediction_expected = jnp.sum(nodes_readout)
 
-        np.testing.assert_array_equal(edge_updated, graph_pred.edges['edges'])
-        self.assertEqual(prediction_expected, prediction)
+            np.testing.assert_allclose(edge_updated, graph_pred.edges['edges'])
+            self.assertAlmostEqual(prediction_expected, prediction, places=5)
 
-    def test_output_size(self):
+    def test_output_size_class(self):
         """Test that the output dimensions of the GNN function are as intended.
         The output shape should be:
-        [batch_size, 1] for single regression.
-        TODO: [batch_size, 2] for binary classification."""
-        self.assertTrue(False)
+        [batch_size, 2] for binary classification task.
+        """
+        n_node = 10
+        n_edge = 4
+        init_graphs = jraph.GraphsTuple(
+            nodes=jnp.ones((n_node))*5,
+            edges=jnp.ones((n_edge)),
+            senders=jnp.array([0, 0, 1, 2]),
+            receivers=jnp.array([1, 2, 0, 0]),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_edge]),
+            globals=None
+        )
+
+        n_node = jnp.array([3])
+        n_edge = jnp.array([4])
+        node_features = jnp.array([0, 1, 2])
+        edge_features = jnp.array([1, 2, 3, 4])
+        senders = jnp.array([0, 1, 2, 0])
+        receivers = jnp.array([1, 0, 1, 2])
+
+        graph = jraph.GraphsTuple(
+            nodes=node_features,
+            edges=edge_features,
+            senders=senders,
+            receivers=receivers,
+            n_node=n_node,
+            n_edge=n_edge,
+            globals=None
+        )
+        graphs = jraph.pad_with_graphs(graph, n_node=8, n_edge=8)
+
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        config = get_class_config()
+        config.use_layer_norm = False
+        net_fn = GNN(config)
+        net = hk.with_empty_state(hk.transform(net_fn))
+        # Create weights for the model
+        params, state = net.init(init_rng, init_graphs)
+
+        graphs_pred = net.apply(params, state, rng, graphs)
+        self.assertEqual(len(graphs_pred), 2)
+        prediction = graphs_pred[0].globals
+        self.assertEqual(np.shape(prediction)[-1], 2)
 
     def test_edge_update_fn(self):
         """Test the expected edge and message feature vector in the edge update.
@@ -237,7 +302,9 @@ class TestModelFunctions(unittest.TestCase):
         """
         latent_size = 10
         hk_init = hk.initializers.Identity()
-        edge_update_fn = get_edge_update_fn(latent_size, hk_init)
+        edge_update_fn = get_edge_update_fn(
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -256,8 +323,6 @@ class TestModelFunctions(unittest.TestCase):
         rng, init_rng = jax.random.split(rng)
         # Create pure callable with haiku to initialize later.
         hk_edge_update_fn = hk.transform(edge_update_fn)
-        # We do not use dropout so we don't need rngs.
-        hk_edge_update_fn = hk.without_apply_rng(hk_edge_update_fn)
         # Initialize weights and paramters with haiku.
         # We use a different to initialize, this tests the ability of the
         # function to use different inputs.
@@ -268,7 +333,7 @@ class TestModelFunctions(unittest.TestCase):
             jnp.zeros((11)))
 
         edge_message_update = hk_edge_update_fn.apply(
-            params, edge_message, sent_attributes, received_attributes,
+            params, rng, edge_message, sent_attributes, received_attributes,
             graph_globals)
 
         edge_updated = edge_message_update['edges']
@@ -310,7 +375,9 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
-        node_embedding_fn = get_node_embedding_fn(latent_size, max_atomic_number, hk_init)
+        node_embedding_fn = get_node_embedding_fn(
+            latent_size, max_atomic_number, False,
+            shifted_softplus, hk_init)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
 
         nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
@@ -336,7 +403,9 @@ class TestModelFunctions(unittest.TestCase):
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        node_update_fn = get_node_update_fn(latent_size, hk_init)
+        node_update_fn = get_node_update_fn(
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -351,19 +420,45 @@ class TestModelFunctions(unittest.TestCase):
         global_attributes = None
 
         node_update_fn = hk.transform(node_update_fn)
-        node_update_fn = hk.without_apply_rng(node_update_fn)
         params = node_update_fn.init(
             init_rng,
             nodes, sent_message, received_message, global_attributes
         )
 
         nodes_updated = node_update_fn.apply(
-            params,
+            params, rng,
             nodes, sent_message, received_message, global_attributes
         )
         np.testing.assert_allclose(
             nodes_updated,
             shifted_softplus(received_message['messages']) + nodes)
+
+    def test_readout_function(self):
+        """Test the output of the readout function against the expected result.
+        """
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        latent_size = 16
+        hk_init = hk.initializers.Identity()
+        readout_node_update_fn = get_readout_node_update_fn(
+            latent_size, hk_init, use_layer_norm=False,
+            activation=shifted_softplus, output_size=1)
+        # TODO: finish test
+
+    def test_mlp(self):
+        """Test the _build_mlp function."""
+        output_sizes = [16, 16, 8]
+        # test with relu activation, and identity weight-matrices
+        '''mlp = hk.transform(
+            _build_mlp(
+                'test_name', output_sizes, use_layer_norm=False,
+                activation=relu, with_bias=False, activate_final=False,
+                w_init=self.hk_init)
+        )'''
+        #inputs = np.ones((1, 8))
+        #outputs = mlp(inputs)
+        #print(outputs)
 
 if __name__ == '__main__':
     unittest.main()
