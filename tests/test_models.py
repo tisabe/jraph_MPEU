@@ -448,17 +448,33 @@ class TestModelFunctions(unittest.TestCase):
 
     def test_mlp(self):
         """Test the _build_mlp function."""
-        output_sizes = [16, 16, 8]
-        # test with relu activation, and identity weight-matrices
-        '''mlp = hk.transform(
-            _build_mlp(
-                'test_name', output_sizes, use_layer_norm=False,
-                activation=relu, with_bias=False, activate_final=False,
-                w_init=self.hk_init)
-        )'''
-        #inputs = np.ones((1, 8))
-        #outputs = mlp(inputs)
-        #print(outputs)
+        hidden_sizes = [16, 16, 8]
+        # test with relu activation, and identity weight-matrices,
+        # with gain of 2, i.e. multiplying with 2 every layer
+        hk_init = hk.initializers.Identity(2.0)
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        # for some reason it needs to be wrapped like this,
+        # otherwise haiku complains
+        def wrapped_mlp(output_sizes):
+            def mlp_fn(arr_in):
+                mlp = _build_mlp(
+                    'test_name', output_sizes, use_layer_norm=False,
+                    activation=jax.nn.relu, with_bias=False,
+                    activate_final=False, w_init=hk_init
+                )
+                return mlp(arr_in)
+            return mlp_fn
+        mlp = hk.transform(wrapped_mlp(hidden_sizes))
+        init_inputs = jnp.zeros((1, 10))
+        params = mlp.init(init_rng, init_inputs)
+
+        inputs = np.array([-4, -2, 0, 1, 2, 3, 4, 5, 6, 7])
+        outputs = mlp.apply(params, rng, inputs)
+        expected_outputs = np.array(
+            [0, 0, 0, 1, 2, 3, 4, 5]
+        )*(2**len(hidden_sizes))
+        np.testing.assert_allclose(outputs, expected_outputs)
 
 if __name__ == '__main__':
     unittest.main()
