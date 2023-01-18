@@ -448,8 +448,9 @@ class TestModelFunctions(unittest.TestCase):
     def test_mlp(self):
         """Test the _build_mlp function."""
         hidden_sizes = [16, 16, 8]
-        # test with relu activation, and identity weight-matrices
-        hk_init = hk.initializers.Identity()
+        # test with relu activation, and identity weight-matrices,
+        # with gain of 2, i.e. multiplying with 2 every layer
+        hk_init = hk.initializers.Identity(2.0)
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
         # for some reason it needs to be wrapped like this,
@@ -469,7 +470,9 @@ class TestModelFunctions(unittest.TestCase):
 
         inputs = np.array([-4, -2, 0, 1, 2, 3, 4, 5, 6, 7])
         outputs = mlp.apply(params, rng, inputs)
-        expected_outputs = [0, 0, 0, 1, 2, 3, 4, 5]
+        expected_outputs = np.array(
+            [0, 0, 0, 1, 2, 3, 4, 5]
+        )*(2**len(hidden_sizes))
         np.testing.assert_allclose(outputs, expected_outputs)
 
 if __name__ == '__main__':
