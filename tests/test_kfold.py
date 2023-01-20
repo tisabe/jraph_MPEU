@@ -5,6 +5,7 @@ import tempfile
 
 import ase.db
 from ase import Atoms
+import numpy as np
 
 from scripts.crossval.train_kfold import (
     get_db_ids,
@@ -34,14 +35,22 @@ class TestKfold(unittest.TestCase):
         n_splits = 5
         seed = 0
         ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        val_ids_all = []
         test_ids_all = []
         for i_fold in range(n_splits):
-            _, test_ids = get_data_indices_ith_fold(
+            train_ids, val_ids, test_ids = get_data_indices_ith_fold(
                 ids, n_splits, i_fold, seed)
+            fold_ids = np.concatenate([train_ids, val_ids, test_ids])
+            # check that all ids are present
+            self.assertEqual(len(ids), len(fold_ids))
+            # check that ids in this fold are unique
+            self.assertEqual(
+                len(fold_ids), len(set(fold_ids)))
+            val_ids_all.extend(val_ids)
             test_ids_all.extend(test_ids)
         # check that all test ids have been generated and they are unique
-        self.assertEqual(len(ids), len(test_ids_all))
-        self.assertEqual(len(test_ids_all), len(set(test_ids_all)))
+        self.assertEqual(set(val_ids_all), set(ids))
+        self.assertEqual(set(test_ids_all), set(ids))
 
 
 if __name__ == '__main__':

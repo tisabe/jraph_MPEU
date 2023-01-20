@@ -8,15 +8,13 @@ from absl import app
 from absl import flags
 from absl import logging
 import jax
-import jraph
 from ml_collections import config_flags
-import ml_collections
 import tensorflow as tf
 from sklearn.model_selection import KFold
-import numpy as np
 import ase.db
 
 from jraph_MPEU.train import train_and_evaluate
+from jraph_MPEU.input_pipeline import save_split_dict
 
 flags.DEFINE_integer('n_splits', 10, help='number of cross validation splits')
 flags.DEFINE_integer('i_fold', 0, help='cross validation fold index')
@@ -47,10 +45,20 @@ def get_data_indices_ith_fold(ids: list, n_splits: int, i_fold: int, seed: int):
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
 
-    for i, (train_index, test_index) in enumerate(kf.split(ids)):
+    train_split = []
+    val_split = []
+    test_split = []
+    for i, (_, test_index) in enumerate(kf.split(ids)):
         if i == i_fold:
-            return train_index.tolist(), test_index.tolist()
-
+            # the i-th split is the test split
+            test_split = test_index.tolist()
+        elif i == (i_fold+1)%n_splits:
+            # the (i+1)th split is the validation split
+            val_split = test_index.tolist()
+        else:
+            # all other splits get added to the train split
+            train_split.extend(test_index.tolist())
+    return train_split, val_split, test_split
 
 def main(argv):
     if len(argv) > 1:
@@ -68,6 +76,20 @@ def main(argv):
 
     logging.info('JAX host: %d / %d', jax.process_index(), jax.process_count())
     logging.info('JAX local devices: %r', jax.local_devices())
+
+    indices = get_db_ids(
+        FLAGS.config.data_file, FLAGS.config.selection,
+        FLAGS.config.limit_data)
+    print(indices)
+
+    train_ids, val_ids, test_ids = get_data_indices_ith_fold(
+        indices, FLAGS.n_splits, FLAGS.i_fold, FLAGS.config.seed)
+    print(train_ids)
+    print(val_ids)
+    print(test_ids)
+    save_split_dict(
+        {'train': train_ids, 'validation': val_ids, 'test': test_ids},
+        FLAGS.workdir)
 
     train_and_evaluate(FLAGS.config, FLAGS.workdir)
 
