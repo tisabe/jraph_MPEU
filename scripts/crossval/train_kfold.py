@@ -86,13 +86,10 @@ def main(argv):
     indices = get_db_ids(
         FLAGS.config.data_file, FLAGS.config.selection,
         FLAGS.config.limit_data)
-    print(indices)
 
     train_ids, val_ids, test_ids = get_data_indices_ith_fold(
         indices, FLAGS.n_splits, FLAGS.i_fold, FLAGS.config.seed)
-    print(train_ids)
-    print(val_ids)
-    print(test_ids)
+
     save_split_dict(
         {'train': train_ids, 'validation': val_ids, 'test': test_ids},
         FLAGS.workdir)
