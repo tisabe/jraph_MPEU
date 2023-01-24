@@ -39,25 +39,30 @@ def get_db_ids(db_name, selection, limit):
     return ids
 
 
-def get_data_indices_ith_fold(ids: list, n_splits: int, i_fold: int, seed: int):
-    """Save split data for the specified fold of n splits."""
+def get_data_indices_ith_fold(data: list, n_splits: int, i_fold: int, seed: int):
+    """Return the data split in a three-way-split (training, validation, test).
+    Gives the i-th fold of n_split folds."""
     assert i_fold < n_splits
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
 
-    train_split = []
-    val_split = []
-    test_split = []
-    for i, (_, test_index) in enumerate(kf.split(ids)):
+    train_split_ids = []
+    for i, (_, test_index) in enumerate(kf.split(data)):
         if i == i_fold:
             # the i-th split is the test split
-            test_split = test_index.tolist()
+            test_split_ids = test_index.tolist()
         elif i == (i_fold+1)%n_splits:
             # the (i+1)th split is the validation split
-            val_split = test_index.tolist()
+            val_split_ids = test_index.tolist()
         else:
             # all other splits get added to the train split
-            train_split.extend(test_index.tolist())
+            train_split_ids.extend(test_index.tolist())
+    # NOTE: kf.split gives indices of the specific split, not the data we put
+    # into it back, but split up, i.e. [10, 20, 30, 40, 50] gets split into
+    # [0, 1, 2], [3] and [4].
+    train_split = [data[i] for i in train_split_ids]
+    val_split = [data[i] for i in val_split_ids]
+    test_split = [data[i] for i in test_split_ids]
     return train_split, val_split, test_split
 
 def main(argv):
@@ -70,7 +75,8 @@ def main(argv):
     if not os.path.exists(f'./{FLAGS.workdir}'):
         os.makedirs(f'./{FLAGS.workdir}')
     if FLAGS.config.log_to_file:
-        logging.get_absl_handler().use_absl_log_file('absl_logging', f'./{FLAGS.workdir}') 
+        logging.get_absl_handler().use_absl_log_file(
+            'absl_logging', f'./{FLAGS.workdir}')
         flags.FLAGS.mark_as_parsed()
         logging.set_verbosity(logging.INFO)
 
