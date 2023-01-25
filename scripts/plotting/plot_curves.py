@@ -3,11 +3,14 @@ import os
 import pickle
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def main(args):
     # plot learning curves
     fig, ax = plt.subplots(2)
+    rmse_all = []
+    mae_all = []
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
@@ -40,6 +43,8 @@ def main(args):
             loss_mae = [row[1][1] for row in metrics]
             min_rmse = min(loss_rmse)
             min_mae = min(loss_mae)
+            rmse_all.append(min_rmse)
+            mae_all.append(min_mae)
             print(f'Minimum test RMSE: {min_rmse}')
             print(f'Minimum test MAE: {min_mae}')
 
@@ -48,6 +53,8 @@ def main(args):
 
     #ax[0].legend()
     #ax[1].legend()
+    print(f'Average RMSE: {np.mean(rmse_all)} +- {np.std(rmse_all)}')
+    print(f'Average MAE: {np.mean(mae_all)} +- {np.std(mae_all)}')
     ax[0].set_xlabel('gradient step', fontsize=12)
     ax[1].set_xlabel('gradient step', fontsize=12)
     ax[0].set_ylabel('MSE (eV)', fontsize=12)

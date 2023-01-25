@@ -90,9 +90,11 @@ def main(argv):
     train_ids, val_ids, test_ids = get_data_indices_ith_fold(
         indices, FLAGS.n_splits, FLAGS.i_fold, FLAGS.config.seed)
 
-    save_split_dict(
-        {'train': train_ids, 'validation': val_ids, 'test': test_ids},
-        FLAGS.workdir)
+    split_path = os.path.join(FLAGS.workdir, 'splits.json')
+    if not os.path.exists(split_path):
+        save_split_dict(
+            {'train': train_ids, 'validation': val_ids, 'test': test_ids},
+            FLAGS.workdir)
 
     train_and_evaluate(FLAGS.config, FLAGS.workdir)
 
