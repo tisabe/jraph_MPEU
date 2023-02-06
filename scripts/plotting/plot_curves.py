@@ -14,16 +14,18 @@ def main(args):
     for dirname in os.listdir(args.file):
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
-            print(metrics_path)
             #metrics_path = 'results/mp/cutoff/lowlr/checkpoints/metrics.pkl'
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
+            print(metrics_path)
 
             split = 'validation'
             metrics = metrics_dict[split]
             loss_rmse = [row[1][0] for row in metrics]
             loss_mae = [row[1][1] for row in metrics]
             step = [int(row[0]) for row in metrics]
+            min_step_index = np.argmin(loss_rmse)
+            print(f'Step with minimum loss: {step[min_step_index]}')
             # TODO: import config and show hyperparameters
             ax[0].plot(step, loss_rmse, label=metrics_path)
             ax[1].plot(step, loss_mae, label=metrics_path)
@@ -41,15 +43,17 @@ def main(args):
             metrics = metrics_dict[split]
             loss_rmse = [row[1][0] for row in metrics]
             loss_mae = [row[1][1] for row in metrics]
-            min_rmse = min(loss_rmse)
-            min_mae = min(loss_mae)
+
+            min_rmse = loss_rmse[min_step_index]
+            min_mae = loss_mae[min_step_index]
             rmse_all.append(min_rmse)
             mae_all.append(min_mae)
             print(f'Minimum test RMSE: {min_rmse}')
             print(f'Minimum test MAE: {min_mae}')
 
         except OSError:
-            print(f'{dirname} not a valid path, path is skipped.')
+            #print(f'{dirname} not a valid path, path is skipped.')
+            pass
 
     #ax[0].legend()
     #ax[1].legend()
