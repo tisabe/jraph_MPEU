@@ -24,7 +24,7 @@ from jraph_MPEU.models import (
     get_node_update_fn,
     get_readout_node_update_fn,
     get_readout_global_fn,
-    _build_mlp
+    MLP
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
@@ -441,7 +441,7 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         readout_node_update_fn = get_readout_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False,
+            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
             activation=shifted_softplus, output_size=1)
         # TODO: finish test
 
@@ -457,13 +457,14 @@ class TestModelFunctions(unittest.TestCase):
         # otherwise haiku complains
         def wrapped_mlp(output_sizes):
             def mlp_fn(arr_in):
-                mlp = _build_mlp(
+                mlp = MLP(
                     'test_name', output_sizes, use_layer_norm=False,
-                    activation=jax.nn.relu, with_bias=False,
+                    dropout_rate=0.0, activation=jax.nn.relu, with_bias=False,
                     activate_final=False, w_init=hk_init
                 )
                 return mlp(arr_in)
             return mlp_fn
+
         mlp = hk.transform(wrapped_mlp(hidden_sizes))
         init_inputs = jnp.zeros((1, 10))
         params = mlp.init(init_rng, init_inputs)
