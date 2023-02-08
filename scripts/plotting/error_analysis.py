@@ -39,7 +39,7 @@ def plot_regression(df, workdir, config, plot_name):
 
     # Add the joint and marginal histogram plots
     g.plot_joint(
-        sns.histplot, discrete=(False, False), #bins=(100, 100),
+        sns.histplot, discrete=(False, False), bins=(50, 50),
     )
     g.plot_marginals(sns.histplot, element="step", color=None)
     g.ax_marg_x.set_xlabel('Count', fontsize=FLAGS.font_size)
@@ -102,12 +102,13 @@ def plot_space_groups(df, workdir, plot_name):
         ax=ax
     )
     plt.legend([], [], frameon=False)
-    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
     plt.xticks(rotation=90)
-    ax.set_xlabel('Crystal system', fontsize=FLAGS.font_size)
+    ax.set_xlabel('', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     plt.yscale('log')
+    plt.xticks(rotation=60)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
@@ -122,7 +123,7 @@ def plot_bandgap_type(df, workdir, plot_name):
         ax=ax,
         hue='split'
     )
-    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
     plt.xticks(rotation=90)
     ax.set_xlabel('AFLOW band gap-type label', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
@@ -182,15 +183,15 @@ def main(argv):
     if FLAGS.label == 'egap':
         PREDICT_LABEL = r'Predicted $E_{BG}$ (eV)'
         CALCULATE_LABEL = r'Calculated $E_{BG}$ (eV)'
-        ABS_ERROR_LABEL = 'MAE (eV)'
+        ABS_ERROR_LABEL = 'Abs. error (eV)'
     elif FLAGS.label == 'energy':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
-        ABS_ERROR_LABEL = 'MAE (eV)'
+        ABS_ERROR_LABEL = 'Abs. error (eV)'
     else:
         PREDICT_LABEL = r'Predicted $E_{F}$ (eV/atom)'
         CALCULATE_LABEL = r'Calculated $E_{F}$ (eV/atom)'
-        ABS_ERROR_LABEL = 'MAE (eV/atom)'
+        ABS_ERROR_LABEL = 'Abs. error (eV/atom)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
     config = load_config(workdir)
@@ -209,7 +210,7 @@ def main(argv):
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
-    
+
     # group the spacegoups into crystal systems
     bins = [0, 2, 15, 74, 142, 167, 194, 230]
     labels = [
