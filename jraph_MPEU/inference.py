@@ -184,7 +184,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         graphs, net, params, hk_state, config.label_type, mc_dropout)
     if config.label_type == 'scalar':
         # scale the predictions using the std and mean
-        print(f'using {pooling} pooling function')
+        logging.debug(f'using {pooling} pooling function')
         #preds = np.array(preds)*std + mean
         preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
 
