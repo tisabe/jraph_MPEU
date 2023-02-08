@@ -3,6 +3,7 @@ model."""
 import os
 import pickle
 import json
+import glob
 
 import jax
 import jax.numpy as jnp
@@ -201,3 +202,63 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         inference_df['prediction'] = preds
 
     return inference_df
+
+def get_results_kfold(workdir_super, mc_dropout=False):
+    """Generate dataframe with results from k models and data split into k
+    folds.
+    """
+    directories = glob.glob(workdir_super+'/id*')
+    # make dataframe to append to
+    inference_df = pandas.DataFrame({})
+    base_ids = None
+    base_config = None
+    for i, workdir in enumerate(directories):
+        split_dict = load_split_dict(workdir)
+        ids = list(split_dict.keys())
+        if i == 0:
+            base_ids = list(split_dict.keys())
+            base_config = load_config(workdir)
+        else:
+            # make sure that the folds have the same underlying data
+            assert set(ids) == set(base_ids)
+        test_ids = []
+
+    ase_db = ase.db.connect(base_config.data_file)
+    graphs = []
+    labels = []
+    for i, (id_single, split) in enumerate(split_dict.items()):
+        if i%10000 == 0:
+            logging.info(f'Rows read: {i}')
+        row = ase_db.get(id_single)
+        graph = ase_row_to_jraph(row)
+        n_edge = int(graph.n_edge)
+        graphs.append(graph)
+        label = row.key_value_pairs[base_config.label_str]
+        labels.append(label)
+        row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
+        row_dict['asedb_id'] = row.id
+        row_dict['n_edge'] = n_edge
+        row_dict['split'] = split  # convert from one-based id
+        row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
+        # the csv from file, this has to be converted from string to list
+        row_dict['formula'] = row.formula
+        inference_df = inference_df.append(row_dict, ignore_index=True)
+    # Normalize graphs and targets
+    # Convert the atomic numbers in nodes to classes and set number of classes.
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    with open(num_path, 'r') as num_file:
+        num_list = json.load(num_file)
+
+    # convert to dict for atoms_to_nodes function
+    graphs_dict = dict(enumerate(graphs))
+    labels_dict = dict(enumerate(labels))
+    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+    pooling = base_config.aggregation_readout_type  # abbreviation
+    _, mean, std = normalize_targets_dict(
+        graphs_dict, labels_dict, pooling)
+    graphs = list(graphs_dict.values())
+
+
+    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
+    # TODO: maybe finish this. Other possibility: after end of training,
+    # generate results dataframe and combine afterwards
