@@ -23,7 +23,9 @@
 cd ~/envs ; source ~/envs/activate_jax.sh
 cd ~/jraph_MPEU
 
-export OMP_NUM_THREADS=10
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-python scripts/main.py --workdir=./results/aflow/classify_0 \
---config=jraph_MPEU_configs/aflow_classify.py
+python scripts/crossval/crossval_mc.py \
+--workdir=./results/aflow/rand_search_bound_single/id0 \
+--config=jraph_MPEU_configs/aflow_rand_search_egap_bounds.py \
+--index=0
