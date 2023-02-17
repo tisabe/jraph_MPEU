@@ -536,6 +536,7 @@ def get_datasets(config, workdir):
     config.max_atomic_number = num_classes
 
     # convert labels depending on which type is set in config
+    # TODO (IMPORTANT): move this after data splitting, only use training data
     if config.label_type == 'scalar':
         labels_dict, mean, std = normalize_targets_dict(
             graphs_dict, labels_dict, config.aggregation_readout_type)
