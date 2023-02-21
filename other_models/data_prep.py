@@ -2,7 +2,8 @@
 
 Here we fed an ASE atomic objects and we need to return atomic information
 about the elements in the ASE atoms object."""
-
+import ase
+import collections
 import numpy as np
 import pandas as pd
 
@@ -63,15 +64,49 @@ class DataPrep():
             feature_hat += fraction_list[i]*np.abs(feature_val_list[i] - f_bar)
         return feature_hat
 
-    def get_features_row(compound_name, features_list):
+    def get_atomic_number_and_fraction_list(self, ase_atoms_obj):
+        """Atoms object input."""
+        atomic_numbers_list = list(ase_atoms_obj.numbers)
+        counter = collections.Counter(atomic_numbers_list)
+        atomic_number_list = list(counter.keys())
+        fraction_list = [i/len(atomic_numbers_list) for i in counter.values()]
+        return atomic_number_list, fraction_list
+
+    # TODO: test this function, do this first.
+    def get_features_row(self, compound_name, features_list):
         """Get the row of CSV data for a features list for a given compound."""
         # We need to get f_hat and f_bar for each feature in our feature list.
         # This is why we initialize the row to be twice as big as the number
         # of features.
         features_row = np.zeros(2*len(features_list))
+        ase_atoms_obj = ase.Atoms(compound_name)
+        atomic_number_list, fraction_list = self.get_atomic_number_and_fraction_list(
+            ase_atoms_obj)
+        # We are given a specific compound, this narrows us down to a row in
+        # our elemental data CSV. Now we want to iterate over the features
+        # we are interested in. For a given compound, feature (row, column)
+        # we get a specific value from our CSV list. We need to transform
+        # these values into f_bar and f_hat values (average, and average
+        # deviation) before saving them. We return in this function a row
+        # of data which is f_bar and f_hat values for a given compound.
         for i, feature in enumerate(features_list):
+            features_row[i], feature_val_list = self.get_feature_bar_val(
+                atomic_number_list, fraction_list, feature)
+            features_row[i+1] = self.get_feature_hat_val(
+                fraction_list=fraction_list,
+                feature_val_list=feature_val_list,
+                f_bar=features_row[i])
 
-
+    # TODO not finished writing this function.
+    def get_features_df():
+        # Initialize an empty dataframe with the desired feature columns as columns
+        features_df = {
+            'EA_half': [], 'IP_delta': []}
+        features_list = ['EA_half', 'IP_delta']
+        for compound_name in compound_name_df['compound_name']:
+            row = self.get_features_row(compound_name, features_list)
+            # Append the row of new elemental averaged data to the dataframe.
+            features_df.append(row)
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
     #     self.lda_features_df = pd.read_csv(self.lda_features_csv)

@@ -2,6 +2,7 @@
 
 from absl.testing import absltest
 from absl import logging
+import ase
 import numpy as np
 
 import sys
@@ -33,6 +34,7 @@ class UnitTests(absltest.TestCase):
         self.assertEqual(expected_ea_half, data_prep_ea_half)
 
     def test_get_feature_bar_val(self):
+        """Test getting the feature average value"""
         atomic_number_list = np.array([26, 8])
         fraction_list = np.array([0.4, 0.6])
         feature = 'Atomic number'
@@ -41,9 +43,22 @@ class UnitTests(absltest.TestCase):
             atomic_number_list=atomic_number_list,
             fraction_list=fraction_list, feature=feature)
         self.assertEqual(average_atomic_number, expected_average_atomic_number)
+        self.assertListEqual(list(feature_val_list), list(atomic_number_list))
 
+
+    def test_get_atomic_number_and_fraction_list(self):
+        """Test getting the unique atomic numbers and fraction list"""
+        compound_name = 'Fe2O3'
+        ase_atoms_obj = ase.Atoms(compound_name)
+        atomic_number_list, fraction_list = self.data_prep_obj.get_atomic_number_and_fraction_list(
+            ase_atoms_obj)
+        expected_atomic_number_list = [26, 8]
+        expected_fraction_list = [0.4, 0.6]
+        self.assertListEqual(expected_atomic_number_list, atomic_number_list)
+        self.assertListEqual(expected_fraction_list, fraction_list)
 
     def test_get_feature_hat_val(self):
+        """Test getting the feature value deviation."""
         fraction_list = np.array([0.4, 0.6])
         f_bar = 15.2
         feature_val_list = np.array([26, 8])
