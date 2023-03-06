@@ -28,7 +28,7 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
     workdir = FLAGS.file
-    df_path = workdir + '/result_mc.csv'
+    df_path = workdir + '/result.csv'
     config = load_config(workdir)
 
     if not os.path.exists(df_path) or FLAGS.redo:

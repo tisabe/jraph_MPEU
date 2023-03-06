@@ -70,28 +70,44 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     """
     return jnp.logaddexp(x, 0) - LOG2
 
+class MLP(hk.Module):
+    """Define a custom multi-layer perceptron module, which includes dropout,
+    after every weight layer and layer normalization after the last layer.
+    """
+    def __init__(
+            self,
+            name: str,
+            output_sizes: Sequence[int],
+            use_layer_norm=False,
+            dropout_rate=0.0,
+            activation=shifted_softplus,
+            with_bias=False,
+            activate_final=True,
+            w_init=None
+    ):
+        super().__init__(name=name)
+        self.mlp = hk.nets.MLP(
+            output_sizes=output_sizes,
+            w_init=w_init,
+            with_bias=with_bias,
+            activation=activation,
+            activate_final=activate_final,
+            name=name
+        )
+        self.dropout_rate = dropout_rate
+        self.use_layer_norm = use_layer_norm
+        if self.use_layer_norm:
+            self.layer_norm = hk.LayerNorm(
+                axis=-1,
+                create_scale=True,
+                create_offset=True,
+                name=name + "_layer_norm")
 
-def _build_mlp(
-        name: str,
-        output_sizes: Sequence[int],
-        use_layer_norm=False,
-        activation=shifted_softplus,
-        with_bias=False,
-        activate_final=True,
-        w_init=None
-):
-    """Builds an MLP, optionally with layernorm."""
-    net = hk.nets.MLP(
-        output_sizes=output_sizes, name=name + "_mlp", activation=activation,
-        with_bias=with_bias, activate_final=activate_final, w_init=w_init)
-    if use_layer_norm:
-        layer_norm = hk.LayerNorm(
-            axis=-1,
-            create_scale=True,
-            create_offset=True,
-            name=name + "_layer_norm")
-        net = hk.Sequential([net, layer_norm])
-    return net
+    def __call__(self, inputs):
+        outputs = self.mlp(inputs, self.dropout_rate, hk.next_rng_key())
+        if self.use_layer_norm:
+            outputs = self.layer_norm(outputs)
+        return outputs
 
 
 def get_edge_embedding_fn(
@@ -163,10 +179,10 @@ def get_node_embedding_fn(
 
         Uses a linear dense nn layer.
         """
-        net = _build_mlp(
+        net = MLP(
             "node_embedding_layer", [latent_size],
-            use_layer_norm=use_layer_norm, activation=activation,
-            w_init=hk_init, activate_final=False
+            use_layer_norm=use_layer_norm, dropout_rate=0.0,
+            activation=activation, w_init=hk_init, activate_final=False
         )
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)
@@ -229,7 +245,7 @@ def get_edge_update_fn(
             network.
         use_layer_norm: whether layer normalization should be used.
         activation: activation function for MLPs.
-        dropout_rate: dropout rate on the last layer of MLPs.
+        dropout_rate: dropout rate after every activation layer in MLP.
         mlp_depth: number of weight layers in each MLP.
     """
     def edge_update_fn(
@@ -259,36 +275,30 @@ def get_edge_update_fn(
         # for first iteration), output size 2C with shifted softplus
         # activation. Second network is FC, input 2C, output C, identity as
         # actiavtion (e.g. linear network).
-        net_edge = _build_mlp(
+        net_edge = MLP(
             'edge_update', [2*latent_size] + [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, activation=activation,
-            activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+            activation=activation, activate_final=False, w_init=hk_init)
 
         edge_message['edges'] = net_edge(edge_node_concat)
-        edge_message['edges'] = hk.dropout(
-            hk.next_rng_key(), dropout_rate, edge_message['edges'])
 
         # Then, compute edge-wise messages. The input is the edge feature
         # vector. See Figure 1 middle figure for details. The edge feature
         # vector gets passed through two FC layers with shifted softplus.
         # Dimensionality doesn't change at all from input to output here.
-        net_message_edge = _build_mlp(
+        net_message_edge = MLP(
             'message_edge_net', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, activation=activation,
-            activate_final=True, w_init=hk_init)
+            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+            activation=activation, activate_final=True, w_init=hk_init)
         edges_new = net_message_edge(edge_message['edges'])
-        edges_new = hk.dropout(
-            hk.next_rng_key(), dropout_rate, edges_new)
 
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
-        net_message_node = _build_mlp(
+        net_message_node = MLP(
             'message_node_net', [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, activation=activation,
-            activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+            activation=activation, activate_final=False, w_init=hk_init)
         nodes_new = net_message_node(sent_attributes)
-        nodes_new = hk.dropout(
-            hk.next_rng_key(), dropout_rate, nodes_new)
 
         # Then element wise multiply together the output of the
         # net_emessage_edge and the output from feeding the sending/receiving
@@ -312,7 +322,7 @@ def get_node_update_fn(
             update network.
         use_layer_norm: whether layer normalization should be used.
         activation: activation function for MLPs.
-        dropout_rate: rate with which latent features are dropped out after MLP.
+        dropout_rate: dropout rate after every activation layer in MLP.
         mlp_depth: number of weight layers in each MLP.
     """
     def node_update_fn(
@@ -336,28 +346,28 @@ def get_node_update_fn(
         del sent_attributes, global_attributes
         # First layer is FC with shifted_softplus activation. Second layer
         # is linear.
-        net = _build_mlp(
+        net = MLP(
             'node_update', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, activation=activation,
-            activate_final=False, w_init=hk_init)
+            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+            activation=activation, activate_final=False, w_init=hk_init)
         # Get the messages term of Equation 9 which is the net applied to
         # the aggregation of incoming messages to the node.
         messages_propagated = net(received_attributes['messages'])
-        messages_propagated = hk.dropout(
-            hk.next_rng_key(), dropout_rate, messages_propagated)
         # Add the previous value of the node feature vector.
         return nodes + messages_propagated
     return node_update_fn
 
 
 def get_readout_global_fn(
-        latent_size, global_readout_mlp_layers, activation, label_type: str):
+        latent_size, global_readout_mlp_layers, dropout_rate,
+        activation, label_type: str):
     """Return the readout global function.
 
     Args:
         latent_size: size of hidden layers in MLPs.
         global_readout_mlp_layers: number of MLP layers applied after
             aggregating node features.
+        dropout_rate: dropout rate after every activation layer in MLP.
         activation: activation function for MLPs.
         label_type: type of the label that is fitted. Determines output size.
     """
@@ -384,16 +394,16 @@ def get_readout_global_fn(
             if label_type == 'class':
                 # return logits, softmax happens in loss function
                 # TODO: maybe decrease hidden layers to create funnelling
-                net = _build_mlp(
+                net = MLP(
                     'readout', [latent_size] * global_readout_mlp_layers + [2],
-                    use_layer_norm=False, activation=activation,
-                    activate_final=False)
+                    use_layer_norm=False, dropout_rate=dropout_rate,
+                    activation=activation, activate_final=False)
                 return net(node_attributes)
             else:
-                net = _build_mlp(
+                net = MLP(
                     'readout', [latent_size] * global_readout_mlp_layers + [1],
-                    use_layer_norm=False, activation=activation,
-                    activate_final=False)
+                    use_layer_norm=False, dropout_rate=dropout_rate,
+                    activation=activation, activate_final=False)
             return net(node_attributes)
         else:
             return node_attributes
@@ -401,7 +411,8 @@ def get_readout_global_fn(
 
 
 def get_readout_node_update_fn(
-        latent_size, hk_init, use_layer_norm, activation, output_size):
+        latent_size, hk_init, use_layer_norm, dropout_rate,
+        activation, output_size):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -410,6 +421,7 @@ def get_readout_node_update_fn(
         latent_size: The node feature vector dimensionality.
         hk_init: The weight initializer for the the readout NN.
         use_layer_norm: whether layer normalization should be used.
+        dropout_rate: dropout rate after every activation layer in MLP.
         output_size: dimensionality of the final node embeddings. If 1, it is
             assumed that this is the final layer and in readout global function
             only the nodes are aggregated.
@@ -437,17 +449,17 @@ def get_readout_node_update_fn(
         if output_size == 1:
             # NN. First layer has output size of latent_size/2 (C/2) with
             # shifted softplus. Then we have a linear FC layer with no softplus.
-            net = _build_mlp(
+            net = MLP(
                 'readout_node', [latent_size//2, output_size],
-                use_layer_norm=False, activation=activation,
-                activate_final=False, w_init=hk_init
+                use_layer_norm=False, dropout_rate=dropout_rate,
+                activation=activation, activate_final=False, w_init=hk_init
             )
         else:
             # add extra shsp and larger hidden layer
-            net = _build_mlp(
+            net = MLP(
                 'readout_node', [latent_size, output_size],
-                use_layer_norm=use_layer_norm, activation=activation,
-                activate_final=True, w_init=hk_init
+                use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+                activation=activation, activate_final=True, w_init=hk_init
             )
         # Apply the network to the nodes.
         return net(nodes)
@@ -557,11 +569,12 @@ class GNN:
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size, self.config.hk_init, self.norm,
-                self.activation, node_output_size),
+                dropout_rate, self.activation, node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 global_readout_mlp_layers=self.config.global_readout_mlp_layers,
+                dropout_rate=dropout_rate,
                 activation=self.activation, label_type=self.config.label_type),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
