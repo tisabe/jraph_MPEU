@@ -78,7 +78,7 @@ class DataPrep():
         # We need to get f_hat and f_bar for each feature in our feature list.
         # This is why we initialize the row to be twice as big as the number
         # of features.
-        features_row = np.zeros(2*len(features_list))
+        row_dict = {}
         ase_atoms_obj = ase.Atoms(compound_name)
         atomic_number_list, fraction_list = self.get_atomic_number_and_fraction_list(
             ase_atoms_obj)
@@ -89,24 +89,28 @@ class DataPrep():
         # these values into f_bar and f_hat values (average, and average
         # deviation) before saving them. We return in this function a row
         # of data which is f_bar and f_hat values for a given compound.
-        for i, feature in enumerate(features_list):
-            features_row[i], feature_val_list = self.get_feature_bar_val(
+        for feature in features_list:
+            row_dict[feature + '_bar'], feature_val_list = self.get_feature_bar_val(
                 atomic_number_list, fraction_list, feature)
-            features_row[i+1] = self.get_feature_hat_val(
+            row_dict[feature + '_hat'] = self.get_feature_hat_val(
                 fraction_list=fraction_list,
                 feature_val_list=feature_val_list,
-                f_bar=features_row[i])
+                f_bar=row_dict[feature + '_bar'])
+        row_dict['compound_name'] = compound_name
+        return row_dict
 
-    # TODO not finished writing this function.
-    def get_features_df():
+    def get_features_df(self, compound_name_list, features_list):
         # Initialize an empty dataframe with the desired feature columns as columns
-        features_df = {
-            'EA_half': [], 'IP_delta': []}
+        features_df = pd.DataFrame({})
         features_list = ['EA_half', 'IP_delta']
-        for compound_name in compound_name_df['compound_name']:
-            row = self.get_features_row(compound_name, features_list)
+        for compound_name in compound_name_list:
+            row_dict = self.get_features_row(compound_name, features_list)
             # Append the row of new elemental averaged data to the dataframe.
-            features_df.append(row)
+            features_df = features_df.append(row_dict, ignore_index=True)
+            print(row_dict)
+        print('printing features df')
+        print(features_df)
+        return features_df
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
     #     self.lda_features_df = pd.read_csv(self.lda_features_csv)

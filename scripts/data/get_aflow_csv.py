@@ -9,11 +9,11 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'Egap(*),Egap_type(metal),'
-    #'Egap(*),Egap_type(!metal),'
+    'Egap(0.5*,*2),'
+    'catalog(ICSD),'
     'dft_type(*),ldau_type(*),energy_cutoff(*),'
-    'energy_atom(*),density(*),'#volume_cell(*),'
-    'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
+    'energy_atom(*),density(*),volume_cell(*),'
+    'compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
 summons = MATCHBOOK+","+DIRECTIVES
