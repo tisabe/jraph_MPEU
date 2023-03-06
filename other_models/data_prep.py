@@ -20,7 +20,9 @@ class DataPrep():
         """
         if functional == 'pbe':
             self.elemental_features_csv = (
-                'other_models/really_tight_full_cut20_revpbe.csv')
+                # 'other_models/really_tight_full_cut20_revpbe.csv')
+                'really_tight_full_cut20_revpbe.csv')
+
         else:
             raise ValueError('functional can only be PBE currently.')
 
@@ -107,9 +109,6 @@ class DataPrep():
             row_dict = self.get_features_row(compound_name, features_list)
             # Append the row of new elemental averaged data to the dataframe.
             features_df = features_df.append(row_dict, ignore_index=True)
-            print(row_dict)
-        print('printing features df')
-        print(features_df)
         return features_df
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)

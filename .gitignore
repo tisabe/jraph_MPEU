@@ -14,3 +14,4 @@ scripts/plots
 databases*
 scripts/figs*
 .pytest_cache
+.ipynb_checkpoints/

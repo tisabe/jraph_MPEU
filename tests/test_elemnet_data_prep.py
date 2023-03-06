@@ -101,15 +101,15 @@ class UnitTests(absltest.TestCase):
     def test_get_features_df(self):
         features_list = ['EA_half', 'IP_delta']
         compound_name_list = ['MgO', 'Fe2O3']
-        data_row = self.data_prep_obj.get_features_df(
+        data_df = self.data_prep_obj.get_features_df(
             compound_name_list=compound_name_list, features_list=features_list)
         self.assertListEqual(
-            list(data_row['compound_name']), compound_name_list)
+            list(data_df['compound_name']), compound_name_list)
         # O: IP_delta = 13.557865276
         # Mg: IP_delta = 7.924652971
         expected_ip_delta_bar = 0.5*7.924652971 + 0.5*13.557865276
         self.assertEqual(
-            data_row['IP_delta_bar'][0],
+            data_df['IP_delta_bar'][0],
             expected_ip_delta_bar)
 
 
