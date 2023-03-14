@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=1-100%100
+#SBATCH --array=1-10%100
 # Standard output and error:
 #SBATCH -o ./output_slurm/job_%A_%a.out
 #SBATCH -e ./output_slurm/job_%A_%a.err 
@@ -12,9 +12,9 @@
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
 #SBATCH --gres=gpu:a100:1    # Use one a100 GPU
-#SBATCH --cpus-per-task=4
-#SBATCH --ntasks-per-node=4
-#SBATCH --mem=16000         # Request 16 GB of main memory per node in MB units.
+#SBATCH --cpus-per-task=10
+#SBATCH --ntasks-per-core=1
+#SBATCH --mem=32000         # Request 32 GB of main memory per node in MB units.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=userid@example.mpg.de
 #SBATCH --time=00:30:00     # 12h should be enough for any configuration
@@ -26,6 +26,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/rand_search_bounds1/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/aflow_rand_search_egap_bounds.py \
---index=${SLURM_ARRAY_TASK_ID}
+--workdir=./results/aflow/egap_rand_search_test/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/aflow_rand_search_egap.py \
+--index=${SLURM_ARRAY_TASK_ID} \
+--split_file=./results/aflow/classify_new_dropout/splits_ins.json
