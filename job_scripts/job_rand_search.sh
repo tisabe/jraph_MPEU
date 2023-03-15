@@ -17,7 +17,7 @@
 #SBATCH --mem=32000         # Request 32 GB of main memory per node in MB units.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=userid@example.mpg.de
-#SBATCH --time=00:30:00     # 12h should be enough for any configuration
+#SBATCH --time=12:00:00     # 12h should be enough for any configuration
 
 # load the environment with modules and python packages
 cd ~/envs ; source ~/envs/activate_jax.sh
@@ -26,7 +26,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/egap_rand_search_test/id${SLURM_ARRAY_TASK_ID} \
+--workdir=./results/aflow/egap_rand_search/id${SLURM_ARRAY_TASK_ID} \
 --config=jraph_MPEU_configs/aflow_rand_search_egap.py \
 --index=${SLURM_ARRAY_TASK_ID} \
 --split_file=./results/aflow/classify_new_dropout/splits_ins.json

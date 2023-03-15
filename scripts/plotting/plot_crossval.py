@@ -101,8 +101,8 @@ def main(args):
     plt.legend()
     plt.show()
     """
-    # drop the worst 10 configs
-    for i in range(10):
+    # drop the worst n configs
+    for i in range(args.drop_n):
         i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
@@ -155,6 +155,11 @@ if __name__ == "__main__":
         '-step', type=int, dest='max_step',
         default=100000000,  # an arbitrary large number...
         help='maximum number of steps to take the mse/mae minimum from'
+    )
+    parser.add_argument(
+        '-drop_n', type=int, dest='drop_n',
+        default=0,
+        help='Number of worst values to drop, for clearer visualization'
     )
     args_main = parser.parse_args()
     main(args_main)
