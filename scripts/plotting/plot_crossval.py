@@ -141,7 +141,10 @@ def main(args):
     plt.show()
     fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
 
-
+    sns.scatterplot(data=df, x='rmse', y='mae')
+    plt.rc('font', size=16)
+    plt.tight_layout()
+    plt.show()
     return 0
 
 
