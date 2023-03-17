@@ -50,12 +50,17 @@ def main(args):
             min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
             row_dict = {
+                'batch_size': int(config_dict['batch_size']),
                 'mp_steps': int(config_dict['message_passing_steps']),
                 'latent_size': int(config_dict['latent_size']),
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'dropout_rate': config_dict['dropout_rate'],
+                'global_readout_mlp_layers': int(config_dict['global_readout_mlp_layers']),
+                'mlp_depth': int(config_dict['mlp_depth']),
+                'activation_fn': config_dict['activation_name'],
                 'seed': config_dict['seed'],
+                'layer_norm': config_dict['use_layer_norm'],
                 'mae': min_mae,
                 'rmse': min_rmse,
                 'min_step_mae': min_step_mae,
@@ -96,8 +101,8 @@ def main(args):
     plt.legend()
     plt.show()
     """
-    # drop the worst 10 configs
-    for i in range(10):
+    # drop the worst n configs
+    for i in range(args.drop_n):
         i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
@@ -113,7 +118,10 @@ def main(args):
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
         'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate',
-        'dropout_rate': 'Dropout rate', 'seed': 'Split seed'}
+        'dropout_rate': 'Dropout rate', 'seed': 'Split seed',
+        'batch_size': 'Batch size', 'layer_norm': 'Layer norm',
+        'global_readout_mlp_layers': 'Readout layers',
+        'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'seed': 'int32'})
@@ -133,7 +141,10 @@ def main(args):
     plt.show()
     fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
 
-
+    sns.scatterplot(data=df, x='rmse', y='mae')
+    plt.rc('font', size=16)
+    plt.tight_layout()
+    plt.show()
     return 0
 
 
@@ -147,6 +158,11 @@ if __name__ == "__main__":
         '-step', type=int, dest='max_step',
         default=100000000,  # an arbitrary large number...
         help='maximum number of steps to take the mse/mae minimum from'
+    )
+    parser.add_argument(
+        '-drop_n', type=int, dest='drop_n',
+        default=0,
+        help='Number of worst values to drop, for clearer visualization'
     )
     args_main = parser.parse_args()
     main(args_main)

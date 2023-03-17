@@ -98,8 +98,9 @@ def plot_space_groups(df, workdir, plot_name):
         x='crystal system', # plot error vs space group
         y='abs. error',
         data=df,
-        hue='split',
-        ax=ax
+        #hue='split',
+        ax=ax,
+        color='deepskyblue'
     )
     plt.legend([], [], frameon=False)
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
@@ -121,7 +122,7 @@ def plot_bandgap_type(df, workdir, plot_name):
         y='abs. error',
         data=df,
         ax=ax,
-        hue='split'
+        color='deepskyblue'
     )
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
     plt.xticks(rotation=90)
@@ -158,7 +159,7 @@ def plot_ldau(df, workdir, plot_name):
         x='ldau_type', # plot error vs ldau type
         y='abs. error',
         data=df,
-        hue='split',
+        color='deepskyblue',
         ax=ax
     )
     ax.set_xlabel('AFLOW LDAU-type label', fontsize=FLAGS.font_size)
@@ -279,7 +280,7 @@ def main(argv):
         x='num_species',
         y='abs. error',
         data=df_test,
-        hue='split',
+        color='deepskyblue',
         ax=ax,
     )
     plt.legend([], [], frameon=False)
