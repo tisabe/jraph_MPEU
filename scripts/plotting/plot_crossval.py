@@ -136,16 +136,19 @@ def main(args):
     n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
     count = 0  # count up plots for saving them in different files
     for box_xnames_split in split_list(box_xnames, n_subplots_max):
-        fig, ax = plt.subplots(1, len(box_xnames_split), figsize=(16, 8), sharey=True)
+        fig, ax = plt.subplots(
+            1, len(box_xnames_split), figsize=(len(box_xnames_split)*4, 8),
+            sharey=True)
         for i, name in enumerate(box_xnames_split):
             sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
             sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
             ax[i].set_xlabel(col_to_label[name], fontsize=22)
             if i == 0:
-                ax[i].set_ylabel('RMSE (eV/atom)', fontsize=22)
+                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=22)
             else:
                 ax[i].set_ylabel('')
             ax[i].tick_params(axis='both', which='both', labelsize=18)
+            ax[i].xaxis.labelpad = 15
         #plt.yscale('log')
         plt.rc('font', size=16)
         plt.tight_layout()
@@ -183,5 +186,9 @@ if __name__ == "__main__":
         default=5,
         help='Number of subplots in a single box plot frame.'
     )
+    parser.add_argument(
+        '-unit', type=str, dest='unit',
+        default='eV/atom',
+        help='unit string')
     args_main = parser.parse_args()
     main(args_main)
