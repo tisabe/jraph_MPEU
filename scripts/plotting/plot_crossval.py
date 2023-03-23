@@ -13,6 +13,11 @@ def min_of_previous(array):
     return [min(array[:i]) for i in range(len(array))]
 
 
+def split_list(list_a, chunk_size):
+    # split list_a into even chunks of chunk_size elements
+    for i in range(0, len(list_a), chunk_size):
+        yield list_a[i:i + chunk_size]
+
 
 def main(args):
     # plot learning curves
@@ -49,6 +54,8 @@ def main(args):
             step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
+            activation_name_convert = {
+                'shifted_softplus': 'SSP', 'relu': 'relu', 'swish': 'swish'}
             row_dict = {
                 'batch_size': int(config_dict['batch_size']),
                 'mp_steps': int(config_dict['message_passing_steps']),
@@ -58,7 +65,8 @@ def main(args):
                 'dropout_rate': config_dict['dropout_rate'],
                 'global_readout_mlp_layers': int(config_dict['global_readout_mlp_layers']),
                 'mlp_depth': int(config_dict['mlp_depth']),
-                'activation_fn': config_dict['activation_name'],
+                'activation_fn': activation_name_convert[
+                    config_dict['activation_name']],
                 'seed': config_dict['seed'],
                 'layer_norm': config_dict['use_layer_norm'],
                 'mae': min_mae,
@@ -125,21 +133,30 @@ def main(args):
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'seed': 'int32'})
-    fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
-    for i, name in enumerate(box_xnames):
-        sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
-        sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
-        ax[i].set_xlabel(col_to_label[name], fontsize=22)
-        if i == 0:
-            ax[i].set_ylabel('RMSE (eV/atom)', fontsize=22)
-        else:
-            ax[i].set_ylabel('')
-        ax[i].tick_params(axis='both', which='both', labelsize=18)
-    #plt.yscale('log')
-    plt.rc('font', size=16)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
+    n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    count = 0  # count up plots for saving them in different files
+    for box_xnames_split in split_list(box_xnames, n_subplots_max):
+        fig, ax = plt.subplots(
+            1, len(box_xnames_split), figsize=(len(box_xnames_split)*4, 8),
+            sharey=True)
+        for i, name in enumerate(box_xnames_split):
+            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
+            sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
+            ax[i].set_xlabel(col_to_label[name], fontsize=22)
+            if i == 0:
+                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=22)
+            else:
+                ax[i].set_ylabel('')
+            ax[i].tick_params(axis='both', which='both', labelsize=18)
+            ax[i].xaxis.labelpad = 15
+        #plt.yscale('log')
+        plt.rc('font', size=16)
+        plt.tight_layout()
+        plt.show()
+        fig.savefig(
+            args.file+f'/grid_search_{count}.png', bbox_inches='tight',
+            dpi=600)
+        count += 1
 
     sns.scatterplot(data=df, x='rmse', y='mae')
     plt.rc('font', size=16)
@@ -164,5 +181,14 @@ if __name__ == "__main__":
         default=0,
         help='Number of worst values to drop, for clearer visualization'
     )
+    parser.add_argument(
+        '-n_plots', type=int, dest='n_plots',
+        default=5,
+        help='Number of subplots in a single box plot frame.'
+    )
+    parser.add_argument(
+        '-unit', type=str, dest='unit',
+        default='eV/atom',
+        help='unit string')
     args_main = parser.parse_args()
     main(args_main)
