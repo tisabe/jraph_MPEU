@@ -104,11 +104,15 @@ class DataPrep():
     def get_features_df(self, compound_name_list, features_list):
         # Initialize an empty dataframe with the desired feature columns as columns
         features_df = pd.DataFrame({})
-        features_list = ['EA_half', 'IP_delta']
+        features_list = features_list
+        i = 0
         for compound_name in compound_name_list:
             row_dict = self.get_features_row(compound_name, features_list)
             # Append the row of new elemental averaged data to the dataframe.
             features_df = features_df.append(row_dict, ignore_index=True)
+            i += 1
+            if i % 1000:
+                print(f'Computed {i} materials.')
         return features_df
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
