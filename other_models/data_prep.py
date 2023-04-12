@@ -6,11 +6,14 @@ import ase
 import collections
 import numpy as np
 import pandas as pd
+import logging
 
 
 class DataPrep():
     """Class for data preparation to grab elemental data."""
-    def __init__(self, ase_db_path: str, functional: str = 'pbe'):
+    def __init__(
+            self, ase_db_path: str, functional: str = 'pbe',
+            elemental_features_csv=None):
         """Constructor for DataPrep class to initialize csv paths.
         
         Args:
@@ -18,13 +21,12 @@ class DataPrep():
             functional: What functional was used in the simulation for the
                 materials in the ase db path.
         """
-        if functional == 'pbe':
-            self.elemental_features_csv = (
-                # 'other_models/really_tight_full_cut20_revpbe.csv')
-                'really_tight_full_cut20_revpbe.csv')
-
-        else:
-            raise ValueError('functional can only be PBE currently.')
+        self.elemental_features_csv = elemental_features_csv
+        # (
+        #         # 'other_models/really_tight_full_cut20_revpbe.csv')
+        #         'really_tight_full_cut20_revpbe.csv')
+        # else:
+        #     raise ValueError('functional can only be PBE currently.')
 
         self.ase_db_path = ase_db_path
         self.pbe_features_df = pd.read_csv(self.elemental_features_csv)
@@ -111,8 +113,8 @@ class DataPrep():
             # Append the row of new elemental averaged data to the dataframe.
             features_df = features_df.append(row_dict, ignore_index=True)
             i += 1
-            if i % 1000:
-                print(f'Computed {i} materials.')
+            if i % 1000 == 0:
+                logging.warn(f'Computed {i} materials.')
         return features_df
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
