@@ -6,6 +6,7 @@ from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
 import seaborn as sns
 import pandas as pd
 
@@ -21,6 +22,7 @@ flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
+
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -47,6 +49,11 @@ def main(argv):
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
     df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+
+    # convert integer dft_type to string type
+    int_to_string_type = {0: 'No correction', 2: 'DFT+U correction'}
+    df['ldau_type'] = df['ldau_type'].apply(
+        lambda x: int_to_string_type[x])
 
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
@@ -103,30 +110,26 @@ def main(argv):
         y='prediction_std',
         data=df_test,
         linewidth=1,
-        color=u'#1f77b4',
+        color='deepskyblue',
         #cut=0,  # limit the violins to data range
     )
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
-    ax.set_ylim(bottom=0, top=0.72)
+    ax.set_ylim(bottom=0)
 
     col = df_train['crystal system']
     counts = Counter(col)
-    ax.text(0.04, 0.90, counts['Triclinic'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.17, 0.90, counts['Monoclinic'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.31, 0.90, counts['Orthorhombic'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.455, 0.90, counts['Tetragonal'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.60, 0.90, counts['Trigonal'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.74, 0.90, counts['Hexagonal'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
-    ax.text(0.88, 0.90, counts['Cubic'],
-            fontsize=FLAGS.font_size-3, transform=ax.transAxes)
+    bottom, top = ax.get_ylim()
+    #ax.set_ylim(top=top*1)
+    for xpos, xlabel in zip(ax.get_xticks(), ax.get_xticklabels()):
+        #print(xtick)
+        trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+        ax.text(
+            xpos, 0.9, counts[xlabel.get_text()],
+            horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
+            bbox=dict(boxstyle="square", ec='black', fc='white'),
+            transform=trans)
 
     plt.xticks(rotation=60)
     #plt.yscale('log')
@@ -138,11 +141,6 @@ def main(argv):
     print(Counter(col))
     print(f"Minimum std: {df_test['prediction_std'].min()}")
 
-    # convert integer dft_type to string type
-    int_to_string_type = {0: 'No correction', 2: 'DFT+U correction'}
-    df_test['ldau_type'] = df_test['ldau_type'].apply(
-        lambda x: int_to_string_type[x])
-
     fig, ax = plt.subplots()
     sns.violinplot(
         ax=ax,
@@ -150,18 +148,25 @@ def main(argv):
         y='prediction_std',
         data=df_test,
         linewidth=1,
-        color=u'#1f77b4',
+        color='deepskyblue',
         #cut=0,  # limit the violins to data range
     )
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
-    ax.set_ylim(bottom=0, top=0.72)
+    ax.set_ylim(bottom=0)
 
     col = df_train['ldau_type']
     counts = Counter(col)
-    ax.text(0.2, 0.90, counts[0.0], fontsize=FLAGS.font_size, transform=ax.transAxes)
-    ax.text(0.72, 0.90, counts[2.0], fontsize=FLAGS.font_size, transform=ax.transAxes)
+    bottom, top = ax.get_ylim()
+    #ax.set_ylim(top=top*1)
+    for xpos, xlabel in zip(ax.get_xticks(), ax.get_xticklabels()):
+        trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+        ax.text(
+            xpos, 0.9, counts[xlabel.get_text()],
+            horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
+            bbox=dict(boxstyle="square", ec='black', fc='white'),
+            transform=trans)
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
