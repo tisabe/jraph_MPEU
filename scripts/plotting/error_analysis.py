@@ -92,7 +92,7 @@ def plot_dft_type(df, workdir, plot_name):
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
-def plot_space_groups(df, workdir, plot_name, counts):
+def plot_space_groups(df, workdir, plot_name):
     fig, ax = plt.subplots()
     sns.boxplot(
         x='crystal system', # plot error vs space group
@@ -108,15 +108,6 @@ def plot_space_groups(df, workdir, plot_name, counts):
     ax.set_xlabel('', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    # write counts at the top of the plot
-    bottom, top = ax.get_ylim()
-    #ax.set_ylim(top=top*1)
-    for xpos, xlabel in zip(ax.get_xticks(), ax.get_xticklabels()):
-        #print(xtick)
-        ax.text(
-            xpos, top*0.8, counts[xlabel.get_text()],
-            horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
-            bbox=dict(boxstyle="square", ec='black', fc='white'))
     plt.yscale('log')
     plt.xticks(rotation=60)
     plt.tight_layout()
@@ -268,7 +259,7 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
     """
-    """
+    
     fig, ax = plt.subplots()
     sns.histplot(
         x=config.label_str, y='prediction', data=df_test, ax=ax,
@@ -321,12 +312,12 @@ def main(argv):
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
-    """
+    
     if 'spacegroup_relax' in df.columns:
         col = df_train['crystal system']
         counts = dict(Counter(col))
         print(counts)
-        plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
+        plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
         plt.pie(counts.values(), labels=counts.keys())
         plt.show()
     else:

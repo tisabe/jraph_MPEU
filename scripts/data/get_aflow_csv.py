@@ -24,8 +24,15 @@ response = json.loads(urlopen(URL).read())
 print(type(response))
 
 df = pandas.DataFrame(response)
-print(df.head())
+#print(df.head())
 print(df.describe())
+
+# remove duplicates by auid
+#df = df.drop_duplicates(subset='auid')
+df = df.drop_duplicates(subset='aurl')
+#print(df.head())
+print(df.describe())
+
 if input("Save the dataset? [y/n]") == "y":
     df.to_csv(
         (input('Type directory and filename as "dir/filename.csv": ')))

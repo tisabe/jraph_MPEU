@@ -54,7 +54,7 @@ def main(argv):
     tf.config.experimental.set_visible_devices([], 'GPU')
 
     if not os.path.exists(f'./{FLAGS.workdir}'):
-        os.makedirs(f'./{FLAGS.workdir}')
+        os.makedirs(f'./{FLAGS.workdir}', exist_ok=True)
     if FLAGS.config.log_to_file:
         logging.get_absl_handler().use_absl_log_file(
             'absl_logging', f'./{FLAGS.workdir}')
