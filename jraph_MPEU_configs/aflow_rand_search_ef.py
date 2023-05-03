@@ -30,7 +30,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = [100_000]
     config.num_checkpoints = [1]
     # data split settings
-    config.data_file = ['aflow/graphs_knn.db']
+    config.data_file = ['aflow/graphs_all_12knn.db']
     config.label_str = ['enthalpy_formation_atom']
     config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation
@@ -38,7 +38,10 @@ def get_config() -> ml_collections.ConfigDict():
 
     # data selection parameters
     # remove outliers in formation enthalpy and other dft types
-    config.selection = [("dft_type=['PAW_PBE']")]
+    config.selection = [(
+        "enthalpy_formation_atom<70,"
+        "enthalpy_formation_atom>-10,"
+        "dft_type=['PAW_PBE']")]
     config.limit_data = [None]
     config.num_edges_max = [None]
 
@@ -59,7 +62,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = [90]
     config.use_layer_norm = [False, True]
-    config.dropout_rate = [0.0, 0.1, 0.2]
+    config.dropout_rate = [0.0, 0.01, 0.05]
 
     # Logging options
     config.log_to_file = [False] # if logging should go to file if true or console if false

@@ -1,13 +1,11 @@
 #!/bin/bash -l
-# set the working directory as a variable:
-# workdir='./results/aflow/test/run2'
 # Standard output and error:
-#SBATCH -o ./output_slurm/job.%j.out
-#SBATCH -e ./output_slurm/job.%j.err
+#SBATCH -o ./output_slurm/singlejob.%j.out
+#SBATCH -e ./output_slurm/singlejob.%j.err
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J classify
+#SBATCH -J 24knn
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -17,7 +15,7 @@
 #SBATCH --mem=32000        # Request 32 GB of main memory per node in MB units.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=userid@example.mpg.de
-#SBATCH --time=00:30:00
+#SBATCH --time=12:00:00
 
 # load the environment with modules and python packages
 cd ~/envs ; source ~/envs/activate_jax.sh
@@ -25,8 +23,7 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/egap_rand_search_test/id1 \
---config=jraph_MPEU_configs/aflow_rand_search_egap.py \
---index=1 \
---split_file=./results/aflow/classify_new_dropout/splits_ins.json
+srun python scripts/main.py \
+--workdir=./results/aflow/ef_pbj_24knn \
+--config=jraph_MPEU_configs/aflow_ef_clean.py \
+--config.data_file=aflow/graphs_all_24knn.db
