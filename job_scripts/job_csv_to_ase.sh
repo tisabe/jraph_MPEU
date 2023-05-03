@@ -22,5 +22,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/data/aflow_to_graphs.py \
--f aflow/egaps_eform_all.csv -o aflow/graphs_all_12knn.db -cutoff_type knearest \
--cutoff 12.0
+-f aflow/egaps_eform_all.csv -o aflow/graphs_all_24knn.db -cutoff_type knearest \
+-cutoff 24.0
