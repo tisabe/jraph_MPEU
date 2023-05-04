@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J 24knn
+#SBATCH -J classify
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,6 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/ef_pbj_24knn \
---config=jraph_MPEU_configs/aflow_ef_clean.py \
---config.data_file=aflow/graphs_all_24knn.db
+--workdir=./results/aflow/egap_classify \
+--config=jraph_MPEU_configs/aflow_classify.py
