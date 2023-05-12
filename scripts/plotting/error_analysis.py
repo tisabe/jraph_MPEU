@@ -92,7 +92,7 @@ def plot_dft_type(df, workdir, plot_name):
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
-def plot_space_groups(df, workdir, plot_name):
+def plot_space_groups(df, workdir, plot_name, counts):
     fig, ax = plt.subplots()
     sns.boxplot(
         x='crystal system', # plot error vs space group
@@ -108,6 +108,15 @@ def plot_space_groups(df, workdir, plot_name):
     ax.set_xlabel('', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    # write counts at the top of the plot
+    bottom, top = ax.get_ylim()
+    #ax.set_ylim(top=top*1)
+    for xpos, xlabel in zip(ax.get_xticks(), ax.get_xticklabels()):
+        #print(xtick)
+        ax.text(
+            xpos, top*0.8, counts[xlabel.get_text()],
+            horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
+            bbox=dict(boxstyle="square", ec='black', fc='white'))
     plt.yscale('log')
     plt.xticks(rotation=60)
     plt.tight_layout()
@@ -182,8 +191,8 @@ def main(argv):
     global CALCULATE_LABEL
     global ABS_ERROR_LABEL
     if FLAGS.label == 'egap':
-        PREDICT_LABEL = r'Predicted $E_{BG}$ (eV)'
-        CALCULATE_LABEL = r'Calculated $E_{BG}$ (eV)'
+        PREDICT_LABEL = r'Predicted $E_g$ (eV)'
+        CALCULATE_LABEL = r'Calculated $E_g$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
     elif FLAGS.label == 'energy':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
@@ -207,7 +216,8 @@ def main(argv):
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
-
+    if not 'prediction' in df.columns:
+        df['prediction'] = df['prediction_mean']
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
@@ -317,7 +327,7 @@ def main(argv):
         col = df_train['crystal system']
         counts = dict(Counter(col))
         print(counts)
-        plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+        plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
         plt.pie(counts.values(), labels=counts.keys())
         plt.show()
     else:

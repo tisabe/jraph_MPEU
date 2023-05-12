@@ -56,6 +56,11 @@ def main(argv):
     print(df[df['class_correct'] == False][[
         'class_true', 'class_pred', 'class_correct']])
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
+    # calculate confusion matrix on test split
+    print('Confusion matrix: ')
+    print(sklearn.metrics.confusion_matrix(
+        y_true=df_test['class_true'], y_pred=df_test['class_pred'],
+    ))
 
     # calculate and display ROC curve
     y_pred = df_test['p_insulator'].to_numpy().reshape(-1, 1)

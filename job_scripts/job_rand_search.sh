@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=1-5%50
+#SBATCH --array=101-300%50
 # Standard output and error:
 #SBATCH -o ./output_slurm/job_%A_%a.out
 #SBATCH -e ./output_slurm/job_%A_%a.err 
@@ -26,6 +26,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/ef_rand_search/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/aflow_rand_search_ef.py \
---index=${SLURM_ARRAY_TASK_ID}
+--workdir=./results/aflow/egap_rand_search/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/aflow_rand_search_egap.py \
+--index=${SLURM_ARRAY_TASK_ID} \
+--split_file=./results/aflow/egap_rand_search/splits_ins.json

@@ -14,7 +14,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Optimizer
     config.optimizer = ['adam']
     config.schedule = ['exponential_decay']
-    config.init_lr = [2e-5, 1e-4, 5e-4] # initial learning rate
+    config.init_lr = [2e-5, 1e-4] # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = [100_000]
     config.decay_rate = [0.96, 0.98, 1.0]
@@ -22,7 +22,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.loss_type = ['MSE']
 
     # Training hyperparameters
-    config.batch_size = [16, 32, 64]
+    config.batch_size = [32, 64]
     config.num_train_steps_max = [10_000_000]
     config.log_every_steps = [10_000]
     config.eval_every_steps = [50_000]
@@ -30,7 +30,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = [100_000]
     config.num_checkpoints = [1]
     # data split settings
-    config.data_file = ['aflow/egap_full_graphs.db']
+    config.data_file = ['aflow/graphs_all_12knn.db']
     config.label_str = ['Egap']
     config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation
@@ -59,7 +59,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = [90]
     config.use_layer_norm = [False, True]
-    config.dropout_rate = [0.0, 0.1, 0.2]
+    config.dropout_rate = [0.0, 0.01, 0.05]
 
     # Logging options
     config.log_to_file = [False] # if logging should go to file if true or console if false
