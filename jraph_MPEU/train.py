@@ -21,6 +21,7 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
+import time
 
 # import custom functions
 from jraph_MPEU.models import GNN
@@ -200,18 +201,18 @@ class Evaluater:
         self._eval_every_n = eval_every_n
         self._metric_names = metric_names
         self._loss_scalar = 1.0
-        # load loss curve if metrics file exists in checkpoint_dir
+        # Load loss curve if metrics file exists in checkpoint_dir.
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         best_state_path = os.path.join(
             self._checkpoint_dir,
             'best_state.pkl')
         if os.path.exists(metrics_path):
-            # load metrics, if they have been saved before
+            # Load metrics, if they have been saved before.
             logging.info('Loading metrics from %s', metrics_path)
             with open(metrics_path, 'rb') as metrics_file:
                 self._metrics_dict = pickle.load(metrics_file)
             self._loaded_metrics = True
-            # load best state and lowest loss
+            # Load best state and lowest loss.
             with open(best_state_path, 'rb') as state_file:
                 best_state_dict = pickle.load(state_file)
                 self.best_state = best_state_dict['state']
@@ -581,11 +582,17 @@ def train_and_evaluate(
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step. Get next training graphs.
+        start_loop_time = time.time()
         graphs = next(train_reader)
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
+        after_getting_graphs = time.time()
         state, loss_metrics = updater.update(state, graphs)
+        # logging.info(state['opt_state'])
+        logging.info('Type of state opt state: %s' % type(state['opt_state']))
+        state['opt_state'].block_until_ready() 
+        after_running_update = time.time()
 
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
