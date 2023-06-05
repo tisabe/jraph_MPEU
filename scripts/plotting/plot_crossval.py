@@ -142,9 +142,9 @@ def main(args):
         for i, name in enumerate(box_xnames_split):
             sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
             sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
-            ax[i].set_xlabel(col_to_label[name], fontsize=22)
+            ax[i].set_xlabel(col_to_label[name], fontsize=args.fontsize)
             if i == 0:
-                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=22)
+                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
             else:
                 ax[i].set_ylabel('')
             ax[i].tick_params(axis='both', which='both', labelsize=18)
@@ -190,5 +190,9 @@ if __name__ == "__main__":
         '-unit', type=str, dest='unit',
         default='eV/atom',
         help='unit string')
+    parser.add_argument(
+        '-fontsize', type=int, dest='fontsize',
+        default=22,
+        help='fontsize of axis labels')
     args_main = parser.parse_args()
     main(args_main)

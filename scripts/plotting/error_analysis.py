@@ -34,7 +34,7 @@ def plot_regression(df, workdir, config, plot_name):
     """Plot the regression using joint plot with marginal histograms."""
     g = sns.JointGrid(
         data=df, x=config.label_str, y='prediction', marginal_ticks=False,
-        height=5,
+        height=5, xlim = [-0.5, 12.5], ylim = [-0.5, 12.5]
     )
 
     # Add the joint and marginal histogram plots
@@ -47,6 +47,8 @@ def plot_regression(df, workdir, config, plot_name):
     g.ax_joint.tick_params(which='both', labelsize=FLAGS.tick_size)
     g.ax_joint.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
     g.ax_joint.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
+    g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
+    g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)

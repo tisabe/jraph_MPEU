@@ -70,11 +70,11 @@ def main(argv):
     x_label = '# compounds in training split with species'
     if config.label_type == 'scalar':
         if FLAGS.label == 'egap':
-            y_label = r'MAE per species ($E_g$/eV)'
+            y_label = r'MAE ($E_g$/eV)'
         elif FLAGS.label == 'energy':
             y_label = r'Calculated $U_0$ (eV)'
         else:
-            y_label = r'MAE per species ($E_{F}$ per atom/eV)'
+            y_label = r'MAE ($E_{F}$ per atom/eV)'
     else:
         y_label = 'Accuracy per species'
 
@@ -165,6 +165,7 @@ def main(argv):
     ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
     ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.legend(title='').set_visible(True)
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -176,7 +177,7 @@ def main(argv):
     ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
     ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
+    #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
     ax.legend(title='').set_visible(True)
     #plt.yscale('log')
     plt.tight_layout()
