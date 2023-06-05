@@ -14,6 +14,9 @@ sys.path.append(
 # import jraph_MPEU.inference as inf
 import other_models.data_prep as dp
 
+ELEMENTAL_FEATUTRES_CSV = (
+    "/home/dts/Documents/hu/jraph_MPEU/other_models/really_tight_full_cut20_revpbe.csv")
+
 
 class UnitTests(absltest.TestCase):
     """Unit test class. This string only exists to make my linter happy."""
@@ -21,11 +24,11 @@ class UnitTests(absltest.TestCase):
     def setUp(self):
         self.data_prep_obj = dp.DataPrep(
             ase_db_path='/None',
-            functional='pbe')
+            functional='pbe',
+            elemental_features_csv=ELEMENTAL_FEATUTRES_CSV)
 
     def test_get_get_csv_val(self):
         """Test getting elemental data from csv works."""
-
         atomic_number = 1
         feature = 'EA_half'
         expected_ea_half = 1.05595894
