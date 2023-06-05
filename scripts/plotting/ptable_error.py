@@ -8,6 +8,7 @@ from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import pandas as pd
 from ase.formula import Formula
 import numpy as np
@@ -24,14 +25,15 @@ flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data 
     read from the database.')
 flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
-flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 
 # define the element types from the periodic table
 element_types = {
     'Noble gases': ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn'],
+    'Oxides': ['O'],
     'Reactive non metals': [
-        'H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Se', 'Br', 'I'],
+        'H', 'C', 'N', 'F', 'P', 'S', 'Cl', 'Se', 'Br', 'I'],
     'Metalloids': ['B', 'Si', 'Ge', 'As', 'Sb', 'Te', 'At'],
     'Post transition metals': ['Al', 'Ga', 'In', 'Sn', 'Tl', 'Pb', 'Bi', 'Po'],
     'Transition metals': [
@@ -39,15 +41,14 @@ element_types = {
         'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd',
         'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
         'Rf', 'Db', 'Sg', 'Bh', 'Hs'],
-    'Lanthanoids': [
+    'Lanthanoids/Actinoids': [
         'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er',
-        'Tm', 'Yb', 'Lu'],
-    'Actinoids': [
-        'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm',
-        'Md', 'No', 'Lr'],
-    'Alkaline earth metals': ['Be', 'Mg', 'Ca', 'Sr', 'Ba', 'Ra'],
-    'Alkali metals': ['Li', 'Na', 'K', 'Rb', 'Cs', 'Fr']
+        'Tm', 'Yb', 'Lu', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk',
+        'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr'],
+    'Alkali (earth) metals': ['Be', 'Mg', 'Ca', 'Sr', 'Ba', 'Ra', 'Li', 'Na',
+        'K', 'Rb', 'Cs', 'Fr']
 }
+
 
 def get_type(element: str):
     for key, element_list in element_types.items():
@@ -69,7 +70,7 @@ def main(argv):
     x_label = '# compounds in training split with species'
     if config.label_type == 'scalar':
         if FLAGS.label == 'egap':
-            y_label = r'MAE per species ($E_{BG}$/eV)'
+            y_label = r'MAE per species ($E_g$/eV)'
         elif FLAGS.label == 'energy':
             y_label = r'Calculated $U_0$ (eV)'
         else:
@@ -87,6 +88,9 @@ def main(argv):
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
+
+    if not 'prediction' in df.columns:
+        df['prediction'] = df['prediction_mean']
 
     if config.label_type == 'scalar':
         df['abs. error'] = abs(df['prediction'] - df[config.label_str])
@@ -172,8 +176,9 @@ def main(argv):
     ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
     ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
     ax.legend(title='').set_visible(True)
-    plt.yscale('log')
+    #plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)

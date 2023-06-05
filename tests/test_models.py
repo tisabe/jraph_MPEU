@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax.nn import relu, swish
 import jraph
 import haiku as hk
 

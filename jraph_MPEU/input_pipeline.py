@@ -490,7 +490,7 @@ def get_datasets(config, workdir):
     # ids in the split file
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
-        logging.debug(f'Did not find split file at {split_path}. Pulling data.')
+        logging.info(f'Did not find split file at {split_path}. Pulling data.')
         graphs_list, labels_list, ids = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
@@ -505,7 +505,7 @@ def get_datasets(config, workdir):
             labels_dict[id_single] = label
 
     else:
-        logging.debug(f'Found split file. Connecting to ase.db at {config.data_file}')
+        logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
         graphs_dict = {}
         labels_dict = {}
         split_dict = load_split_dict(workdir)

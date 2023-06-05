@@ -10,7 +10,7 @@ def get_config() -> ml_collections.ConfigDict():
 
     config.eval_every_steps = 1_000
 
-    config.data_file = 'aflow/graphs_knn_fix.db'
+    config.data_file = 'aflow/graphs_knn.db'
     config.selection = None
     config.label_str = 'enthalpy_formation_atom'
     config.num_edges_max = None

@@ -9,8 +9,8 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'Egap(*),Egap_type(metal),'
-    #'Egap(*),Egap_type(!metal),'
+    'enthalpy_formation_atom(*),'
+    'Egap(*),Egap_type(*),'
     'dft_type(*),ldau_type(*),energy_cutoff(*),'
     'energy_atom(*),density(*),'#volume_cell(*),'
     'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
@@ -24,8 +24,15 @@ response = json.loads(urlopen(URL).read())
 print(type(response))
 
 df = pandas.DataFrame(response)
-print(df.head())
+#print(df.head())
 print(df.describe())
+
+# remove duplicates by auid
+#df = df.drop_duplicates(subset='auid')
+df = df.drop_duplicates(subset='aurl')
+#print(df.head())
+print(df.describe())
+
 if input("Save the dataset? [y/n]") == "y":
     df.to_csv(
         (input('Type directory and filename as "dir/filename.csv": ')))

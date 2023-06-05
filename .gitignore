@@ -5,7 +5,6 @@ matproj
 results*
 QM9
 log.txt
-*.slurm
 output_slurm
 *.out
 *venv/
@@ -14,3 +13,11 @@ scripts/plots
 databases*
 scripts/figs*
 .pytest_cache
+*envs/
+job.err*
+job.out*
+core.*
+*.nsys-rep
+*.lprof
+jax*
+activate_venv.sh

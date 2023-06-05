@@ -27,6 +27,8 @@ class UnitTests(absltest.TestCase):
     def test_not_empty(self):
         """Test that the db has entries."""
         database = ase.db.connect(FLAGS.file)
+        if FLAGS.verb > 0:
+            print(f'Number of entries in db: {len(database)}')
         self.assertTrue(len(database) > 0)
 
     def test_vis_and_print(self):
@@ -73,6 +75,10 @@ class UnitTests(absltest.TestCase):
             senders = row.data['senders']
             receivers = row.data['receivers']
             len_edges = len(edges)
+            if row.id == 1:
+                print(cutoff)
+                print(cutoff_type)
+                print(len_edges)
             self.assertTrue(len_edges > 0)
             self.assertTrue(len(senders) == len_edges)
             self.assertTrue(len(receivers) == len_edges)

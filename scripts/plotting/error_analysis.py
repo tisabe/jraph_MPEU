@@ -191,8 +191,8 @@ def main(argv):
     global CALCULATE_LABEL
     global ABS_ERROR_LABEL
     if FLAGS.label == 'egap':
-        PREDICT_LABEL = r'Predicted $E_{BG}$ (eV)'
-        CALCULATE_LABEL = r'Calculated $E_{BG}$ (eV)'
+        PREDICT_LABEL = r'Predicted $E_g$ (eV)'
+        CALCULATE_LABEL = r'Calculated $E_g$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
     elif FLAGS.label == 'energy':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
@@ -216,7 +216,8 @@ def main(argv):
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
-
+    if not 'prediction' in df.columns:
+        df['prediction'] = df['prediction_mean']
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
@@ -268,7 +269,7 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
     """
-    """
+    
     fig, ax = plt.subplots()
     sns.histplot(
         x=config.label_str, y='prediction', data=df_test, ax=ax,
@@ -321,7 +322,7 @@ def main(argv):
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
-    """
+    
     if 'spacegroup_relax' in df.columns:
         col = df_train['crystal system']
         counts = dict(Counter(col))
