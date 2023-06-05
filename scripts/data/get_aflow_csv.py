@@ -12,10 +12,10 @@ csv_filename = 'other_models/band_gap_data/classification_data.csv'
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    'Egap(*),'
-    'dft_type(*),ldau_type(*),energy_cutoff(*),'
-    'energy_atom(*),density(*),volume_cell(*),'
-    'compound' # geometry parameters needed for unit cell
+    'Egap(0.00000000001*),'
+    # 'dft_type(*),ldau_type(*),energy_cutoff(*),'
+    # 'energy_atom(*),density(*),volume_cell(*),'
+    'catalog(ICSD),nspecies(2),compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
 summons = MATCHBOOK+","+DIRECTIVES

@@ -9,10 +9,10 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/?"
 MATCHBOOK = (
-    'Egap(*),'#'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
+    'Egap(*),catalog(ICSD),'#'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
     #'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
     #'energy_atom(*),density(*),'#volume_cell(*),'
-    'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
+    # 'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
     )
 print("URL:", SERVER+API+MATCHBOOK)
 
