@@ -7,7 +7,8 @@ import collections
 import numpy as np
 import pandas as pd
 import logging
-
+import multiprocessing
+from functools import partial
 
 class DataPrep():
     """Class for data preparation to grab elemental data."""
@@ -22,7 +23,7 @@ class DataPrep():
                 materials in the ase db path.
         """
         self.elemental_features_csv = elemental_features_csv
-        # (
+        #
         #         # 'other_models/really_tight_full_cut20_revpbe.csv')
         #         'really_tight_full_cut20_revpbe.csv')
         # else:
@@ -111,11 +112,28 @@ class DataPrep():
         for compound_name in compound_name_list:
             row_dict = self.get_features_row(compound_name, features_list)
             # Append the row of new elemental averaged data to the dataframe.
-            features_df = features_df.append(row_dict, ignore_index=True)
+            features_df = pd.concat([features_df, pd.DataFrame([row_dict])], ignore_index=True)
             i += 1
             if i % 1000 == 0:
                 logging.warn(f'Computed {i} materials.')
         return features_df
+
+    def get_features_df_parallelize(self, compound_name_list, features_list):
+        #TODO(Salman): Write this method, parallilize the for loop above with the multiprocessing library
+        # Write a test for the method if possible
+        num_processes = multiprocessing.cpu_count()  # No. of available CPU cores
+        with multiprocessing.Pool(processes=num_processes) as pool:
+
+        # Create a partial function to pass additional arguments to get_features_row
+         get_features_row_partial = partial(self.get_features_row, features_list=features_list)
+
+        # Map the function to the list of compound names using multiple processes
+         result_list = pool.map(get_features_row_partial, compound_name_list)
+        # Concatenate the results into a single DataFrame
+        features_df = pd.DataFrame(result_list)
+        return features_df
+
+
 
     #     self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
     #     self.lda_features_df = pd.read_csv(self.lda_features_csv)

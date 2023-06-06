@@ -127,9 +127,7 @@ class UnitTests(absltest.TestCase):
         expected_ip_delta_bar = 0.5*7.924652971 + 0.5*13.557865276
         self.assertEqual(
             data_df['IP_delta_bar'][0],
-            expected_ip_delta_bar)
-        self.assertFalse(True)
-    
+            expected_ip_delta_bar)    
 
 
 if __name__ == "__main__":
