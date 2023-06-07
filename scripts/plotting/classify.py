@@ -47,6 +47,9 @@ def main(argv):
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
 
+    if not 'prediction' in df.columns:
+        df['prediction'] = df['prediction_mean']
+
     df['class_true'] = df['Egap'].apply(cut_egap) #  1 is insulator, 0 is metal
     df['p_insulator'] = 1 - df['prediction']
     # calculate the class prediction by applying a threshold. Because of the
