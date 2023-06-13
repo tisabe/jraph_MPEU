@@ -13,7 +13,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.log_every_steps = 500
     config.eval_every_steps = 1_000
     config.checkpoint_every_steps = 5_000
-    config.restore = False
 
     # data selection parameters
     config.limit_data = 2000

@@ -35,7 +35,10 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )
+from jraph_MPEU.inference import get_results_df
 
+# maximum loss, if training batch loss exceeds this, stop training
+_MAX_TRAIN_LOSS = 1e10
 
 class Updater:
     """A stateless abstraction around an init_fn/update_fn pair.
@@ -437,6 +440,7 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     # try get_valid_mask function instead
     mask = jraph.get_graph_padding_mask(graphs)
     pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    print(jnp.shape(pred_graphs.globals))
     # compute class probabilities
     preds = jax.nn.log_softmax(pred_graphs.globals)
     # Cross entropy loss, note: we average only over valid (unmasked) graphs
@@ -595,6 +599,17 @@ def train_and_evaluate(
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
+        # catch a NaN or too high loss, stop training if it happens
+        if (np.isnan(loss_metrics["loss"]) or
+                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+            logging.info('Invalid loss, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                with open(workdir + '/ABORTED_EARLY', 'w'):
+                    pass
+            break
+
+
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
@@ -619,5 +634,16 @@ def train_and_evaluate(
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
+
+    # after training is finished, evaluate model and save predictions in
+    # dataframe
+    df_path = workdir + '/result.csv'
+    if not os.path.exists(df_path):
+        logging.info('Evaluating model and generating dataframe.')
+        if config.dropout_rate == 0:
+            results_df = get_results_df(workdir)
+        else:
+            results_df = get_results_df(workdir, mc_dropout=True)
+        results_df.to_csv(df_path, index=False)
 
     return evaluater, lowest_val_loss

@@ -10,7 +10,8 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    #'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
+    #'enthalpy_formation_atom(*),'
+    'Egap(*),Egap_type(*),'
     'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
     'energy_atom(*),density(*),PV_atom(*),'
     'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
@@ -21,7 +22,7 @@ DIRECTIVES = '$paging(0)'
 df_all = pandas.DataFrame({})
 
 i = 1
-max_iter = 100  # maximum number of iterations
+max_iter = 10  # maximum number of iterations
 last_n_rows = 0  # store the last number of rows in pulled dataframe
 lower = -20.0  # lower bound for search
 delta = 16  # search window

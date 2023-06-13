@@ -15,3 +15,6 @@ databases*
 scripts/figs*
 .pytest_cache
 .ipynb_checkpoints/
+Lib/*
+*.cfg
+scripts*

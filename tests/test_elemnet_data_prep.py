@@ -14,8 +14,7 @@ sys.path.append(
 # import jraph_MPEU.inference as inf
 import other_models.data_prep as dp
 
-ELEMENTAL_FEATUTRES_CSV = (
-    "/home/dts/Documents/hu/jraph_MPEU/other_models/really_tight_full_cut20_revpbe.csv")
+ELEMENTAL_FEATUTRES_CSV = ("C://Users//Salman Hussain/OneDrive//Desktop//github clone//jraph_MPEU//other_models//really_tight_full_cut20_revpbe.csv")
 
 
 class UnitTests(absltest.TestCase):
@@ -114,6 +113,21 @@ class UnitTests(absltest.TestCase):
         self.assertEqual(
             data_df['IP_delta_bar'][0],
             expected_ip_delta_bar)
+        
+
+    def test_get_features_df_parallelize(self):
+        features_list = ['EA_half', 'IP_delta']
+        compound_name_list = ['MgO', 'Fe2O3']
+        data_df = self.data_prep_obj.get_features_df_parallelize(
+            compound_name_list=compound_name_list, features_list=features_list)
+        self.assertListEqual(
+            list(data_df['compound_name']), compound_name_list)
+        # O: IP_delta = 13.557865276
+        # Mg: IP_delta = 7.924652971
+        expected_ip_delta_bar = 0.5*7.924652971 + 0.5*13.557865276
+        self.assertEqual(
+            data_df['IP_delta_bar'][0],
+            expected_ip_delta_bar)    
 
 
 if __name__ == "__main__":
