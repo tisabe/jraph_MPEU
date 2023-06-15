@@ -120,6 +120,7 @@ def main(argv):
 
     # get species counts from train split dataframe
     count_dict = defaultdict(int)
+    ldau_dict = defaultdict(int)
 
     for _, row in df_train.iterrows():
         symbols = row['formula']
@@ -129,6 +130,7 @@ def main(argv):
         counts = Formula(symbols).count()  # dictionary with species and number
         for symbol in counts.keys():
             count_dict[symbol] += 1
+            ldau_dict[symbol] += row.ldau_type
 
     mae_dict = {}
     for species, error_list in errors_dict.items():
@@ -189,6 +191,28 @@ def main(argv):
         writer = csv.writer(csv_file)
         for key, value in count_dict.items():
             writer.writerow([key, value])
+
+    # plot counts of species total and with ldau correction
+    df_ldau = pd.DataFrame(columns=['Element', 'Number', 'Type'])
+    for i, key in enumerate(count_dict.keys()):
+        df_ldau.loc[i] = [key, count_dict[key], 'Total']
+    N = len(df_ldau)
+    for i, key in enumerate(count_dict.keys()):
+        df_ldau.loc[i + N] = [key, ldau_dict[key], 'DFT+U']
+    
+    
+    print(df_ldau.head())
+    fig, ax = plt.subplots()
+    sns.catplot(data=df_ldau, x='Element', y='Number', hue='Type', ax=ax, kind='bar')
+    #ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
+    #ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
+    #ax.legend(title='').set_visible(True)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    #fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)
 
 if __name__ == "__main__":
     app.run(main)
