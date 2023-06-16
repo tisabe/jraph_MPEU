@@ -1,80 +1,9 @@
-"""Graph Convolutional Neural Network with Kipf and Welling convolutions."""
+"""Graph Convolutional Neural Network with Kipf and Welling convolutions.
+We modify and simplify the convolutions to work with directed (non-symmetric)
+adjacency matrices."""
 
+from jraph_MPEU.models import MLP, shifted_softplus, get_embedder
 
-
-def get_edge_update_fn(
-        latent_size: int, hk_init, use_layer_norm, activation, dropout_rate,
-        mlp_depth):
-    """Return the edge update function and message update function.
-
-    Takes in the previous edge vector value e_vw(t-1) and concatenates with
-    the node feature vectors of node v, h_v(t), and node w, h_w(t). Then passes
-    this concatenated vector into a FC network with softplus activation, output
-    size of 2C. Then passes that output into a a FC network with no activation,
-    output size of C. See Figure 1 or Equation 7 of the PB jorgensen paper for
-    more details.
-
-    We also compute the message update function. The reason they are in the
-    same function is that they have the same input (edge vector and sending
-    and receiving node features). Jraph expects the update functions to be
-    combined.
-
-    Note: Figure 1 activations and equation 7 has a inconsistency. This
-        was brought up to PB Jorgensen. In Figure 1 it's the identity function
-        for the second activation. In Equation 7 it's the softplus actiavtion
-        again. PB Jorgensen said there is a mistake in Equation 7 and it should
-        be the identity function.
-
-
-    Note: Would be interesting to see what happens if we use the same network
-        for each iteration. Right now each iteration of edge updates uses a
-        seperate NN. This was experimented in the very deep GNN paper by
-        DeepMind.
-
-    Args:
-        latent_size: Dimensionality of the edge and node feature vectors.
-        hk_init: Weight initializer function of the edge update functon neural
-            network.
-        use_layer_norm: whether layer normalization should be used.
-        activation: activation function for MLPs.
-        dropout_rate: dropout rate after every activation layer in MLP.
-        mlp_depth: number of weight layers in each MLP.
-    """
-    def edge_update_fn(
-            edge_message, sent_attributes, received_attributes,
-            global_edge_attributes) -> jnp.ndarray:
-        """Edge update and message function for graph net.
-
-        This function takes in an edge (sender and receiver node). We want to
-        only return the information that is sent out.
-
-        Args:
-            edge_message: Another word for edge attribute.
-                dictionary containing two keys, the edge vector
-                and the message corresponding to that edge. Both of size
-                latent_size (size C in the paper). For Kipf and Welling this
-                needs to contain the node vector for the reciever/sender to
-                we can get the correct sent_atributes and received_attributes
-                which need to be the aggregation of the node vectors in a
-                neighbourhood.
-            sent_attributes: To update the rieceiving node vector we need
-                the aggregated node vectors of the neighbourhood of the
-                receiving node. So sent attributes needs to be this aggregation.
-            receive_attributes: We don't need this here since.
-            global_edge_attributes: Not used but expected by jraph function.
-        """
-        del global_edge_attributes, receive_attributes  # Not used.
-
-
-        return sent_attributes
-
-        # # Then element wise multiply together the output of the
-        # # net_emessage_edge and the output from feeding the sending/receiving
-        # # node feature vectors to the net_message node.
-        # edge_message['messages'] = jnp.multiply(
-        #     edges_new, nodes_new)
-        # return edge_message
-    return edge_update_fn
 
 def get_node_update_fn(
         latent_size, hk_init, use_layer_norm, activation, dropout_rate,
@@ -195,13 +124,13 @@ class GCN_kipf:
             # In each step, we apply first the edge updates, the message
             # updates and then the node updates and then global updates (which
             # we don't do yet).
-            net = jraph.GraphNetwork(
+            net = jraph.GraphConvolution(
                 update_node_fn=get_node_update_fn(
-                    self.config.latent_size, self.config.hk_init),
-                update_edge_fn=get_edge_update_fn(
-                    self.config.latent_size, self.config.hk_init),
-                update_global_fn=None,
-                aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
+                    self.config.latent_size, self.config.hk_init, self.norm,
+                    self.activation, dropout_rate, self.config.mlp_depth),
+                aggregate_nodes_fn=self.aggregation_message_fn,
+                add_self_edges=True,
+                symmetric_normalization=True)
             # Update the graphs by applying our message passing step on graphs.
             graphs = net(graphs)
         # Then after we're done with message passing steps, we intiialize
