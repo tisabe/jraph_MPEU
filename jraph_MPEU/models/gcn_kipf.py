@@ -3,6 +3,8 @@ We modify and simplify the convolutions to work with directed (non-symmetric)
 adjacency matrices."""
 
 from jraph_MPEU.models import MLP, shifted_softplus, get_embedder
+from jraph_MPEU.models import get_readout_node_update_fn
+from jraph_MPEU.models import get_readout_global_fn
 
 
 def get_node_update_fn(
@@ -21,50 +23,19 @@ def get_node_update_fn(
         dropout_rate: dropout rate after every activation layer in MLP.
         mlp_depth: number of weight layers in each MLP.
     """
-    def node_update_fn(
-            nodes, sent_attributes,
-            received_attributes, global_attributes) -> jnp.ndarray:
-        """Node update function for graph net.
-
-        Takes the previous node feature vector and the sum of incoming
-        messages. Two layer NN on the sum of incoming messages at t+1 and adds
-        this to the previous node feature vector at t. This gives us new node
-        feature vector for time t+1.
-
-        See Equation (9) in the PB Jorgensen paper.
-
-        We specify that the received attributes when the are aggregated they
-        use a specific aggregation function. We set this as the mean in the
-        GCN class.
-
-        Args:
-            nodes: Node feature vector at previous iteration (h_i(t-1)).
-            sent_attributes: Not used, should be the smae as recieved
-                attributes.
-            received_attributes: This is the aggregation of incoming edge
-                attributes. recived_attributes need to be edge attributes
-                that contain the node vectors of the neighbourhood + self
-                interaction (not between periodic boundaries but inside the same
-                unit cell). We need to change the edge update function to have
-                this work.
-
+    def node_update_fn(nodes) -> jnp.ndarray:
+        """Node update function for GCN. Inputs aggregated edge features
+        (received attributes, which, without an edge update function, are just
+        neighboring node features) into a customizable MLP function.
         """
-        # For testing purpopses we should check this.
-        # assert sent_attributes == received_attributes
 
-        # These input arguments are not used but expected by jraph.
-        del sent_attributes, global_attributes
-        # First layer is FC with shifted_softplus activation. Second layer
-        # is linear.
         net = MLP(
             'node_update', [latent_size]*mlp_depth,
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=False, w_init=hk_init)
-        # Get the messages term of Equation 9 which is the net applied to
-        # the aggregation of incoming messages to the node.
-        node_update = net(received_attributes['messages'])
-        # Add the previous value of the node feature vector.
-        return nodes + node_update
+        
+        node_update = net(nodes)
+        return node_update
     return node_update_fn
 
 
