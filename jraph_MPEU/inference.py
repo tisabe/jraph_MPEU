@@ -19,7 +19,7 @@ from jraph_MPEU.input_pipeline import (
 from jraph_MPEU.utils import (
     get_valid_mask, load_config, normalize_targets_dict, scale_targets
 )
-from jraph_MPEU.models import load_model
+from jraph_MPEU.models.models import load_model
 
 
 def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False):

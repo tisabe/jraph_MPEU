@@ -10,7 +10,8 @@ import numpy as np
 import haiku as hk
 import ml_collections
 
-from jraph_MPEU.models import shifted_softplus, get_node_embedding_fn
+from jraph_MPEU.models import shifted_softplus
+from jraph_MPEU.models.mpeu import get_node_embedding_fn
 
 
 def get_edge_embedding_MEG(

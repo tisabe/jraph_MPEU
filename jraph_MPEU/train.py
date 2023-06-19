@@ -23,7 +23,7 @@ import optax
 import haiku as hk
 
 # import custom functions
-from jraph_MPEU.models import GNN
+from jraph_MPEU.models.gcn_kipf import GCN_kipf as GNN
 from jraph_MPEU.utils import (
     #Time_logger,
     replace_globals,

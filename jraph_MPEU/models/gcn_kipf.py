@@ -2,9 +2,26 @@
 We modify and simplify the convolutions to work with directed (non-symmetric)
 adjacency matrices."""
 
-from jraph_MPEU.models import MLP, shifted_softplus, get_embedder
-from jraph_MPEU.models import get_readout_node_update_fn
-from jraph_MPEU.models import get_readout_global_fn
+import jax
+import jax.numpy as jnp
+import jraph
+import ml_collections
+
+from jraph_MPEU.models.utilities import MLP, shifted_softplus
+from jraph_MPEU.models.mpeu import get_readout_node_update_fn
+from jraph_MPEU.models.mpeu import get_readout_global_fn
+
+
+def get_embedder(max_atomic_number):
+    def node_embedding_fn(nodes):
+        nodes = jax.nn.one_hot(nodes, max_atomic_number)
+        return nodes
+    
+    embedder = jraph.GraphMapFeatures(
+        embed_edge_fn=None,
+        embed_node_fn=node_embedding_fn,
+        embed_global_fn=None)
+    return embedder
 
 
 def get_node_update_fn(
@@ -49,9 +66,24 @@ class GCN_kipf:
         """
         self.config = config
         self.is_training = is_training
+        self.norm = config.use_layer_norm
 
-        self.config.aggregation_message_type == 'sum'
+        # figure out which activation function to use
+        if self.config.activation_name == 'shifted_softplus':
+            self.activation = shifted_softplus
+        elif self.config.activation_name == 'swish':
+            self.activation = jax.nn.swish
+        elif self.config.activation_name == 'relu':
+            self.activation = jax.nn.relu
+        else:
+            raise ValueError(f'Activation function \
+                "{self.config.activation_name}" is not known to GNN \
+                initializer')
 
+        if self.config.aggregation_message_type == 'sum':
+            self.aggregation_message_fn = jraph.segment_sum
+        elif self.config.aggregation_message_type == 'mean':
+            self.aggregation_message_fn = jraph.segment_mean
         else:
             raise ValueError(
                 f'Aggregation type {self.config.aggregation_message_type} '
@@ -84,9 +116,11 @@ class GCN_kipf:
         # we don't want to carry around the right answer with our input to
         # the GNNs.
         graphs = graphs._replace(
-            globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
+            globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=jnp.float32))
 
-        embedder = get_embedder(self.config)
+        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
+
+        embedder = get_embedder(self.config.max_atomic_number)
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).
         graphs = embedder(graphs)
@@ -110,20 +144,22 @@ class GCN_kipf:
 
         # get the right node output size depending if there is an extra MLP
         # after the node to global aggregation
-        node_output_size = self.config.latent_size if self.config.extra_mlp else 1
+        node_output_size = 1
         dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         net_readout = jraph.GraphNetwork(
             update_node_fn=get_readout_node_update_fn(
                 self.config.latent_size,
                 self.config.hk_init,
+                self.norm, dropout_rate,
+                self.activation,
                 node_output_size),
             update_edge_fn=None,
             update_global_fn=get_readout_global_fn(
                 latent_size=self.config.latent_size,
+                global_readout_mlp_layers=0,
                 dropout_rate=dropout_rate,
-                extra_mlp=self.config.extra_mlp,
-                label_type=self.config.label_type,
-                is_training=self.is_training),
+                activation=self.activation,
+                label_type=self.config.label_type),
             aggregate_nodes_for_globals_fn=self.aggregation_readout_fn)
         # Apply readout function on graph.
         graphs = net_readout(graphs)
