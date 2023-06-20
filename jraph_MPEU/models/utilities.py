@@ -1,30 +1,8 @@
 """Define some useful functions for dealing with the models in this module."""
 
+from typing import Sequence
 import haiku as hk
 import jax.numpy as jnp
-
-from jraph_MPEU.models.mpeu import MPEU
-
-def load_model(workdir, is_training):
-    """Load model to evaluate on."""
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
-        best_state = pickle.load(state_file)
-    config = load_config(workdir)
-    # load the model params
-    params = best_state['state']['params']
-    print(f'Loaded best state at step {best_state["state"]["step"]}')
-    # TODO: make model choosable (between MPEU, GCN, MEGnet)
-    net_fn = MPEU(config, is_training)
-    # compatibility layer to load old models the were initialized without state
-    try:
-        hk_state = best_state['state']['hk_state']
-        net = hk.transform_with_state(net_fn)
-    except KeyError:
-        print('Loaded old stateless function. Converting to stateful.')
-        hk_state = {}
-        net = hk.with_empty_state(hk.transform(net_fn))
-    return net, params, hk_state
 
 
 # Define the shifted softplus activation function.
