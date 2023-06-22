@@ -8,7 +8,7 @@ def get_config() -> ml_collections.ConfigDict():
     Returns a ml_collections.ConfigDict() object."""
     config = get_config_super() # inherit from default mp config
 
-    config.data_file = 'aflow/graphs_knn_fix.db'
+    config.data_file = 'aflow/graphs_all_12knn.db'
     config.label_str = 'enthalpy_formation_atom'
     #config.label_str = 'Egap'
     config.init_lr = 1e-4
@@ -20,5 +20,5 @@ def get_config() -> ml_collections.ConfigDict():
         "ldau_type=0.0")
     config.use_layer_norm = False
     config.dropout_rate = 0.0
-
+    config.limit_data = 10000
     return config

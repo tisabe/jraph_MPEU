@@ -7,8 +7,8 @@ import pickle
 import haiku
 import ml_collections
 
-from jraph_MPEU.gcn_kipf import GCN_kipf
-from jraph_MPEU.mpeu import MPEU
+from jraph_MPEU.models.gcn_kipf import GCN_kipf
+from jraph_MPEU.models.mpeu import MPEU
 
 
 def load_model(workdir, is_training):
