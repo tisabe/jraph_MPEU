@@ -28,7 +28,7 @@ import haiku as hk
 import ml_collections
 
 from jraph_MPEU.utils import load_config
-from jraph_MPEU.models.utilities import MLP, shifted_softplus
+from jraph_MPEU.models.mlp import MLP, shifted_softplus
 
 
 def get_edge_embedding_fn(

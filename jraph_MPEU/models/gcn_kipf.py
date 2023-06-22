@@ -11,7 +11,7 @@ import ml_collections
 import haiku as hk
 
 from jraph_MPEU.utils import load_config
-from jraph_MPEU.models.utilities import MLP, shifted_softplus
+from jraph_MPEU.models.mlp import MLP, shifted_softplus
 from jraph_MPEU.models.mpeu import get_readout_node_update_fn
 from jraph_MPEU.models.mpeu import get_readout_global_fn
 
