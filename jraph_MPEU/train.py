@@ -23,7 +23,7 @@ import optax
 import haiku as hk
 
 # import custom functions
-from jraph_MPEU.models.gcn_kipf import GCN_kipf as GNN
+from jraph_MPEU.models.loading import create_model
 from jraph_MPEU.utils import (
     #Time_logger,
     replace_globals,
@@ -365,11 +365,6 @@ def get_globals(graphs: Sequence[jraph.GraphsTuple]) -> Sequence[float]:
         labels.append(float(graph.globals))
 
     return labels
-
-
-def create_model(config: ml_collections.ConfigDict, is_training=True):
-    """Return a function that applies the graph model."""
-    return GNN(config, is_training)
 
 
 def cosine_warm_restarts(

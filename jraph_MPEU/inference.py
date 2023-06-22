@@ -19,7 +19,7 @@ from jraph_MPEU.input_pipeline import (
 from jraph_MPEU.utils import (
     get_valid_mask, load_config, normalize_targets_dict, scale_targets
 )
-from jraph_MPEU.models.gcn_kipf import load_gcn
+from jraph_MPEU.models.loading import load_model
 
 
 def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False):
@@ -91,7 +91,7 @@ def load_inference_file(workdir, redo=False):
     if not os.path.exists(path) or redo:
         # compute the inferences
         logging.info('Loading model.')
-        net, params, hk_state = load_gcn(workdir, is_training=False)
+        net, params, hk_state = load_model(workdir, is_training=False)
         logging.info('Loading datasets.')
         dataset, mean, std = load_data(workdir)
         splits = dataset.keys()
@@ -133,7 +133,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     config = load_config(workdir)
     split_dict = load_split_dict(workdir)
     label_str = config.label_str
-    net, params, hk_state = load_gcn(workdir, is_training=mc_dropout)
+    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
 
     graphs = []
     labels = []
@@ -259,6 +259,6 @@ def get_results_kfold(workdir_super, mc_dropout=False):
     graphs = list(graphs_dict.values())
 
 
-    net, params, hk_state = load_gcn(workdir, is_training=mc_dropout)
+    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
     # TODO: maybe finish this. Other possibility: after end of training,
     # generate results dataframe and combine afterwards
