@@ -630,6 +630,7 @@ def train_and_evaluate(
 
     # after training is finished, evaluate model and save predictions in
     # dataframe
+    """
     df_path = workdir + '/result.csv'
     if not os.path.exists(df_path):
         logging.info('Evaluating model and generating dataframe.')
@@ -638,5 +639,5 @@ def train_and_evaluate(
         else:
             results_df = get_results_df(workdir, mc_dropout=True)
         results_df.to_csv(df_path, index=False)
-
+    """
     return evaluater, lowest_val_loss
