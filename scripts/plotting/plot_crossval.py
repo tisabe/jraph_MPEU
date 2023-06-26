@@ -15,8 +15,12 @@ def min_of_previous(array):
 
 def split_list(list_a, chunk_size):
     # split list_a into even chunks of chunk_size elements
-    for i in range(0, len(list_a), chunk_size):
-        yield list_a[i:i + chunk_size]
+    if isinstance(chunk_size, int):
+        for i in range(0, len(list_a), chunk_size):
+            yield list_a[i:i + chunk_size]
+    else:
+        for i in chunk_size:
+            yield [list_a[j] for j in i]
 
 
 def main(args):
@@ -24,7 +28,12 @@ def main(args):
     df = pd.DataFrame({})
     dict_minima = {}
     print(args.max_step)
+    # make a dict to list ids depending on how the model training was stopped
+    finish_condition = {
+        "stopped_early": [], "aborted_early": [], "time_elapsed": [],
+        "unknown": [], "reached_max_steps": []}
     for dirname in os.listdir(args.file):
+        workdir = args.file + '/' + dirname
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
             # open the file with evaluation metrics
@@ -34,6 +43,15 @@ def main(args):
             config_path = args.file + '/' + dirname + '/config.json'
             with open(config_path, 'r') as config_file:
                 config_dict = json.load(config_file)
+
+            if os.path.exists(workdir + '/STOPPED_EARLY'):
+                finish_condition["stopped_early"].append(dirname)
+            elif os.path.exists(workdir + '/ABORTED_EARLY'):
+                finish_condition["aborted_early"].append(dirname)
+            elif os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+                finish_condition["reached_max_steps"].append(dirname)
+            else:
+                finish_condition["time_elapsed"].append(dirname)
 
             split = 'validation'
             metrics = metrics_dict[split]
@@ -79,36 +97,29 @@ def main(args):
             df = df.append(row_dict, ignore_index=True)
 
         except OSError:
-            pass
-            #print(f'{dirname} not a valid path, path is skipped.')
+            if os.path.exists(workdir + '/ABORTED_EARLY'):
+                # in this case, the training was aborted before the first
+                # checkpoint
+                finish_condition["aborted_early"].append(dirname)
+            else:
+                finish_condition["unknown"].append(dirname)
 
     dict_minima_top = {}
+    for key, dir_list in finish_condition.items():
+        print(f"# {key}: {len(dir_list)}")
 
-    # print the best 5 configs
+
+    # print the best 1 configs
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
-    for i in range(5):
+    for i in range(1):
         print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
 
-    # print the worst 5 configs
+    # print the worst 1 configs
     df_copy = df_copy.sort_values(by='rmse', axis='index', ascending=False)
-    for i in range(5):
+    for i in range(1):
         print(f'{i}. maximum rmse configuration: \n', df_copy.iloc[i])
-    """
-    for i in range(10):
-        # get index for lowest mae
-        i_min = df_copy['rmse'].idxmin()
-        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i_min])
-        name = df_copy.iloc[i_min]['directory']
-        df_copy = df_copy.drop([i_min])
-        dict_minima_top[name] = dict_minima[name]
-    """
-    """
-    for column in dict_minima_top:
-        plt.plot(dict_minima_top[column], label=column)
-    plt.legend()
-    plt.show()
-    """
+
     # drop the worst n configs
     for i in range(args.drop_n):
         i_max = df['rmse'].idxmax()
@@ -132,8 +143,10 @@ def main(args):
         'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
+    df = df.astype({'layer_norm': 'bool'})
     df = df.astype({'seed': 'int32'})
-    n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    #n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    n_subplots_max = [[0,1,2,3],[4,5,6],[7,8,9]]
     count = 0  # count up plots for saving them in different files
     for box_xnames_split in split_list(box_xnames, n_subplots_max):
         fig, ax = plt.subplots(

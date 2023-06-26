@@ -26,7 +26,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/egap_rand_search/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/aflow_rand_search_egap.py \
+--workdir=./results/aflow/ef_rand_search/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/aflow_rand_search_ef.py \
 --index=${SLURM_ARRAY_TASK_ID} \
---split_file=./results/aflow/egap_rand_search/splits_ins.json
+# --split_file=./results/aflow/ef_rand_search/splits_ins.json
