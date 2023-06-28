@@ -104,9 +104,11 @@ def main(args):
             else:
                 finish_condition["unknown"].append(dirname)
 
-    dict_minima_top = {}
     for key, dir_list in finish_condition.items():
         print(f"# {key}: {len(dir_list)}")
+    print(f"Aborted early: {finish_condition['aborted_early']}")
+    print(f"Time elapsed: {finish_condition['time_elapsed']}")
+    print(f"Unkown: {finish_condition['unknown']}")
 
 
     # print the best 1 configs
@@ -141,6 +143,9 @@ def main(args):
         'batch_size': 'Batch size', 'layer_norm': 'Layer norm',
         'global_readout_mlp_layers': 'Readout layers',
         'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
+    df = df.astype({'mlp_depth': 'int32'})
+    df = df.astype({'global_readout_mlp_layers': 'int32'})
+    df = df.astype({'batch_size': 'int32'})
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'layer_norm': 'bool'})
@@ -171,10 +176,15 @@ def main(args):
             dpi=600)
         count += 1
 
-    sns.scatterplot(data=df, x='rmse', y='mae')
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df, x='rmse', y='mae', ax=ax)
+    ax.set_xlabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
+    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
+    fig.savefig(
+        args.file + '/rmse_mae.png', bbox_inches='tight', dpi=600)
     return 0
 
 
