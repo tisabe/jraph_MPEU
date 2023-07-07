@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J ef_pbj
+#SBATCH -J egap_pbj
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,6 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/ef_pbj_mcd \
---config=jraph_MPEU_configs/aflow_ef_clean.py \
---config.dropout_rate=0.2
+--workdir=./results/aflow/egap_pbj \
+--config=jraph_MPEU_configs/aflow_egap_pbj.py
