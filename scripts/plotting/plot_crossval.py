@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import haiku as hk
 
 
 def min_of_previous(array):
@@ -21,6 +22,10 @@ def split_list(list_a, chunk_size):
     else:
         for i in chunk_size:
             yield [list_a[j] for j in i]
+
+
+def id_list_to_int_list(ids_list):
+    return [int(ids.removeprefix('id')) for ids in ids_list]
 
 
 def main(args):
@@ -93,7 +98,13 @@ def main(args):
                 'min_step_rmse': min_step_rmse,
                 'directory': dirname
             }
-            #print(row_dict)
+            state_dir = workdir+'/checkpoints/best_state.pkl'
+            with open(state_dir, 'rb') as state_file:
+                best_state = pickle.load(state_file)
+            params = best_state['state']['params']
+            num_params = hk.data_structures.tree_size(params)
+            row_dict['num_params'] = num_params
+
             df = df.append(row_dict, ignore_index=True)
 
         except OSError:
@@ -111,16 +122,17 @@ def main(args):
     print(f"Unkown: {finish_condition['unknown']}")
 
 
-    # print the best 1 configs
+    # print list of best 10 configs
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
-    for i in range(1):
-        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
-
-    # print the worst 1 configs
-    df_copy = df_copy.sort_values(by='rmse', axis='index', ascending=False)
-    for i in range(1):
-        print(f'{i}. maximum rmse configuration: \n', df_copy.iloc[i])
+    id_list_best = []
+    n_ids = 10
+    for i in range(n_ids):
+        #print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
+        id_list_best.append(df_copy.iloc[i]['directory'])
+    id_list_best = id_list_to_int_list(id_list_best)
+    print(f'Top {n_ids} models: ')
+    print(id_list_best)
 
     # drop the worst n configs
     for i in range(args.drop_n):
@@ -185,6 +197,17 @@ def main(args):
     plt.show()
     fig.savefig(
         args.file + '/rmse_mae.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
+    ax.set_xlabel('# of parameters', fontsize=args.fontsize)
+    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
+    plt.rc('font', size=16)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(
+        args.file + '/params_mae.png', bbox_inches='tight', dpi=600)
+
     return 0
 
 
