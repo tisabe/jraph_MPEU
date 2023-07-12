@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import sklearn.metrics
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('directory', 'results/aflow/egap_rand_search',
@@ -19,8 +20,6 @@ flags.DEFINE_string('directory', 'results/aflow/egap_rand_search',
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
-flags.DEFINE_string('label', 'egap', 'kind of label that is trained on. Used to \
-    define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
@@ -42,7 +41,9 @@ def plot_prediction(df_ensemble):
         print(f'MAE on {split} set: {mean_abs_err}')
         rmse = (df_split['abs. error'] ** 2).mean() ** .5
         print(f'RMSE on {split} set: {rmse}')
-        r2_split = 1 - (df_split['abs. error'] ** 2).mean()/df_split['target'].std()
+        r2_split = sklearn.metrics.r2_score(
+            df_split['target'], df_split['ensemble_mean']
+        )
         print(f'R^2 on {split} set: {r2_split}')
 
     fig, ax = plt.subplots()
@@ -57,8 +58,8 @@ def plot_prediction(df_ensemble):
     ax.set_ylabel(f'Mean prediction ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
-    #plt.xscale('log')
-    #plt.yscale('log')
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory + '/ensemble_pred.png', bbox_inches='tight', dpi=600)
@@ -67,11 +68,13 @@ def plot_prediction(df_ensemble):
 def plot_stdev(df_ensemble):
     for split in ['train', 'validation', 'test']:
         df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
-        df_split['diff'] = abs(df_split['abs. error'] - df_split['ensemble_std'])
-        r2_split = 1 - (df_split['diff'] ** 2).mean()/df_split['abs. error'].std()
+        r2_split = sklearn.metrics.r2_score(
+            df_split['abs. error'], df_split['ensemble_std']
+        )
         print(f'Uncertainty R^2 on {split} set: {r2_split}')
 
-    #df_ensemble = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'train']
+
+    df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
     fig, ax = plt.subplots()
     sns.scatterplot(
         ax=ax,
@@ -84,11 +87,27 @@ def plot_stdev(df_ensemble):
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     plt.xscale('log')
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory + '/ensemble_err.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.histplot(
+        x='abs. error', y='ensemble_std', data=df_test, ax=ax,
+        cbar=True, cbar_kws={'label': 'Count'}, bins=(100, 100),
+        log_scale=True)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.set_xlabel(f'Absolute error ({FLAGS.unit})', fontsize=FLAGS.font_size)
+    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(FLAGS.directory+'/hist_simple.png', bbox_inches='tight', dpi=600)
 
 
 def main(_):
@@ -144,24 +163,28 @@ def main(_):
         except OSError:
             pass
 
-    # print list of best 10 configs
+    # get best 10 configs and put ids into a list
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
     id_list_best = []
+    rmse_list_best = []
+    mae_list_best = []
     n_ids = 10
     for i in range(n_ids):
         #print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
         id_list_best.append(df_copy.iloc[i]['directory'])
-    print(f'Top {n_ids} models: ')
+        rmse_list_best.append(df_copy.iloc[i]['rmse'])
+        mae_list_best.append(df_copy.iloc[i]['mae'])
+    print(f'Top {n_ids} models (id, rmse, mae): ')
     print(id_list_best)
+    print(rmse_list_best)
+    print(mae_list_best)
 
     df_ensemble = pd.DataFrame({})
     df_single = pd.DataFrame({})
     # loop over the best models and get their result dataframes
     for model_id in id_list_best:
-        print('id: ' + model_id)
         workdir = FLAGS.directory + model_id
-        print(workdir)
         df_single = pd.read_csv(workdir + '/result.csv')
         if not 'prediction' in df_single.columns:
             df_single['prediction'] = df_single['prediction_mean']
