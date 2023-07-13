@@ -32,9 +32,18 @@ ABS_ERROR_LABEL = ''
 
 def plot_regression(df, workdir, config, plot_name):
     """Plot the regression using joint plot with marginal histograms."""
+    if FLAGS.label == 'egap':
+        xlim = [-0.5, 12.5]
+        ylim = [-0.5, 12.5]
+    elif FLAGS.label == 'energy':
+        xlim = None
+        ylim = None
+    else:
+        xlim = None
+        ylim = None
     g = sns.JointGrid(
         data=df, x=config.label_str, y='prediction', marginal_ticks=False,
-        height=5, xlim = [-0.5, 12.5], ylim = [-0.5, 12.5]
+        height=5, xlim=xlim, ylim=ylim
     )
 
     # Add the joint and marginal histogram plots
@@ -47,8 +56,14 @@ def plot_regression(df, workdir, config, plot_name):
     g.ax_joint.tick_params(which='both', labelsize=FLAGS.tick_size)
     g.ax_joint.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
     g.ax_joint.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
-    g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
+    if FLAGS.label == 'egap':
+        g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
+        g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
+    elif FLAGS.label == 'energy':
+        pass
+    else:
+        g.ax_joint.set_xticks([-4, -2, 0, 2])
+        g.ax_joint.set_yticks([-4, -2, 0, 2])
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
@@ -201,8 +216,8 @@ def main(argv):
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
     else:
-        PREDICT_LABEL = r'Predicted $E_{F}$ (eV/atom)'
-        CALCULATE_LABEL = r'Calculated $E_{F}$ (eV/atom)'
+        PREDICT_LABEL = r'Predicted $E_f$ (eV/atom)'
+        CALCULATE_LABEL = r'Calculated $E_f$ (eV/atom)'
         ABS_ERROR_LABEL = 'Abs. error (eV/atom)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
@@ -260,17 +275,20 @@ def main(argv):
     r2_test = 1 - (df_test['abs. error'] ** 2).mean()/df_test[
         config.label_str].std()
     print(f'R^2 on test set: {r2_test}')
+    median_err = df_test.median(0, numeric_only=True)['abs. error']
+    print(f'Median error on test set: {median_err}')
+
+    # print rows with highest errors
+    df_test = df_test.sort_values(by='abs. error', axis='index')
+    print(df_test[-3:][['auid', 'prediction', config.label_str, 'abs. error',
+        'formula', 'crystal system', 'Egap']])
     """
-    # print rows with highest and lowest error
-    row_max_err = df_test.loc[df_test['abs. error'].idxmax()]
-    print(row_max_err)
     row_min_err = df_test.loc[df_test['abs. error'].idxmin()]
     print(row_min_err)
 
     mean_target = df.mean(0, numeric_only=True)[config.label_str]
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
-    """
     
     fig, ax = plt.subplots()
     sns.histplot(
@@ -320,7 +338,7 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
-
+    """
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
