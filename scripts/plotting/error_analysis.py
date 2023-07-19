@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import sklearn.metrics
 
 from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -248,7 +249,7 @@ def main(argv):
         df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
     else:
         print('Skipping spacegroup conversion.')
-    
+
     if 'Egap_type' in df.columns:
         df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
     else:
@@ -272,8 +273,10 @@ def main(argv):
     print(f'MAE on test set: {mean_abs_err_test}')
     rmse_test = (df_test['abs. error'] ** 2).mean() ** .5
     print(f'RMSE on test set: {rmse_test}')
-    r2_test = 1 - (df_test['abs. error'] ** 2).mean()/df_test[
-        config.label_str].std()
+    stdev = np.std(df_test[config.label_str])
+    print(f'STDEV of test set: {stdev}')
+    r2_test = sklearn.metrics.r2_score(
+        df_test[config.label_str], df_test['prediction'])
     print(f'R^2 on test set: {r2_test}')
     median_err = df_test.median(0, numeric_only=True)['abs. error']
     print(f'Median error on test set: {median_err}')

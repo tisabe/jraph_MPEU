@@ -37,6 +37,8 @@ def id_list_to_int_list(ids_list):
 def plot_prediction(df_ensemble):
     for split in ['train', 'validation', 'test']:
         df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
+        stdev = np.std(df_split['target'])
+        print(f'STDEV of {split} set: {stdev}')
         mean_abs_err = df_split.mean(0, numeric_only=True)['abs. error']
         print(f'MAE on {split} set: {mean_abs_err}')
         rmse = (df_split['abs. error'] ** 2).mean() ** .5
@@ -45,6 +47,8 @@ def plot_prediction(df_ensemble):
             df_split['target'], df_split['ensemble_mean']
         )
         print(f'R^2 on {split} set: {r2_split}')
+        median_err = df_split.median(0, numeric_only=True)['abs. error']
+        print(f'Median error on {split} set: {median_err}')
 
     fig, ax = plt.subplots()
     sns.scatterplot(
