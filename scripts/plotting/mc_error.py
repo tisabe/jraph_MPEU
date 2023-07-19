@@ -82,15 +82,18 @@ def main(argv):
         ax=ax,
         x='abs. error',
         y='prediction_std',
-        data=df_train_test,
+        data=df,
         hue='split'
     )
     ax.set_xlabel(f'Absolute error ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
-    plt.xscale('log')
-    plt.yscale('log')
+    #ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
+    ax.legend(loc=2, prop={'size': FLAGS.tick_size})
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    #plt.xscale('log')
+    #plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/mc_error', bbox_inches='tight', dpi=600)
@@ -121,7 +124,7 @@ def main(argv):
         ax.text(
             xpos, top*0.9, counts[xlabel.get_text()],
             horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
-            bbox=dict(boxstyle="square", ec='black', fc='white'))
+            bbox=dict(boxstyle="square", ec='black', fc='white'), transform=ax.transAxes)
     #plt.yscale('log')
     plt.axhline(
         y=df_test['prediction_std'].median(), alpha=0.8, color='red', linestyle='--')
@@ -137,7 +140,7 @@ def main(argv):
     ### Plot DFT+U correction results
 
     # convert integer dft_type to string type
-    int_to_string_type = {0: 'No correction', 2: 'DFT+U correction'}
+    int_to_string_type = {0: 'PBE', 2: 'PBE+U'}
     df_test['ldau_type'] = df_test['ldau_type'].apply(
         lambda x: int_to_string_type[x])
 
@@ -154,7 +157,7 @@ def main(argv):
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
-    ax.set_ylim(bottom=0, top=0.72)
+    #ax.set_ylim(bottom=0, top=0.72)
 
     col = df_train['ldau_type']
     counts = Counter(col)

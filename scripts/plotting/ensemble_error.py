@@ -77,8 +77,18 @@ def plot_stdev(df_ensemble):
         )
         print(f'Uncertainty R^2 on {split} set: {r2_split}')
 
-
     df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
+    # calculater cumulative distributions
+    '''
+    cum_dist_true = np.cumsum(np.histogram(
+        df_test['abs. error'], bins=100, density=True)[0])
+
+    cum_dist_obs = np.cumsum(np.histogram(
+        df_test['ensemble_std'], bins=100, density=True)[0])
+    plt.plot(cum_dist_true, cum_dist_obs)
+    plt.show()
+    '''
+
     fig, ax = plt.subplots()
     sns.scatterplot(
         ax=ax,
@@ -93,8 +103,8 @@ def plot_stdev(df_ensemble):
     ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
     x_ref = np.linspace(*ax.get_xlim())
     ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    plt.xscale('log')
-    plt.yscale('log')
+    #plt.xscale('log')
+    #plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory + '/ensemble_err.png', bbox_inches='tight', dpi=600)
@@ -103,7 +113,7 @@ def plot_stdev(df_ensemble):
     sns.histplot(
         x='abs. error', y='ensemble_std', data=df_test, ax=ax,
         cbar=True, cbar_kws={'label': 'Count'}, bins=(100, 100),
-        log_scale=True)
+        log_scale=False, binrange=((0,0.2),(0,0.2)))
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax.set_xlabel(f'Absolute error ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
