@@ -99,12 +99,13 @@ def main(args):
                 'directory': dirname
             }
             state_dir = workdir+'/checkpoints/best_state.pkl'
+            """
             with open(state_dir, 'rb') as state_file:
                 best_state = pickle.load(state_file)
             params = best_state['state']['params']
             num_params = hk.data_structures.tree_size(params)
             row_dict['num_params'] = num_params
-
+            """
             df = df.append(row_dict, ignore_index=True)
 
         except OSError:
@@ -197,7 +198,7 @@ def main(args):
     plt.show()
     fig.savefig(
         args.file + '/rmse_mae.png', bbox_inches='tight', dpi=600)
-
+    """
     fig, ax = plt.subplots()
     sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
     ax.set_xlabel('# of parameters', fontsize=args.fontsize)
@@ -207,7 +208,7 @@ def main(args):
     plt.show()
     fig.savefig(
         args.file + '/params_mae.png', bbox_inches='tight', dpi=600)
-
+    """
     return 0
 
 
