@@ -118,7 +118,7 @@ def plot_space_groups(df, workdir, plot_name, counts):
         data=df,
         #hue='split',
         ax=ax,
-        color='deepskyblue'
+        color='lightblue'
     )
     plt.legend([], [], frameon=False)
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')

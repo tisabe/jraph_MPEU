@@ -171,7 +171,7 @@ def main(args):
             1, len(box_xnames_split), figsize=(len(box_xnames_split)*4, 8),
             sharey=True)
         for i, name in enumerate(box_xnames_split):
-            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
+            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='lightblue')
             sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
             ax[i].set_xlabel(col_to_label[name], fontsize=args.fontsize)
             if i == 0:
@@ -193,7 +193,9 @@ def main(args):
     sns.scatterplot(data=df, x='rmse', y='mae', ax=ax)
     ax.set_xlabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
     ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
-    plt.rc('font', size=16)
+    ax.set_title('Bandgap', loc='center', y=1.0, pad=-30)
+    ax.tick_params(which='both', labelsize=16)
+    #plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
     fig.savefig(
@@ -239,7 +241,7 @@ if __name__ == "__main__":
         help='unit string')
     parser.add_argument(
         '-fontsize', type=int, dest='fontsize',
-        default=22,
+        default=18,
         help='fontsize of axis labels')
     args_main = parser.parse_args()
     main(args_main)

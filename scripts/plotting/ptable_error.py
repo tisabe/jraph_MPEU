@@ -27,6 +27,7 @@ flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_bool('element_names', False, 'Whether to print element names.')
 
 # define the element types from the periodic table
 element_types = {
@@ -67,7 +68,7 @@ def main(argv):
     config = load_config(workdir)
 
     # set correct axis labels
-    x_label = '# compounds in training split with species'
+    x_label = '# compounds in training set'
     if config.label_type == 'scalar':
         if FLAGS.label == 'egap':
             y_label = r'MAE ($E_g$/eV)'
@@ -152,35 +153,29 @@ def main(argv):
         species.append(key)
         counts.append(count_dict[key])
         maes.append(mae_dict[key])
-
-    fig, ax = plt.subplots()
-    #ax.scatter(counts, maes)
     df_plot = pd.DataFrame(
         data={'species': species, 'counts': counts, 'maes': maes}
     )
     df_plot['element class'] = df_plot['species'].apply(get_type)
     df_plot = df_plot.sort_values('element class', axis=0, ascending=False)
-    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
 
-    for txt, count, mae in zip(keys_intersect, counts, maes):
-        ax.annotate(txt, (count, mae))
-    ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
-    ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.legend(title='').set_visible(True)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/species_vs_count.png', bbox_inches='tight', dpi=600)
+    # plot number of fit metric depending on number of compounds
+    # split dataframe in half for better legend
+    df1 = df_plot[df_plot['element class'] > 'Noble gases']
+    df2 = df_plot[df_plot['element class'] <= 'Noble gases']
 
-    # make the same plot but without text to add again manually
     fig, ax = plt.subplots()
-    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
+    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax, s=80)
+    if FLAGS.element_names:
+        for txt, count, mae in zip(keys_intersect, counts, maes):
+            ax.annotate(txt, (count, mae))
     ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
     ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
     ax.legend(title='').set_visible(True)
+    plt.rc('legend', fontsize=FLAGS.tick_size-3)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()

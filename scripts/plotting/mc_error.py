@@ -107,13 +107,15 @@ def main(argv):
         y='prediction_std',
         data=df_test,
         linewidth=1,
-        color='deepskyblue'
+        color='lightblue',
+        inner='quartile',
         #cut=0,  # limit the violins to data range
     )
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
-    #ax.set_ylim(bottom=0, top=0.72)
+    #ax.set_ylim(bottom=0, top=0.04)
+    ax.set_ylim(bottom=0, top=0.2)
 
     col = df_train['crystal system']
     counts = Counter(col)
@@ -124,7 +126,7 @@ def main(argv):
         ax.text(
             xpos, top*0.9, counts[xlabel.get_text()],
             horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
-            bbox=dict(boxstyle="square", ec='black', fc='white'), transform=ax.transAxes)
+            bbox=dict(boxstyle="square", ec='black', fc='white'))
     #plt.yscale('log')
     plt.axhline(
         y=df_test['prediction_std'].median(), alpha=0.8, color='red', linestyle='--')
@@ -151,13 +153,15 @@ def main(argv):
         y='prediction_std',
         data=df_test,
         linewidth=1,
-        color='deepskyblue',
+        color='lightblue',
+        inner='quartile'
         #cut=0,  # limit the violins to data range
     )
     ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size, width=0)
     ax.set_xlabel('')
-    #ax.set_ylim(bottom=0, top=0.72)
+    #ax.set_ylim(bottom=0, top=0.04)
+    ax.set_ylim(bottom=0, top=0.2)
 
     col = df_train['ldau_type']
     counts = Counter(col)
