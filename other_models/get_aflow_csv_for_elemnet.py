@@ -15,7 +15,7 @@ MATCHBOOK = (
     'Egap(0.001*),'
     'dft_type(*),ldau_type(*),energy_cutoff(*),'
     'energy_atom(*),density(*),volume_cell(*),'
-    'catalog(ICSD),nspecies(1*),compound' # geometry parameters needed for unit cell
+    'catalog(ICSD),nspecies(*),compound' # geometry parameters needed for unit cell
     )
 DIRECTIVES = '$paging(0)'
 summons = MATCHBOOK+","+DIRECTIVES
