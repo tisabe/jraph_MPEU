@@ -31,7 +31,7 @@ CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
 
 
-def plot_regression(df, workdir, config, plot_name):
+def plot_regression(df, workdir, label_str, plot_name):
     """Plot the regression using joint plot with marginal histograms."""
     if FLAGS.label == 'egap':
         xlim = [-0.5, 12.5]
@@ -43,7 +43,7 @@ def plot_regression(df, workdir, config, plot_name):
         xlim = None
         ylim = None
     g = sns.JointGrid(
-        data=df, x=config.label_str, y='prediction', marginal_ticks=False,
+        data=df, x=label_str, y='prediction', marginal_ticks=False,
         height=5, xlim=xlim, ylim=ylim
     )
 
@@ -342,7 +342,7 @@ def main(argv):
     plt.show()
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
     """
-    plot_regression(df_test, workdir, config, '/regression_test.png')
+    plot_regression(df_test, workdir, config.label_str, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
     

@@ -23,7 +23,6 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/main.py \
---workdir=./results/aflow/ef_pbj_mcd_1 \
---config=jraph_MPEU_configs/aflow_ef_clean.py \
---config.dropout_rate=0.1
+srun nvprof python scripts/main.py \
+--workdir=./results/aflow/ef_pbj_nvprof \
+--config=jraph_MPEU_configs/aflow_ef_clean.py

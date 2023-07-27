@@ -75,7 +75,7 @@ def main(argv):
         elif FLAGS.label == 'energy':
             y_label = r'Calculated $U_0$ (eV)'
         else:
-            y_label = r'MAE ($E_{F}$ per atom/eV)'
+            y_label = r'MAE ($E_f$ per atom/eV)'
     else:
         y_label = 'Accuracy per species'
 
@@ -194,8 +194,8 @@ def main(argv):
     N = len(df_ldau)
     for i, key in enumerate(count_dict.keys()):
         df_ldau.loc[i + N] = [key, ldau_dict[key], 'DFT+U']
-    
-    
+
+
     print(df_ldau.head())
     fig, ax = plt.subplots()
     sns.catplot(data=df_ldau, x='Element', y='Number', hue='Type', ax=ax, kind='bar')
