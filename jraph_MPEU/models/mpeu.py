@@ -17,17 +17,13 @@ eps_vw which is size k_max. The network then outputs an edge vector e_vw(0)
 of size C (latent_size).
 """
 
-import pickle
-from typing import Sequence
-
 import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
-import haiku as hk
 import ml_collections
 
-from jraph_MPEU.utils import load_config
+#from jraph_MPEU.utils import load_config
 from jraph_MPEU.models.mlp import MLP, shifted_softplus
 
 
@@ -317,7 +313,6 @@ def get_readout_global_fn(
         if global_readout_mlp_layers > 0:
             if label_type == 'class':
                 # return logits, softmax happens in loss function
-                # TODO: maybe decrease hidden layers to create funnelling
                 net = MLP(
                     'readout', [latent_size] * global_readout_mlp_layers + [2],
                     use_layer_norm=False, dropout_rate=dropout_rate,

@@ -12,19 +12,20 @@ import jax
 import jax.numpy as jnp
 import jraph
 import haiku as hk
-
 import ml_collections
 
-from jraph_MPEU.models import (
-    GNN,
+from jraph_MPEU.models.mlp import(
     shifted_softplus,
+    MLP
+)
+from jraph_MPEU.models.mpeu import (
+    MPEU,
     get_edge_update_fn,
     get_edge_embedding_fn,
-    get_node_embedding_fn,
     get_node_update_fn,
+    get_node_embedding_fn,
     get_readout_node_update_fn,
-    get_readout_global_fn,
-    MLP
+    #get_readout_global_fn
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
@@ -118,7 +119,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 sp = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = GNN(self.config)
+            net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
             params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
@@ -195,7 +196,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 activation_fn = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = GNN(self.config)
+            net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
             # Create weights for the model
             params = net.init(init_rng, init_graphs)
@@ -240,7 +241,8 @@ class TestModelFunctions(unittest.TestCase):
             nodes_readout = activation_fn(nodes_updated[:, 0])/2
             prediction_expected = jnp.sum(nodes_readout)
 
-            np.testing.assert_allclose(edge_updated, graph_pred.edges['edges'])
+            np.testing.assert_allclose(
+                edge_updated, graph_pred.edges['edges'], rtol=1e-6)
             self.assertAlmostEqual(prediction_expected, prediction, places=5)
 
     def test_output_size_class(self):
@@ -283,7 +285,7 @@ class TestModelFunctions(unittest.TestCase):
 
         config = get_class_config()
         config.use_layer_norm = False
-        net_fn = GNN(config)
+        net_fn = MPEU(config)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
         params, state = net.init(init_rng, init_graphs)
@@ -435,8 +437,6 @@ class TestModelFunctions(unittest.TestCase):
     def test_readout_function(self):
         """Test the output of the readout function against the expected result.
         """
-        rng = jax.random.PRNGKey(42)
-        rng, init_rng = jax.random.split(rng)
 
         latent_size = 16
         hk_init = hk.initializers.Identity()

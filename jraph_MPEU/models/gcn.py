@@ -16,33 +16,11 @@ from jraph_MPEU.models.mpeu import get_readout_node_update_fn
 from jraph_MPEU.models.mpeu import get_readout_global_fn
 
 
-def load_gcn(workdir, is_training):
-    """Load model to evaluate on."""
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
-        best_state = pickle.load(state_file)
-    config = load_config(workdir)
-    # load the model params
-    params = best_state['state']['params']
-    print(f'Loaded best state at step {best_state["state"]["step"]}')
-    # TODO: make model choosable (between MPEU, GCN, MEGnet)
-    net_fn = GCN_kipf(config, is_training)
-    # compatibility layer to load old models the were initialized without state
-    try:
-        hk_state = best_state['state']['hk_state']
-        net = hk.transform_with_state(net_fn)
-    except KeyError:
-        print('Loaded old stateless function. Converting to stateful.')
-        hk_state = {}
-        net = hk.with_empty_state(hk.transform(net_fn))
-    return net, params, hk_state
-
-
 def get_embedder(max_atomic_number):
     def node_embedding_fn(nodes):
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return nodes
-    
+
     embedder = jraph.GraphMapFeatures(
         embed_edge_fn=None,
         embed_node_fn=node_embedding_fn,
@@ -76,13 +54,13 @@ def get_node_update_fn(
             'node_update', [latent_size]*mlp_depth,
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=False, w_init=hk_init)
-        
+
         node_update = net(nodes)
         return node_update
     return node_update_fn
 
 
-class GCN_kipf:
+class GCN:
     """Graph neural network class where we define the interactions/updates."""
     def __init__(self, config: ml_collections.ConfigDict, is_training=True):
         """Initialize the GNN using a config.
