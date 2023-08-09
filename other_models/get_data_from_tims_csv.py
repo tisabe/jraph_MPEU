@@ -8,8 +8,21 @@ enlarged_atomic_features_data_csv_path = (
     home_dir + '/elem_rf/enlarged_elemental_data.csv')
 # Get the AFLOW dataset and read the CSV into a pandas dataframe.
 # csv_data_source = '/home/bepdansp/elemnet/aflow_bandgap_greater_than_zero_data_july_27_2023.csv'
-csv_data_source = home_dir + '/result_best_egap_model_tim.csv'
-feature_engineered_csv = home_dir + '/result_best_egap_model_tim_plus_features.csv'
+csv_data_source = home_dir + '/band_gap_data/result_best_egap_model_tim.csv'
+feature_engineered_csv = home_dir + '/band_gap_data/result_best_egap_model_tim_plus_features.csv'
+
+# Read in the csv data source
+# tim_df = pd.read_csv(csv_data_source, index_col=0)
+# input_list = tim_df
+
+# columns = [
+#     'spacegroup_relax', 'energy_cutoff', 'density',
+#     'cutoff_type', 'cutoff_val', 'n_edge']
+    
+
+    #split,numbers,formula,prediction]
+
+
 
 # atomic_data_df = pd.read_csv(enlarged_atomic_features_data_csv_path, index_col=None)
 # aflow_csv_data_source = '/band_gap_data/classification_data.csv'
