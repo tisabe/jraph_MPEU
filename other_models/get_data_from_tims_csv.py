@@ -3,7 +3,7 @@ import time
 import data_prep as dp
 
 
-home_dir = '/scratch/projects/bep00098/jraph_MPEU/other_models'
+home_dir = '/home/bepdansp/jraph_MPEU/other_models'
 enlarged_atomic_features_data_csv_path = (
     home_dir + '/elem_rf/enlarged_elemental_data.csv')
 # Get the AFLOW dataset and read the CSV into a pandas dataframe.
