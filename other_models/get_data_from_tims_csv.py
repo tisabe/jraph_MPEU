@@ -54,7 +54,7 @@ features_list = [
        'covalent_radius_cordero', 'en_allen', 'en_ghosh',
        'en_pauling', 'period', 'atomic_volume', 'n_valence', 'HOMO_LUMO_diff']
 
-compound_name_list = aflow_df['compound']
+compound_name_list = aflow_df['formula']
 
 feature_engineered_data_df_with_compound = data_prep_obj.get_features_df(
     compound_name_list=compound_name_list, features_list=features_list)
