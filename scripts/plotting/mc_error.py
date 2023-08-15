@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import sklearn.metrics
 
 from jraph_MPEU.utils import load_config
 from jraph_MPEU.inference import get_results_df
@@ -18,8 +19,8 @@ flags.DEFINE_string('file', 'results/test_dropout', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
-flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
 
@@ -69,6 +70,15 @@ def main(argv):
     mean_target = df.mean(0, numeric_only=True)[config.label_str]
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
+
+    for split in ['train', 'validation', 'test']:
+        df_split = df.loc[lambda df_temp: df_temp['split'] == split]
+        r2_split = sklearn.metrics.r2_score(
+            df_split['abs. error'], df_split['prediction_std']
+        )
+        print(f'Uncertainty R^2 on {split} set: {r2_split}')
+        pearson = df_split[['abs. error', 'prediction_std']].corr()
+        print(f'Pearson r^2 on {split} set: {pearson}')
 
     # convert split labels for dataframe with all splits
     split_convert = {

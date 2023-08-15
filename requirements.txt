@@ -12,3 +12,4 @@ ase
 ml_collections
 absl-py
 spglib
+seaborn

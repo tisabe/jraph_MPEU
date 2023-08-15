@@ -23,12 +23,29 @@ flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data 
     read from the database.')
 flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
-flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 
 PREDICT_LABEL = ''
 CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
+
+
+def plot_error_hist(df, workdir, plot_name, hue_val):
+    """Plot absolute errors in a log-log histogram."""
+    fig, ax = plt.subplots()
+    sns.histplot(
+        x='abs. error', hue=hue_val, data=df, ax=ax, multiple='stack',
+        palette='Paired', log_scale=True)
+    ax.set_xlabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel('Counts', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    #ax.legend(title='Bandgap type')
+    plt.rc('legend', fontsize=FLAGS.tick_size-3)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def plot_regression(df, workdir, label_str, plot_name):
@@ -345,7 +362,7 @@ def main(argv):
     plot_regression(df_test, workdir, config.label_str, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
-    
+
     if 'spacegroup_relax' in df.columns:
         col = df_train['crystal system']
         counts = dict(Counter(col))
@@ -357,9 +374,12 @@ def main(argv):
         print('Skipping spacegroup plots.')
 
     if 'Egap_type' in df.columns:
+        plot_error_hist(df_test, workdir, '/error_hist.png', 'Egap_type')
         col = df_train['Egap_type']
         print(Counter(col))
         plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
+    else:
+        plot_error_hist(df_test, workdir, '/error_hist.png', None)
 
     if 'density' in df.columns:
         plot_density(df_test, workdir, '/error_vs_density.png')

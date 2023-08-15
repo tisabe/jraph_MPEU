@@ -25,7 +25,7 @@ flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data 
     read from the database.')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
-flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
+flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "eV/atom" or "eV"')
 
 PREDICT_LABEL = ''
