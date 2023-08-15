@@ -1,4 +1,5 @@
-jax
+# You need to install the correct version of jax for your CPU/GPU
+# see https://github.com/google/jax#installation
 tensorflow  
 numpy  
 jraph  
@@ -6,7 +7,8 @@ dm-haiku
 optax  
 pandas  
 tqdm  
-sklearn 
+scikit-learn
 ase
 ml_collections
 absl-py
+spglib
