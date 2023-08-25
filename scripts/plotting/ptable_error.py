@@ -175,7 +175,7 @@ def main(argv):
     #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
     ax.legend(title='').set_visible(True)
     plt.rc('legend', fontsize=FLAGS.tick_size-3)
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    #sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()

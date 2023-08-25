@@ -38,7 +38,7 @@ def plot_error_hist(df, workdir, plot_name, hue_val):
         x='abs. error', hue=hue_val, data=df, ax=ax, multiple='stack',
         palette='Paired', log_scale=True)
     ax.set_xlabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
-    ax.set_ylabel('Counts', fontsize=FLAGS.font_size)
+    ax.set_ylabel('Count', fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     #ax.legend(title='Bandgap type')
     plt.rc('legend', fontsize=FLAGS.tick_size-3)
@@ -360,8 +360,6 @@ def main(argv):
     fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
     """
     plot_regression(df_test, workdir, config.label_str, '/regression_test.png')
-    #plot_regression(df_train, workdir, config, '/regression_train.png')
-    #plot_regression(df_val, workdir, config, '/regression_val.png')
 
     if 'spacegroup_relax' in df.columns:
         col = df_train['crystal system']
