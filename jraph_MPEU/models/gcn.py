@@ -12,8 +12,6 @@ import haiku as hk
 
 from jraph_MPEU.utils import load_config
 from jraph_MPEU.models.mlp import MLP, shifted_softplus
-from jraph_MPEU.models.mpeu import get_readout_node_update_fn
-from jraph_MPEU.models.mpeu import get_readout_global_fn
 
 
 def get_embedder(max_atomic_number):
@@ -58,6 +56,113 @@ def get_node_update_fn(
         node_update = net(nodes)
         return node_update
     return node_update_fn
+
+
+def _get_readout_global_fn(
+        latent_size, global_readout_mlp_layers, dropout_rate,
+        activation, label_type: str):
+    """Return the readout global function.
+
+    Args:
+        latent_size: size of hidden layers in MLPs.
+        global_readout_mlp_layers: number of MLP layers applied after
+            aggregating node features.
+        dropout_rate: dropout rate after every activation layer in MLP.
+        activation: activation function for MLPs.
+        label_type: type of the label that is fitted. Determines output size.
+    """
+    def readout_global_fn(
+            node_attributes, edge_attributes,
+            global_attributes) -> jnp.ndarray:
+        """Global readout function for graph net.
+
+        If global_readout_mlp_layers=0, returns the aggregated node features.
+        If global_readout_mlp_layers>0, pass the aggregated node features
+        through mlp, and return the last activation.
+
+        Args:
+            node_attributes: Aggregated node feature vectors.
+            edge_attributes: Not used but expected by jraph.
+            global_attributes: Not used but expected by jraph.
+            global_readout_mlp_layers: number of mlp layers applied after
+                aggregating node features
+        """
+        # Delete unused arguments that are expected by jraph.
+        del edge_attributes, global_attributes
+
+        if global_readout_mlp_layers > 0:
+            if label_type == 'class':
+                # return logits, softmax happens in loss function
+                net = MLP(
+                    'readout', [latent_size] * global_readout_mlp_layers + [2],
+                    use_layer_norm=False, dropout_rate=dropout_rate,
+                    activation=activation, activate_final=False)
+                return net(node_attributes)
+            else:
+                net = MLP(
+                    'readout', [latent_size] * global_readout_mlp_layers + [1],
+                    use_layer_norm=False, dropout_rate=dropout_rate,
+                    activation=activation, activate_final=False)
+            return net(node_attributes)
+        else:
+            return node_attributes
+    return readout_global_fn
+
+
+def _get_readout_node_update_fn(
+        latent_size, hk_init, use_layer_norm, dropout_rate,
+        activation, output_size):
+    """Return readout node update function.
+
+    This is a wrapper function for the readout_node_update_fn.
+
+    Args:
+        latent_size: The node feature vector dimensionality.
+        hk_init: The weight initializer for the the readout NN.
+        use_layer_norm: whether layer normalization should be used.
+        dropout_rate: dropout rate after every activation layer in MLP.
+        output_size: dimensionality of the final node embeddings. If 1, it is
+            assumed that this is the final layer and in readout global function
+            only the nodes are aggregated.
+    """
+    def readout_node_update_fn(
+            nodes, sent_attributes,
+            received_attributes, global_attributes
+    ) -> jnp.ndarray:
+        """Node update function for readout phase in graph net.
+
+        Note: In future iterations we might want to include the
+            sent/received attributes and some global attributes.
+
+        Args:
+            nodes: jnp.ndarray, array of node features to be updated.
+            sent_attributes: aggregated sender features, not used.
+            received_attributes: aggregated receiver features, not used.
+            global_attributes: global features, not used.
+
+        Returns:
+            jnp.ndarray, updated node features
+        """
+        del sent_attributes, received_attributes, global_attributes
+
+        if output_size == 1:
+            # NN. First layer has output size of latent_size/2 (C/2) with
+            # shifted softplus. Then we have a linear FC layer with no softplus.
+            net = MLP(
+                'readout_node', [latent_size//2, output_size],
+                use_layer_norm=False, dropout_rate=dropout_rate,
+                activation=activation, activate_final=False, w_init=hk_init
+            )
+        else:
+            # add extra shsp and larger hidden layer
+            net = MLP(
+                'readout_node', [latent_size, output_size],
+                use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
+                activation=activation, activate_final=True, w_init=hk_init
+            )
+        # Apply the network to the nodes.
+        return net(nodes)
+    return readout_node_update_fn
 
 
 class GCN:
@@ -151,14 +256,14 @@ class GCN:
         node_output_size = 1
         dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         net_readout = jraph.GraphNetwork(
-            update_node_fn=get_readout_node_update_fn(
+            update_node_fn=_get_readout_node_update_fn(
                 self.config.latent_size,
                 self.config.hk_init,
                 self.norm, dropout_rate,
                 self.activation,
                 node_output_size),
             update_edge_fn=None,
-            update_global_fn=get_readout_global_fn(
+            update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 global_readout_mlp_layers=0,
                 dropout_rate=dropout_rate,

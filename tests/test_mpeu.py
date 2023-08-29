@@ -20,11 +20,11 @@ from jraph_MPEU.models.mlp import(
 )
 from jraph_MPEU.models.mpeu import (
     MPEU,
-    get_edge_update_fn,
-    get_edge_embedding_fn,
-    get_node_update_fn,
-    get_node_embedding_fn,
-    get_readout_node_update_fn,
+    _get_edge_update_fn,
+    _get_edge_embedding_fn,
+    _get_node_update_fn,
+    _get_node_embedding_fn,
+    _get_readout_node_update_fn,
     #get_readout_global_fn
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
@@ -206,7 +206,7 @@ class TestModelFunctions(unittest.TestCase):
 
             # Here, we calculate the expected result, starting with the embeddings.
             nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
-            edge_embedding_fn = get_edge_embedding_fn(
+            edge_embedding_fn = _get_edge_embedding_fn(
                 latent_size,
                 self.config.k_max,
                 self.config.delta,
@@ -303,7 +303,7 @@ class TestModelFunctions(unittest.TestCase):
         """
         latent_size = 10
         hk_init = hk.initializers.Identity()
-        edge_update_fn = get_edge_update_fn(
+        edge_update_fn = _get_edge_update_fn(
             latent_size, hk_init, use_layer_norm=False,
             activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
 
@@ -360,7 +360,7 @@ class TestModelFunctions(unittest.TestCase):
         k_vec = jnp.arange(0, k_max)
         delta = 0.1
         mu_min = 0.2
-        fun = get_edge_embedding_fn(latent_size, k_max, delta, mu_min)
+        fun = _get_edge_embedding_fn(latent_size, k_max, delta, mu_min)
         embedding = fun(edges)
 
         embedding_expected = [
@@ -376,7 +376,7 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
-        node_embedding_fn = get_node_embedding_fn(
+        node_embedding_fn = _get_node_embedding_fn(
             latent_size, max_atomic_number, False,
             shifted_softplus, hk_init)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
@@ -404,7 +404,7 @@ class TestModelFunctions(unittest.TestCase):
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        node_update_fn = get_node_update_fn(
+        node_update_fn = _get_node_update_fn(
             latent_size, hk_init, use_layer_norm=False,
             activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
 
@@ -440,7 +440,7 @@ class TestModelFunctions(unittest.TestCase):
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        readout_node_update_fn = get_readout_node_update_fn(
+        readout_node_update_fn = _get_readout_node_update_fn(
             latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
             activation=shifted_softplus, output_size=1)
         # TODO: finish test

@@ -21,7 +21,7 @@ import ml_collections
 from jraph_MPEU.models.mlp import MLP, shifted_softplus
 
 
-def get_edge_embedding_fn(
+def _get_edge_embedding_fn(
         latent_size: int, k_max: int, delta: float, mu_min: float):
     """Return the edge embedding function.
 
@@ -63,7 +63,7 @@ def get_edge_embedding_fn(
     return edge_embedding_fn
 
 
-def get_node_embedding_fn(
+def _get_node_embedding_fn(
         latent_size: int, max_atomic_number: int, use_layer_norm, activation,
         hk_init=None):
     """Return the node embedding function.
@@ -100,7 +100,7 @@ def get_node_embedding_fn(
     return node_embedding_fn
 
 
-def get_embedder(
+def _get_embedder(
         latent_size, k_max, delta, mu_min, max_atomic_number, hk_init,
         use_layer_norm, activation
     ):
@@ -112,16 +112,16 @@ def get_embedder(
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
-        embed_edge_fn=get_edge_embedding_fn(
+        embed_edge_fn=_get_edge_embedding_fn(
             latent_size, k_max, delta, mu_min),
-        embed_node_fn=get_node_embedding_fn(
+        embed_node_fn=_get_node_embedding_fn(
             latent_size, max_atomic_number, use_layer_norm, activation,
             hk_init),
         embed_global_fn=None)
     return embedder
 
 
-def get_edge_update_fn(
+def _get_edge_update_fn(
         latent_size: int, hk_init, use_layer_norm, activation, dropout_rate,
         mlp_depth):
     """Return the edge update function. This does NOT update the edge hidden
@@ -179,7 +179,7 @@ def get_edge_update_fn(
     return edge_update_fn
 
 
-def get_node_update_fn(
+def _get_node_update_fn(
         latent_size, hk_init, use_layer_norm, activation, dropout_rate,
         mlp_depth):
     """Return the node update function.
@@ -231,7 +231,7 @@ def get_node_update_fn(
     return node_update_fn
 
 
-def get_readout_global_fn(
+def _get_readout_global_fn(
         latent_size, global_readout_mlp_layers, dropout_rate,
         activation, label_type: str):
     """Return the readout global function.
@@ -282,7 +282,7 @@ def get_readout_global_fn(
     return readout_global_fn
 
 
-def get_readout_node_update_fn(
+def _get_readout_node_update_fn(
         latent_size, hk_init, use_layer_norm, dropout_rate,
         activation, output_size):
     """Return readout node update function.
@@ -402,7 +402,7 @@ class MPEU:
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
-        embedder = get_embedder(
+        embedder = _get_embedder(
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
             self.config.hk_init, self.norm, self.activation
@@ -416,10 +416,10 @@ class MPEU:
             # updates and then the node updates and then global updates (which
             # we don't do yet).
             net = jraph.GraphNetwork(
-                update_node_fn=get_node_update_fn(
+                update_node_fn=_get_node_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
                     self.activation, dropout_rate, self.config.mlp_depth),
-                update_edge_fn=get_edge_update_fn(
+                update_edge_fn=_get_edge_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
                     self.activation, dropout_rate, self.config.mlp_depth),
                 update_global_fn=None,
@@ -439,11 +439,11 @@ class MPEU:
             node_output_size = 1
 
         net_readout = jraph.GraphNetwork(
-            update_node_fn=get_readout_node_update_fn(
+            update_node_fn=_get_readout_node_update_fn(
                 self.config.latent_size, self.config.hk_init, self.norm,
                 dropout_rate, self.activation, node_output_size),
             update_edge_fn=None,
-            update_global_fn=get_readout_global_fn(
+            update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 global_readout_mlp_layers=self.config.global_readout_mlp_layers,
                 dropout_rate=dropout_rate,

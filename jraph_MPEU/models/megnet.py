@@ -4,17 +4,53 @@ First the specific update functions are defined and then they are composed into
 a jraph graph network.
 """
 
+import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
 import haiku as hk
 import ml_collections
 
-from jraph_MPEU.models import shifted_softplus
-from jraph_MPEU.models.mpeu import get_node_embedding_fn
+from jraph_MPEU.models.mlp import shifted_softplus, MLP
 
 
-def get_edge_embedding_MEG(
+def _get_node_embedding_fn(
+        latent_size: int, max_atomic_number: int, activation, hk_init=None):
+    """Return the node embedding function.
+
+    We take the node atomic number and one hot encode the number. At this point
+    the vector is of size max_atomic_number. We then pass it through an
+    linear embedding network (no activation function) whose weights need to be
+    learned. The final size of the embedding is latent_size (C in the paper).
+
+    TODO(dts): PB Jorgensen didn't give us a concrete answer about the
+        embedding network. We use a linear network. We think this is correct
+        based on the PB Jorgensen Pytorch code. Question: what does SchNet do?
+
+    Args:
+        latent_size: The size of the node feature vectors and node embeddings.
+        max_atomic_number: The max atomic number we expect to see from our
+            graphs/systems.
+        use_layer_norm: whether layer normalization should be used.
+        activation: activation function for MLPs.
+        hk_init: Linear weight intializer function for our linear embedding.
+    """
+    def node_embedding_fn(nodes) -> jnp.ndarray:
+        """Embeds the node features using one-hot encoding, linearly.
+
+        Uses a linear dense nn layer.
+        """
+        net = MLP(
+            "node_embedding_layer", [latent_size],
+            use_layer_norm=False, dropout_rate=0.0,
+            activation=activation, w_init=hk_init, activate_final=False
+        )
+        nodes = jax.nn.one_hot(nodes, max_atomic_number)
+        return net(nodes)
+    return node_embedding_fn
+
+
+def _get_edge_embedding_MEG(
         latent_size: int, k_max: int, delta: float, mu_min: float, hk_init=None):
     """Return the edge embedding function, analogous to MEGNet.
 
@@ -53,7 +89,7 @@ def get_edge_embedding_MEG(
     return edge_embedding_fn
 
 
-def get_embedder(config: ml_collections.ConfigDict):
+def _get_embedder(config: ml_collections.ConfigDict, activation):
     """Return embedding function, with hyperparameters defined in config.
 
     This is a wrapper function that maps the embedding function to our graphs
@@ -69,10 +105,10 @@ def get_embedder(config: ml_collections.ConfigDict):
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
-        embed_edge_fn=get_edge_embedding_MEG(
+        embed_edge_fn=_get_edge_embedding_MEG(
             latent_size, k_max, delta, mu_min, hk_init),
-        embed_node_fn=get_node_embedding_fn(
-            latent_size, max_atomic_number, hk_init),
+        embed_node_fn=_get_node_embedding_fn(
+            latent_size, max_atomic_number, activation, hk_init),
         embed_global_fn=None)
     return embedder
 
@@ -274,6 +310,17 @@ class MEGNet:
             config: Configuration specifying GNN properties.
         """
         self.config = config
+        # figure out which activation function to use
+        if self.config.activation_name == 'shifted_softplus':
+            self.activation = shifted_softplus
+        elif self.config.activation_name == 'swish':
+            self.activation = jax.nn.swish
+        elif self.config.activation_name == 'relu':
+            self.activation = jax.nn.relu
+        else:
+            raise ValueError(f'Activation function \
+                "{self.config.activation_name}" is not known to GNN \
+                initializer')
 
     def __call__(self, graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
         """Call function to do forward pass of the GNN.
@@ -295,7 +342,7 @@ class MEGNet:
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
-        embedder = get_embedder(self.config)
+        embedder = _get_embedder(self.config, self.activation)
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).
         graphs = embedder(graphs)
