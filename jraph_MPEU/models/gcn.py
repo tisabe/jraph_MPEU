@@ -2,15 +2,11 @@
 We modify and simplify the convolutions to work with directed (non-symmetric)
 adjacency matrices."""
 
-import pickle
-
 import jax
 import jax.numpy as jnp
 import jraph
 import ml_collections
-import haiku as hk
 
-from jraph_MPEU.utils import load_config
 from jraph_MPEU.models.mlp import MLP, shifted_softplus
 
 
