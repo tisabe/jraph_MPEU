@@ -23,8 +23,7 @@ def get_embedder(max_atomic_number):
 
 
 def get_node_update_fn(
-        latent_size, hk_init, use_layer_norm, activation, dropout_rate,
-        mlp_depth):
+        latent_size, hk_init, use_layer_norm, activation, dropout_rate):
     """Return the node update function.
 
     Wrapper function so that we can interface with jraph.
@@ -45,7 +44,7 @@ def get_node_update_fn(
         """
 
         net = MLP(
-            'node_update', [latent_size]*mlp_depth,
+            'node_update', [latent_size],
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=False, w_init=hk_init)
 
@@ -237,7 +236,7 @@ class GCN:
             net = jraph.GraphConvolution(
                 update_node_fn=get_node_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
-                    self.activation, dropout_rate, self.config.mlp_depth),
+                    self.activation, dropout_rate),
                 aggregate_nodes_fn=self.aggregation_message_fn,
                 add_self_edges=True,
                 symmetric_normalization=True)
@@ -252,12 +251,7 @@ class GCN:
         node_output_size = 1
         dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         net_readout = jraph.GraphNetwork(
-            update_node_fn=_get_readout_node_update_fn(
-                self.config.latent_size,
-                self.config.hk_init,
-                self.norm, dropout_rate,
-                self.activation,
-                node_output_size),
+            update_node_fn=None,
             update_edge_fn=None,
             update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,

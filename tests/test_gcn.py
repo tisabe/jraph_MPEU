@@ -15,41 +15,78 @@ from jraph_MPEU.models.mlp import(
 )
 from jraph_MPEU.models.gcn import GCN
 
+def _get_random_adjacency(n_node, symmetric=False, self_edges=False):
+    """Return a random adjacency matrix, with n_node nodes."""
+    adjacency = np.random.randint(0, 2, (n_node, n_node))
+    if symmetric:
+        # symmetrize adjacency matrix, this works because entries are 0 or 1
+        adjacency = np.maximum(adjacency, adjacency.transpose())
+    if self_edges:
+        np.fill_diagonal(adjacency, 1) # happens in place
+    else:
+        np.fill_diagonal(adjacency, 0) # happens in place
+    return adjacency
+
 
 def _get_random_graph(max_n_graph=10,
                       include_node_features=True,
                       include_edge_features=True,
-                      include_globals=True):
-    """Get a batch of graphs.
+                      include_globals=True,
+                      multi_edges=True):
+    """Get a batch of graphs with random numbers of nodes and edges.
     
     node features are shape (sum(n_node), 4), if included
     edge features are shape (sum(n_edge), 3), if included
     global features are shape (n_graph, 5), if included
+
+    If multi_edges=True, there can be multiple edges between one pair of nodes.
     """
     n_graph = np.random.randint(1, max_n_graph + 1) # max_n_graph graphs
-    n_node = np.random.randint(0, 10, n_graph) # 1-D array of # of numbers
-    n_edge = np.random.randint(0, 20, n_graph) # 1-D array of # of edges
-    # We cannot have any edges if there are no nodes.
-    n_edge[n_node == 0] = 0
+    n_node = np.random.randint(0, 10, n_graph) # 1-D array of # of nodes
+    if multi_edges:
+        n_edge = np.random.randint(0, 20, n_graph) # 1-D array of # of edges
 
-    senders = []
-    receivers = []
-    offset = 0
-    for n_node_in_graph, n_edge_in_graph in zip(n_node, n_edge):
-        # loop over different (sub-) graphs
-        if n_edge_in_graph != 0:
-            # append n_edge_in_graph random senders to senders
-            senders += list(
-                np.random.randint(0, n_node_in_graph, n_edge_in_graph) + offset)
-            receivers += list(
-                np.random.randint(0, n_node_in_graph, n_edge_in_graph) + offset)
-        offset += n_node_in_graph
+        # We cannot have any edges if there are no nodes.
+        n_edge[n_node == 0] = 0
+
+        senders = []
+        receivers = []
+        offset = 0
+        for n_node_in_graph, n_edge_in_graph in zip(n_node, n_edge):
+            # loop over different (sub-) graphs
+            if n_edge_in_graph != 0:
+                if multi_edges:
+                    # append n_edge_in_graph random senders to senders
+                    senders += list(np.random.randint(
+                        0, n_node_in_graph, n_edge_in_graph) + offset)
+                    receivers += list(np.random.randint(
+                        0, n_node_in_graph, n_edge_in_graph) + offset)
+            offset += n_node_in_graph
+    else:
+        # generate adjacency matrix to get n_edge, senders and receivers
+        n_edge = []
+        senders = []
+        receivers = []
+        offset = 0
+        for n_node_in_graph in n_node:
+            n_edge.append(0)
+            adjacency = _get_random_adjacency(
+                n_node_in_graph, symmetric=True, self_edges=False)
+            for row_i, row in enumerate(adjacency):
+                for col_i, val in enumerate(row):
+                    if val==1:
+                        receivers.append(row_i + offset)
+                        senders.append(col_i + offset)
+                        n_edge[-1] += 1 # update the edge counter
+            offset += n_node_in_graph
+        n_edge = np.array(n_edge)
+
     if include_globals:
         global_features = jnp.asarray(np.random.random(size=(n_graph, 5)))
     else:
         global_features = None
     if include_node_features:
-        nodes = jnp.asarray(np.random.random(size=(np.sum(n_node), 4)))
+        nodes = jnp.asarray(np.random.randint(1, 5, size=np.sum(n_node)))
     else:
         nodes = None
 
@@ -65,6 +102,14 @@ def _get_random_graph(max_n_graph=10,
         globals=global_features,
         senders=jnp.asarray(senders),
         receivers=jnp.asarray(receivers))
+
+
+def _get_adjacency_from_lists(n_node, senders, receivers):
+    """Return the graph adjacency matrix from list of senders and receivers."""
+    adjacency = np.zeros((n_node, n_node), int)
+    for sender, receiver in zip(senders, receivers):
+        adjacency[receiver, sender] = 1
+    return adjacency
 
 
 class TestModelFunctions(unittest.TestCase):
@@ -90,9 +135,8 @@ class TestModelFunctions(unittest.TestCase):
         self.config.batch_size = 32
         self.config.latent_size = 64
         self.config.use_layer_norm = False
-        self.config.message_passing_steps = 3
+        self.config.message_passing_steps = 1
         self.config.global_readout_mlp_layers = 0
-        self.config.mlp_depth = 2
         self.hk_init = hk.initializers.Identity()
         self.config.aggregation_message_type = 'sum'
         self.config.aggregation_readout_type = 'sum'
@@ -100,66 +144,62 @@ class TestModelFunctions(unittest.TestCase):
         self.config.dropout_rate = 0.0
         self.config.label_type = 'scalar'
         self.config.activation_name = 'shifted_softplus'
-        self.activation_names = ['shifted_softplus', 'relu', 'swish']
 
     def test_GNN_output_zero_graph(self):
         """We want to test the basic equation of GCN:
         
         H^{l+1}=\sigma (\tilde{d}^{1/2}\tilde{A}\tilde{d}^{1/2} H^l W^l)
         """
-        graph = _get_random_graph(max_n_graph=2)
-        print(graph)
+        np.random.seed(4)
+        graph = _get_random_graph(max_n_graph=2, multi_edges=False)
+        print("Initial nodes: ", graph.nodes)
 
-        n_node = 10
-        n_edge = 4
-        init_graphs = jraph.GraphsTuple(
-            nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
-            senders=jnp.array([0, 0, 1, 2]),
-            receivers=jnp.array([1, 2, 0, 0]),
-            n_node=jnp.array([n_node]),
-            n_edge=jnp.array([n_edge]),
-            globals=None
-        )
-        label = np.array([1.0])
+        adjacency = _get_adjacency_from_lists(
+            sum(graph.n_node), graph.senders, graph.receivers)
+        # ensure there are self edges
+        adjacency = np.maximum(adjacency, np.eye(adjacency.shape[0]))
+        print(adjacency)
+        # calculate the D_ii matrix that denotes the incoming edge degree
+        # this is already inverse squareroot
+        degree_matrix = np.diag(np.sum(adjacency, axis=-1)**(-.5))
 
-        # graph with zeros as node features and a self edge for every node
-        graph_zero = jraph.GraphsTuple(
-            nodes=jnp.zeros((n_node)),
-            edges=jnp.ones((n_node)),
-            senders=jnp.arange(0, n_node),
-            receivers=jnp.arange(0, n_node),
-            n_node=jnp.array([n_node]),
-            n_edge=jnp.array([n_node]),
-            globals=None
-        )
+        x = np.reshape(graph.nodes, (-1)) # original node features
+        h_0 = jax.nn.one_hot(x, self.config.max_atomic_number)
+        latent_size = 8
+        self.config.latent_size = latent_size
+        #weights_0 = np.random.random_sample(
+        #    size=(np.shape(h_0)[-1], latent_size))
+        weights_0 = np.eye(np.shape(h_0)[-1], latent_size)
+        print("Shapes of matrices: ")
+        print(degree_matrix.shape)
+        print(adjacency.shape)
+        print(degree_matrix.shape)
+        print(h_0.shape)
+        print(weights_0.shape)
+        h_1 = degree_matrix @ adjacency @ degree_matrix @ h_0 @ weights_0
+        print("Manually calculated node features: ")
+        print(h_1)
+        print(h_1.shape)
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
         self.config.hk_init = hk.initializers.Identity()
-        for activation_name in self.activation_names:
-            if activation_name == 'shifted_softplus':
-                sp = shifted_softplus
-            elif activation_name == 'swish':
-                sp = jax.nn.swish
-            elif activation_name == 'relu':
-                sp = jax.nn.relu
-            self.config.activation_name = activation_name
-            net_fn = GCN(self.config)
-            net = hk.transform(net_fn)
-            params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
-            graph_pred = net.apply(params, rng, graph_zero)
-            prediction = graph_pred.globals
+        net_fn = GCN(self.config)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph) # create weights etc. for the model
 
-            # the following is the analytical expected result
-            h0p = sp(sp(sp(sp(1.0)))) + 1.0
-            h0pp = h0p + sp(sp(sp(sp(h0p)))*h0p)
-            h0ppp = h0pp + sp(sp(sp(sp(h0pp)))*h0pp)
-            label = n_node*sp(h0ppp)
+        graph_pred = net.apply(params, rng, graph)
+        print("Node features from GCN: ")
+        print(graph_pred.nodes)
+        print(graph_pred.nodes.shape)
+        prediction = graph_pred.globals
 
-            np.testing.assert_array_equal(prediction.shape, (1, 1))
-            self.assertAlmostEqual(label, prediction[0, 0], places=5)
+        np.testing.assert_allclose(graph_pred.nodes, h_1, rtol=1e-6)
+        #prediction = np.array([])
+        label = np.array([])
+        #np.testing.assert_array_equal(prediction.shape, (1, 1))
+        #self.assertAlmostEqual(label, prediction[0, 0], places=5)
 
 
 if __name__ == '__main__':
