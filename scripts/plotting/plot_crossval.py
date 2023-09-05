@@ -106,7 +106,7 @@ def main(args):
             num_params = hk.data_structures.tree_size(params)
             row_dict['num_params'] = num_params
             """
-            df = df.append(row_dict, ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
 
         except OSError:
             if os.path.exists(workdir + '/ABORTED_EARLY'):
