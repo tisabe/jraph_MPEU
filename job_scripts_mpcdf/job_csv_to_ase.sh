@@ -1,7 +1,7 @@
 #!/bin/bash -l
 # Standard output and error:
-#SBATCH -o ./output_slurm/datajob.out.%j
-#SBATCH -e ./output_slurm/datajob.err.%j
+#SBATCH -o ./output_slurm/datajob.%j.out
+#SBATCH -e ./output_slurm/datajob.%j.err
 # Initial working directory:
 #SBATCH -D ./
 # Job name

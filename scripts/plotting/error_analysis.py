@@ -280,10 +280,14 @@ def main(argv):
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on train set: {mean_abs_err_train}')
+    rmse_train = (df_train['abs. error'] ** 2).mean() ** .5
+    print(f'RMSE on train set: {rmse_train}')
 
     df_val = df.loc[lambda df_temp: df_temp['split'] == 'validation']
     mean_abs_err_val = df_val.mean(0, numeric_only=True)['abs. error']
+    rmse_val = (df_val['abs. error'] ** 2).mean() ** .5
     print(f'MAE on validation set: {mean_abs_err_val}')
+    print(f'RMSE on validation set: {rmse_val}')
 
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
     mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']

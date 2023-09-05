@@ -3,6 +3,8 @@ import pandas
 import ase
 from ase import Atoms
 from ase.visualize import view
+from absl import app
+from absl import logging
 
 from ast import literal_eval
 import argparse
@@ -41,21 +43,21 @@ def main(args):
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
     aflow_df = pandas.read_csv(args.file_in, index_col=0)
     auids_csv = aflow_df['auid']
-    print("Length of dataframe: ", len(auids_csv))
+    logging.info("Length of dataframe: ", len(auids_csv))
 
     # get list of AUIDs from ASE-DB
     auids_db = []
     with ase.db.connect(args.file_out, append=True) as db_out:
-        print("Length of ASE-DB: ", db_out.count())
+        logging.info("Length of ASE-DB: ", db_out.count())
         for row in db_out.select():
             auids_db.append(row.key_value_pairs['auid'])
     # calculate the difference between the sets of auids
     auids_diff = set(auids_csv).difference(set(auids_db))
-    print("Difference between auid sets: ", len(auids_diff))
+    logging.info("Difference between auid sets: ", len(auids_diff))
 
     # filter df by auids that are not in the db yet
     aflow_df = aflow_df[aflow_df['auid'].isin(auids_diff)]
-    print("Structures to write: ", len(aflow_df.index))
+    logging.info("Structures to write: ", len(aflow_df.index))
 
     with ase.db.connect(args.file_out, append=True) as db_out:
         for i, row in aflow_df.iterrows():
