@@ -35,11 +35,29 @@ def dict_to_ase(aflow_dict):
 def main(args):
     """Load aflow data from csv file into ase database with graph features.
 
-    We add edges and adjacency list.
+    We add edges and adjacency list. Only update the database with missing
+    entries by comparing list of identifiers (AUIDs).
     """
     # needs parameters: cutoff type, cutoff dist, discard unconnected graphs
     aflow_df = pandas.read_csv(args.file_in, index_col=0)
-    with ase.db.connect(args.file_out, append=False) as db_out:
+    auids_csv = aflow_df['auid']
+    print("Length of dataframe: ", len(auids_csv))
+
+    # get list of AUIDs from ASE-DB
+    auids_db = []
+    with ase.db.connect(args.file_out, append=True) as db_out:
+        print("Length of ASE-DB: ", db_out.count())
+        for row in db_out.select():
+            auids_db.append(row.key_value_pairs['auid'])
+    # calculate the difference between the sets of auids
+    auids_diff = set(auids_csv).difference(set(auids_db))
+    print("Difference between auid sets: ", len(auids_diff))
+
+    # filter df by auids that are not in the db yet
+    aflow_df = aflow_df[aflow_df['auid'].isin(auids_diff)]
+    print("Structures to write: ", len(aflow_df.index))
+
+    with ase.db.connect(args.file_out, append=True) as db_out:
         for i, row in aflow_df.iterrows():
             atoms = dict_to_ase(row)  # get the atoms object from each row
             row = row.to_dict()

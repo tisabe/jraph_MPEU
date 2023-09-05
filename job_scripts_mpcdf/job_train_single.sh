@@ -24,5 +24,6 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/egap_pbj \
---config=jraph_MPEU_configs/aflow_egap_pbj.py
+--workdir=./results/aflow/density_pbj \
+--config=jraph_MPEU_configs/aflow_ef_clean.py \
+--config.label_str=density

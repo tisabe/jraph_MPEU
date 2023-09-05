@@ -162,7 +162,8 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
         # the csv from file, this has to be converted from string to list
         row_dict['formula'] = row.formula
-        inference_df = inference_df.append(row_dict, ignore_index=True)
+        inference_df = pandas.concat(
+            [inference_df, pandas.DataFrame([row_dict])], ignore_index=True)
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
