@@ -178,7 +178,8 @@ def main(args):
                 ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
             else:
                 ax[i].set_ylabel('')
-            ax[i].tick_params(axis='both', which='both', labelsize=18)
+            ax[i].tick_params(
+                axis='both', which='both', labelsize=args.fontsize-4)
             ax[i].xaxis.labelpad = 15
         #plt.yscale('log')
         plt.rc('font', size=16)
