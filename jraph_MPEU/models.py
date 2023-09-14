@@ -339,8 +339,11 @@ def get_node_update_fn(
 
         Args:
             nodes: Node feature vector at previous iteration (h_i(t-1)).
-            sent_attributes: Not used, but expected by jraph.
-            received_attributes: The aggregatation of incoming messages.
+            sent_attributes: Not used, but expected by jraph. Inforation that
+            gets sent out, aggegated.
+            received_attributes: The aggregatation of incoming egde attributes.
+            For PB Jorg the messages are defined edge wise (directional) and
+            attached to the edge attribute.
         """
         # These input arguments are not used but expected by jraph.
         del sent_attributes, global_attributes
