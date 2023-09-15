@@ -186,7 +186,8 @@ class Evaluater:
     def __init__(
             self, net, loss_fn, checkpoint_dir: str,
             checkpoint_every_n: int, eval_every_n: int,
-            early_stopping_steps: int, metric_names: str = 'RMSE/MAE'):
+            early_stopping_steps: int, batch_size: int,
+            metric_names: str = 'RMSE/MAE'):
         self._net_apply = net.apply
         self._loss_fn = loss_fn
         self.early_stopping_queue = []
@@ -200,6 +201,7 @@ class Evaluater:
         self._eval_every_n = eval_every_n
         self._metric_names = metric_names
         self._loss_scalar = 1.0
+        self._batch_size = batch_size
         # load loss curve if metrics file exists in checkpoint_dir
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         best_state_path = os.path.join(
@@ -280,7 +282,7 @@ class Evaluater:
         loss_dict = {}
         for split in splits:
             loss_dict[split] = self.evaluate_split(
-                state, datasets[split], 32)
+                state, datasets[split], self._batch_size)
             if split == 'validation':
                 if self.best_state is None or loss_dict[split][0] < self.lowest_val_loss:
                     self.best_state = state.copy()
@@ -494,6 +496,7 @@ def init_state(
         config.checkpoint_every_steps,
         config.eval_every_steps,
         config.early_stopping_steps,
+        config.batch_size,
         metric_names)
 
     state = updater.init(init_rng, init_graphs)
