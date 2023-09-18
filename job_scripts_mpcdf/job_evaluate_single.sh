@@ -1,11 +1,11 @@
 #!/bin/bash -l
 # Standard output and error:
-#SBATCH -o ./output_slurm/singlejob.%j.out
-#SBATCH -e ./output_slurm/singlejob.%j.err
+#SBATCH -o ./output_slurm/evaljob.%j.out
+#SBATCH -e ./output_slurm/evaljob.%j.err
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J egap_pbj
+#SBATCH -J eval
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -23,6 +23,5 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/main.py \
---workdir=./results/aflow/egap_pbj \
---config=jraph_MPEU_configs/aflow_egap_pbj.py
+srun python scripts/plotting/error_analysis.py \
+--file=results/aflow/ef_full_data/ --label=ef --plot=nothing

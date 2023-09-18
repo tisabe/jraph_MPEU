@@ -22,7 +22,8 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False):
+def get_predictions(dataset, net, params, hk_state, label_type,
+    mc_dropout=False, batch_size=32):
     """Get predictions for a single dataset split.
 
     Args:
@@ -52,7 +53,7 @@ def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False
     preds = []
     for _ in range(n_samples):
         reader = DataReader(
-            data=dataset, batch_size=32, repeat=False)
+            data=dataset, batch_size=batch_size, repeat=False)
         preds_sample = np.array([])
         for graph in reader:
             key, subkey = jax.random.split(key)
@@ -101,7 +102,8 @@ def load_inference_file(workdir, redo=False):
             data_list = dataset[split]
             logging.info(f'Predicting {split} data.')
             preds = get_predictions(
-                data_list, net, params, hk_state, config.label_type)
+                data_list, net, params, hk_state, config.label_type,
+                batch_size=config.batch_size)
             targets = [graph.globals[0] for graph in data_list]
             # scale the predictions and targets using the std
             preds = np.array(preds)*float(std) + mean
@@ -182,7 +184,8 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(
-        graphs, net, params, hk_state, config.label_type, mc_dropout)
+        graphs, net, params, hk_state, config.label_type, mc_dropout,
+        config.batch_size)
     if config.label_type == 'scalar':
         # scale the predictions using the std and mean
         logging.debug(f'using {pooling} pooling function')
