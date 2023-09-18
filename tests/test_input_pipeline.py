@@ -28,6 +28,26 @@ from jraph_MPEU.utils import add_labels_to_graphs
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
+    def setUp(self):
+        """Prepare test cases."""
+        # ase databases with graph features (in the "data" sections)
+        self.graphs_dbs = [
+            'QM9/qm9_graphs.db',
+            'aflow/graphs_all_12knn.db',
+            'matproj/mp2018_graphs.db']
+        # ase databases without graph features
+        self.raw_dbs = ['QM9/qm9.db']
+        self.test_db = 'QM9/qm9_graphs.db'
+        # aflow database to test Egap classification inputs
+        self.aflow_db = 'aflow/graphs_all_12knn.db'
+
+    def test_dbs_not_empty(self):
+        for db_name in self.graphs_dbs + self.raw_dbs:
+            if not os.path.isfile(db_name):
+                raise FileNotFoundError(f'{db_name} does not exist')
+            ase_db = ase.db.connect(db_name)
+            self.assertGreater(ase_db.count(), 0, f"{db_name} is empty")
+
     def test_class_conversion(self):
         """Test converting label list with string classes to int classes."""
         label_list = ['A', 'A', 'B', 'A', 'C', 'C', 'B']
@@ -128,7 +148,13 @@ class TestPipelineFunctions(unittest.TestCase):
                     np.testing.assert_array_equal(node, node_old)
 
     def test_get_datasets_class(self):
-        """Test get_dataset function using classification label."""
+        """Test get_dataset function using classification label.
+        
+        For this test to work, an aflow dataset has to be created using
+        scripts/data/get_aflow_csv.py and scripts/data/aflow_to_graphs.py."""
+
+        if not os.path.isfile(self.aflow_db):
+            raise FileNotFoundError(f'{self.aflow_db} does not exist')
         config = ml_collections.ConfigDict()
         config.train_frac = 0.5
         config.val_frac = 0.3
@@ -141,7 +167,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.seed = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'class'
-        config.data_file = 'aflow/graphs_knn_fix.db'
+        config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
             graphs_split, mean, std = get_datasets(config, workdir)
@@ -164,10 +190,10 @@ class TestPipelineFunctions(unittest.TestCase):
             dict_loaded = load_split_dict(test_dir)
         # the loaded dict now has signature
         # {1: 'split1', 2: 'split1',... 11: 'split2',...}.
-        print(dict_loaded)
         for key, ids in test_dict.items():
             for i in ids:
-                self.assertEqual(key, dict_loaded[i])
+                self.assertEqual(
+                    key, dict_loaded[i], f"Failed dict: {dict_loaded[i]}")
 
     def test_get_splits_fail(self):
         """Test getting the indices for train/test/validation splits.
@@ -213,41 +239,38 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_get_cutoff_val(self):
         """Test getting the cutoff types and values from the datasets."""
-        db_names = [
-            'matproj/mp_graphs.db',
-            'matproj/mp_graphs_knn.db',
-            'aflow/graphs_knn_fix.db',
-            'QM9/qm9_graphs.db'
-        ]
-        for db_name in db_names:
+        for db_name in self.graphs_dbs:
+            if not os.path.isfile(db_name):
+                raise FileNotFoundError(f'{db_name} does not exist')
             first_row = None
             database = ase.db.connect(db_name)
             for i, row in enumerate(database.select(limit=10)):
                 if i == 0:
                     first_row = row
-            cutoff_type = first_row['cutoff_type']
-            cutoff_val = first_row['cutoff_val']
-            print(f'db name: {db_name}, cutoff type: {cutoff_type}, \
-                cutoff val: {cutoff_val}')
+            _ = first_row['cutoff_type']
+            _ = first_row['cutoff_val']
+
 
     def test_asedb_to_graphslist(self):
         """Test converting an asedb to a list of jraph.GraphsTuple.
 
-        Note: for this test, the Materials Project data has to be downloaded
-        beforehand, using the scipt get_matproj.py, and converted to graphs
+        Note: for this test, the QM9 data has to be downloaded
+        beforehand, using the scipt get_qm9.py, and converted to graphs
         using asedb_to_graphs.py. The database has to be located at
-        matproj/mp_graphs.db relative to the path of this test.
+        QM9/qm9_graphs.db relative to the path of this test.
 
         Test case:
-            file: matroj/mp_graphs.db
-            label_str: delta_e
+            file: QM9/qm9_graphs.db
+            label_str: U0
             selection: None
             limit: 100
         """
 
-        file_str = 'matproj/mp_graphs.db'
-        label_str = 'delta_e'
-        selection = 'delta_e<0'
+        file_str = self.test_db
+        if not os.path.isfile(file_str):
+            raise FileNotFoundError(f'{file_str} does not exist')
+        label_str = 'U0'
+        selection = None
         limit = 100
         graphs, labels, ids = asedb_to_graphslist(
             file=file_str, label_str=label_str, selection=selection, limit=limit)
@@ -315,23 +338,21 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        database = ase.db.connect('matproj/mp_graphs.db')
-        row = database.get('mp_id=mp-1001')
+        database = ase.db.connect(self.test_db)
+        row = database.get(1)
         atomic_numbers = row.toatoms().get_atomic_numbers()
         graph = ase_row_to_jraph(row)
         nodes = graph.nodes
-        self.assertIsInstance(graph, jraph.GraphsTuple)
-        np.testing.assert_array_equal(atomic_numbers, nodes)
+        self.assertIsInstance(
+            graph, jraph.GraphsTuple, f"{graph} is not a graph")
+        np.testing.assert_array_equal(
+            atomic_numbers, nodes, "Atomic numbers are not equal")
 
     def test_dbs_raw(self):
-        '''Test the raw ase databases without graph features.'''
-        files = ['matproj/matproj.db', 'QM9/qm9.db', ]
+        """Test the raw ase databases without graph features."""
         limit = 100 # maximum number of entries that are read
-        if not limit is None:
-            print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
-        for file in files:
-            print(f'Testing data in {file}')
-            with ase.db.connect(file) as asedb:
+        for db_name in self.raw_dbs:
+            with ase.db.connect(db_name) as asedb:
                 keys_list0 = None
                 for i, row in enumerate(asedb.select(limit=limit)):
                     key_value_pairs = row.key_value_pairs
@@ -339,20 +360,17 @@ class TestPipelineFunctions(unittest.TestCase):
                     # check that all the keys are the same
                     if i == 0:
                         keys_list0 = key_value_pairs.keys()
-                        #print(keys_list0)
                     else:
                         self.assertCountEqual(key_value_pairs.keys(), keys_list0)
         return 0
 
     def test_dbs_graphs(self):
-        '''Test the ase databases with graph features.'''
-        files = ['matproj/mp_graphs.db', 'QM9/qm9_graphs.db', 'aflow/graphs_cutoff_6A.db']
+        """Test the ase databases with graph features."""
         limit = 100 # maximum number of entries that are read
-        if not limit is None:
-            print(f'Testing {limit} graphs. To test all graphs, change limit to None.')
-        for file in files:
-            print(f'Testing data in {file}')
-            with ase.db.connect(file) as asedb:
+        for db_name in self.graphs_dbs:
+            if not os.path.isfile(db_name):
+                raise FileNotFoundError(f'{db_name} does not exist')
+            with ase.db.connect(db_name) as asedb:
                 keys_list0 = None
                 data_keys_expected = ['senders', 'receivers', 'edges']
                 count_no_edges = 0 # count how many graphs have not edges
@@ -364,15 +382,13 @@ class TestPipelineFunctions(unittest.TestCase):
                     # check that all the keys are the same
                     if i == 0:
                         keys_list0 = key_value_pairs.keys()
-                        print(keys_list0)
-                        #print(data)
                     else:
                         self.assertCountEqual(key_value_pairs.keys(), keys_list0)
                         self.assertCountEqual(data.keys(), data_keys_expected)
                     if len(data.edges) == 0:
                         count_no_edges += 1
-                        print(row.toatoms())
-                print(f'Number of graphs with zero edges: {count_no_edges}')
+                self.assertEqual(count_no_edges, 0,
+                    f'Number of graphs with zero edges: {count_no_edges}')
         return 0
 
     def test_atoms_to_nodes_list(self):

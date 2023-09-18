@@ -95,7 +95,7 @@ class UnitTests(absltest.TestCase):
             self.assertFalse(os.path.exists(test_dir + '/STOPPED_EARLY'))
 
             train_and_evaluate(config, test_dir)
-            plot_curves(test_dir)
+            #plot_curves(test_dir)
             # check that STOPPED_EARLY file has been created
             self.assertTrue(os.path.exists(test_dir + '/STOPPED_EARLY'))
 
