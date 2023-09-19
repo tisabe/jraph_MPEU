@@ -47,6 +47,9 @@ def main(argv):
         df = pd.read_csv(df_path)
         df['numbers'] = df['numbers'].apply(str_to_list)
 
+    if not 'prediction' in df.columns:
+        df['prediction'] = df['prediction_mean']
+
     df['class_true'] = df['Egap'].apply(cut_egap) #  1 is insulator, 0 is metal
     df['p_insulator'] = 1 - df['prediction']
     # calculate the class prediction by applying a threshold. Because of the
@@ -56,7 +59,21 @@ def main(argv):
     print(df[df['class_correct'] == False][[
         'class_true', 'class_pred', 'class_correct']])
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
-
+    # calculate confusion matrix on test split
+    print('Confusion matrix (test split): ')
+    cf_matrix = sklearn.metrics.confusion_matrix(
+        y_true=df_test['class_true'], y_pred=df_test['class_pred'])
+    print(cf_matrix)
+    print("[[TN\tFP],\n [FN\tTP]]")
+    print(sklearn.metrics.classification_report(
+        y_true=df_test['class_true'], y_pred=df_test['class_pred'],
+        target_names=['Metals','Non-metals']
+    ))
+    print('Stats for whole dataset: ')
+    print(sklearn.metrics.classification_report(
+        y_true=df['class_true'], y_pred=df['class_pred'],
+        target_names=['Metals','Non-metals']
+    ))
     # calculate and display ROC curve
     y_pred = df_test['p_insulator'].to_numpy().reshape(-1, 1)
     y_true = df_test['class_true'].to_numpy()

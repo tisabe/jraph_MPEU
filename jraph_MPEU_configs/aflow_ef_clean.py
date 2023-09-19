@@ -16,8 +16,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.selection = (
         "enthalpy_formation_atom<70,"
         "enthalpy_formation_atom>-10,"
-        "dft_type=['PAW_PBE'],"
-        "ldau_type=0.0")
+        "dft_type=['PAW_PBE']")
     config.use_layer_norm = False
     config.dropout_rate = 0.0
     config.limit_data = 10000

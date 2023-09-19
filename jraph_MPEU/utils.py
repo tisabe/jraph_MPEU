@@ -179,6 +179,29 @@ def normalize_targets(inputs, outputs, aggregation_type):
         return (scaled_targets - mean)/std, mean, std
 
 
+def get_normalization_metrics(graphs, aggregation_type):
+    """Wrapper for normalize_targets, when input is only graphs with globals."""
+    labels = [graph.globals for graph in graphs]
+    _, mean, std = normalize_targets(graphs, labels, aggregation_type)
+    return mean, std
+
+
+def normalize_graphs(graphs, mean, std, aggregation_type):
+    """Return graphs with normalized global values."""
+    labels = []
+    for graph in graphs:
+        label = np.array(graph.globals)
+        if aggregation_type == 'sum':
+            label = (label - (mean*graph.n_node[0]))/std
+        elif aggregation_type == 'mean':
+            label = (label - mean)/std
+        else:
+            raise Exception(f"Unrecognized readout type: {aggregation_type}")
+        labels.append(label[0])
+    graphs = add_labels_to_graphs(graphs, labels)
+    return graphs
+
+
 def scale_targets(inputs, outputs, mean, std, aggregation_type):
     '''Return scaled targets. Inverse of normalize_targets,
     scales targets back to the original size.

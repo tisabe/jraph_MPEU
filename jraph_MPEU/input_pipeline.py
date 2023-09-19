@@ -23,7 +23,8 @@ from ase.neighborlist import NeighborList
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
-    normalize_targets_dict,
+    get_normalization_metrics,
+    normalize_graphs,
     load_config
 )
 
@@ -493,7 +494,7 @@ def get_datasets(config, workdir):
     # ids in the split file
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
-        logging.debug(f'Did not find split file at {split_path}. Pulling data.')
+        logging.info(f'Did not find split file at {split_path}. Pulling data.')
         graphs_list, labels_list, ids = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
@@ -508,7 +509,7 @@ def get_datasets(config, workdir):
             labels_dict[id_single] = label
 
     else:
-        logging.debug(f'Found split file. Connecting to ase.db at {config.data_file}')
+        logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
         graphs_dict = {}
         labels_dict = {}
         split_dict = load_split_dict(workdir)
@@ -539,18 +540,6 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    # convert labels depending on which type is set in config
-    # TODO (IMPORTANT): move this after data splitting, only use training data
-    if config.label_type == 'scalar':
-        labels_dict, mean, std = normalize_targets_dict(
-            graphs_dict, labels_dict, config.aggregation_readout_type)
-        logging.info(f'Mean: {mean}, Std: {std}')
-    elif config.label_type == 'class':
-        labels_dict = {key: cut_egap(value, config.egap_cutoff) \
-            for key, value in labels_dict.items()}
-        mean = None
-        std = None
-
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
         graphs_dict[id_single] = graph._replace(globals=np.array([label]))
 
@@ -573,4 +562,22 @@ def get_datasets(config, workdir):
             # append graph from graph_list using the id in split_dict
             graphs_split[key].append(graphs_dict[id_single])
 
+    # get normalization metrics from train data
+    if config.label_type == 'scalar':
+        mean, std = get_normalization_metrics(
+            graphs_split['train'], config.aggregation_readout_type)
+        logging.info(f'Mean: {mean}, Std: {std}')
+    elif config.label_type == 'class':
+        mean, std = None, None
+    else:
+        raise ValueError(f'{config.label_type} not recognized as label type.')
+
+    for split, graphs_list in graphs_split.items():
+        if config.label_type == 'scalar':
+            graphs_split[split] = normalize_graphs(
+                graphs_list, mean, std, config.aggregation_readout_type)
+        elif config.label_type == 'class':
+            for i, graph in enumerate(graphs_list):
+                label = cut_egap(graph.globals[0], config.egap_cutoff)
+                graphs_list[i] = graph._replace(globals=np.array([label]))
     return graphs_split, mean, std
