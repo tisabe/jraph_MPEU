@@ -9,6 +9,7 @@ import ml_collections
 
 from jraph_MPEU.models.gcn import GCN
 from jraph_MPEU.models.mpeu import MPEU
+from jraph_MPEU.models.schnet import SchNet
 from jraph_MPEU.utils import load_config
 
 
@@ -25,6 +26,8 @@ def load_model(workdir, is_training):
         net_fn = GCN(config, is_training)
     elif config.model_str == 'MPEU':
         net_fn = MPEU(config, is_training)
+    elif config.model_str == 'SchNet':
+        net_fn = SchNet(config, is_training)
     else:
         raise ValueError(
             f'Model string {config.model_str} not recognized')
@@ -45,6 +48,8 @@ def create_model(config: ml_collections.ConfigDict, is_training=True):
         return GCN(config, is_training)
     elif config.model_str == 'MPEU':
         return MPEU(config, is_training)
+    elif config.model_str == 'SchNet':
+        return SchNet(config, is_training)
     else:
         raise ValueError(
             f'Model string {config.model_str} not recognized')

@@ -338,7 +338,7 @@ def _get_readout_node_update_fn(
     return readout_node_update_fn
 
 
-class MPEU:
+class SchNet:
     """Graph neural network class where we define the interactions/updates."""
     def __init__(self, config: ml_collections.ConfigDict, is_training=True):
         """Initialize the GNN using a config.
