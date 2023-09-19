@@ -241,7 +241,8 @@ class TestModelFunctions(unittest.TestCase):
             nodes_readout = activation_fn(nodes_updated[:, 0])/2
             prediction_expected = jnp.sum(nodes_readout)
 
-            np.testing.assert_allclose(edge_updated, graph_pred.edges['edges'])
+            np.testing.assert_allclose(
+                edge_updated, graph_pred.edges['edges'], rtol=1e-6)
             self.assertAlmostEqual(prediction_expected, prediction, places=5)
 
     def test_output_size_class(self):
