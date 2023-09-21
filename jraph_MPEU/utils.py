@@ -341,8 +341,18 @@ def add_labels_to_graphs(graphs, labels):
 
 def replace_globals(graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
     """Replaces the globals attribute with a constant feature for each graph."""
-    return graphs._replace(
-        globals=jnp.zeros([graphs.n_node.shape[0], 1]))
+    new_graph_list = []
+    for graph in graphs:
+        print(graph)
+        new_graph = graph._replace(globals=np.array(
+            [
+                0,
+                graph.globals['basis_set_size'],
+                graph.globals['numerical_precision']]))
+        new_graph_list.append(graph)
+    return new_graph_list
+    # return graphs._replace(
+    #     globals=jnp.zeros([graphs.n_node.shape[0], 1]))
 
 
 def get_valid_mask(

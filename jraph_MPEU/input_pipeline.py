@@ -256,6 +256,7 @@ def asedb_to_graphslist(
     """
     graphs = []
     labels = []
+    basis_info_dict_list = []
     ids = []
     ase_db = ase.db.connect(file)
     if limit is None:
@@ -276,9 +277,16 @@ def asedb_to_graphslist(
         graphs.append(graph)
         label = row.key_value_pairs[label_str]
         labels.append(label)
+        basis_set_size = row.key_value_pairs['basis_set_size']
+        numerical_precision = row.key_value_pairs['numerical_precision']
+        basis_set_info_dict = {
+            'basis_set_size': basis_set_size,
+            'numerical_precision': numerical_precision,
+        }
+        basis_info_dict_list.append(basis_set_info_dict)
         ids.append(row.id)
 
-    return graphs, labels, ids
+    return graphs, labels, basis_info_dict_list, ids
 
 
 def atoms_to_nodes_list(
@@ -495,7 +503,7 @@ def get_datasets(config, workdir):
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
         logging.info(f'Did not find split file at {split_path}. Pulling data.')
-        graphs_list, labels_list, ids = asedb_to_graphslist(
+        graphs_list, labels_list, basis_size_info_list, ids = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
             selection=config.selection,
@@ -504,24 +512,28 @@ def get_datasets(config, workdir):
         # transform graphs list into graphs dict, same for labels
         graphs_dict = {}
         labels_dict = {}
-        for (graph, label, id_single) in zip(graphs_list, labels_list, ids):
+        for (graph, label, basis_dict, id_single) in zip(graphs_list, labels_list, ids):
             graphs_dict[id_single] = graph
-            labels_dict[id_single] = label
+            labels_dict[id_single] = {
+                'label': label,
+                'basis_set_size': basis_dict['basis_set_size'],
+                'numerical_precision': basis_dict['basis_set_size'],
+            }
 
-    else:
-        logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
-        graphs_dict = {}
-        labels_dict = {}
-        split_dict = load_split_dict(workdir)
-        ase_db = ase.db.connect(config.data_file)
-        for id_single in split_dict.keys():
-            row = ase_db.get(id_single)
-            graph = ase_row_to_jraph(row)
-            #graphs_list.append(graph)
-            graphs_dict[id_single] = graph
-            label = row.key_value_pairs[config.label_str]
-            #labels_list.append(label)
-            labels_dict[id_single] = label
+    # else:
+    #     logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
+    #     graphs_dict = {}
+    #     labels_dict = {}
+    #     split_dict = load_split_dict(workdir)
+    #     ase_db = ase.db.connect(config.data_file)
+    #     for id_single in split_dict.keys():
+    #         row = ase_db.get(id_single)
+    #         graph = ase_row_to_jraph(row)
+    #         #graphs_list.append(graph)
+    #         graphs_dict[id_single] = graph
+    #         label = row.key_value_pairs[config.label_str]
+    #         #labels_list.append(label)
+    #         labels_dict[id_single] = label
     # In either path, the list ids has been created at this point. ids contains
     # the asedb row.id of each graph that has been pulled.
 
@@ -540,8 +552,12 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
-        graphs_dict[id_single] = graph._replace(globals=np.array([label]))
+    for (id_single, graph), label_dict in zip(graphs_dict.items(), labels_dict.values()):
+        graphs_dict[id_single] = graph._replace(globals=np.array(
+            [
+                label_dict['label'],
+                float(label_dict['basis_set_size']),
+                float(label_dict['numerical_precision'])]))
 
     if not os.path.exists(split_path):
         logging.debug('Generating splits and saving split file.')
@@ -551,9 +567,9 @@ def get_datasets(config, workdir):
             config.test_frac, seed=config.seed
         )
         save_split_dict(split_lists, workdir)
-    else:
-        # If it did exist, convert split_dict to split_lists
-        split_lists = split_dict_to_lists(split_dict)
+    # else:
+    #     # If it did exist, convert split_dict to split_lists
+    #     split_lists = split_dict_to_lists(split_dict)
 
     graphs_split = {}  # dict with the graphs list divided into splits
     for key, id_list in split_lists.items():
