@@ -157,7 +157,7 @@ def _get_edge_update_fn(
         # Compute the radial basis filters through the filter-generating
         # function
         net_filter = MLP(
-            'filter_net', [latent_size]*mlp_depth,
+            'message_edge_net', [latent_size]*mlp_depth,
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=True, w_init=hk_init)
         edges_new = net_filter(edge_message['edges'])
@@ -165,7 +165,7 @@ def _get_edge_update_fn(
         # We also pass the sending node feature vector through a
         # linear embedding layer (FC with no actiavtion).
         net_message_node = MLP(
-            'interaction_pre_net', [latent_size]*(mlp_depth-1),
+            'message_node_net', [latent_size]*(mlp_depth-1),
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=False, w_init=hk_init)
         nodes_new = net_message_node(sent_attributes)
