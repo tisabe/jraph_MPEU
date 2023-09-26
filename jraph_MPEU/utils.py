@@ -6,8 +6,9 @@ import time
 import json
 from ast import literal_eval
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
+import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
@@ -15,6 +16,76 @@ import ml_collections
 from sklearn.model_selection import ParameterGrid
 
 from jraph_MPEU_configs.default import get_config
+
+
+def segment_softmax_sum(data: jnp.ndarray,
+    segment_ids: jnp.ndarray,
+    num_segments: Optional[int] = None,
+    indices_are_sorted: bool = False,
+    unique_indices: bool = False) -> jnp.ndarray:
+    """Softmax weighted segment sum. Differentiable alternative to segment_max."""
+    softmax_weights = jraph.segment_softmax(data, segment_ids, num_segments,
+        indices_are_sorted, unique_indices)
+    data_weighted = jnp.multiply(data, softmax_weights)
+    data_summed = jraph.segment_sum(data_weighted, segment_ids, num_segments,
+        indices_are_sorted, unique_indices)
+    return data_summed
+
+
+def segment_softmin_sum(data: jnp.ndarray,
+    segment_ids: jnp.ndarray,
+    num_segments: Optional[int] = None,
+    indices_are_sorted: bool = False,
+    unique_indices: bool = False) -> jnp.ndarray:
+    """Softmin weighted segment sum. Differentiable alternative to segment_min."""
+    data *= -1
+    softmax_weights = jraph.segment_softmax(data, segment_ids, num_segments,
+        indices_are_sorted, unique_indices)
+    data_weighted = jnp.multiply(data, softmax_weights)
+    data_summed = jraph.segment_sum(data_weighted, segment_ids, num_segments,
+        indices_are_sorted, unique_indices)
+    return -1*data_summed
+
+
+def segment_std(data: jnp.ndarray,
+    segment_ids: jnp.ndarray,
+    num_segments: Optional[int] = None,
+    indices_are_sorted: bool = False,
+    unique_indices: bool = False) -> jnp.ndarray:
+    """Segment-wise standard deviation. 
+    
+    Uses ReLU and small epsilon for numerical stability."""
+    var = jraph.segment_variance(
+        data, segment_ids, num_segments, indices_are_sorted, unique_indices)
+    return jnp.sqrt(jax.nn.relu(var) + 1e-5)
+
+
+def get_pna_aggregator(aggregators):
+    """Return the aggregator function that conctenates the aggregations.
+    
+    aggregtors: list with string names of concatenated aggregators."""
+    aggregators_dict = {
+        'sum': jraph.segment_sum,
+        'mean': jraph.segment_mean,
+        'min': jraph.segment_min,
+        'max': jraph.segment_max,
+        'var': jraph.segment_variance,
+        'std': segment_std,
+        'softmin': segment_softmin_sum,
+        'softmax': segment_softmax_sum,
+    }
+    def pna_aggregator(
+        data: jnp.ndarray,
+        segment_ids: jnp.ndarray,
+        num_segments: Optional[int] = None,
+        indices_are_sorted: bool = False,
+        unique_indices: bool = False) -> jnp.ndarray:
+        """Inspired by https://arxiv.org/pdf/2004.05718.pdf"""
+        features = [aggregators_dict[agg_name](
+            data, segment_ids, num_segments, indices_are_sorted, unique_indices)
+            for agg_name in aggregators]
+        return jnp.concatenate(features, axis=-1)
+    return pna_aggregator
 
 
 def get_num_pairs(numbers):

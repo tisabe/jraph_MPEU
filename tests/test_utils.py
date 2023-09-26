@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import jax
+import jax.numpy as jnp
 import jraph
 import numpy as np
 import ml_collections
@@ -19,7 +20,8 @@ from jraph_MPEU.utils import (
     add_labels_to_graphs,
     update_config_fields,
     get_num_pairs,
-    str_to_list
+    str_to_list,
+    get_pna_aggregator
 )
 
 
@@ -38,6 +40,27 @@ def get_random_graph(key) -> jraph.GraphsTuple:
 
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def test_pna_aggregator(self):
+        """Test the principal neighborhood aggregator."""
+        data = jnp.arange(5)
+        segment_ids = jnp.array([0, 0, 1, 1, 2])
+        num_segments = max(segment_ids) + 1
+        n_aggregators = 4
+        pna_aggregator = get_pna_aggregator(['mean', 'var', 'max', 'min'])
+        output = pna_aggregator(data, segment_ids)
+        output_expected = [0.5, 2.5, 4., 0.25, 0.25, 0., 1., 3., 4., 0., 2., 4.]
+        np.testing.assert_array_equal(output, output_expected)
+
+        data = jnp.array([
+            [0,1,2,3,4],[0,1,2,3,4],[5,6,7,8,9],[0,1,2,3,4],[0,1,2,3,4]
+            ])
+        output = pna_aggregator(data, segment_ids)
+        output_expected = [
+            [0.,1.,2.,3.,4.,0.,0.,0.,0.,0.,0.,1.,2.,3.,4.,0.,1.,2.,3.,4.],
+            [2.5,3.5,4.5,5.5,6.5,6.25,6.25,6.25,6.25,6.25,5.,6.,7.,8.,9.,0.,1.,2.,3.,4.],
+            [0.,1.,2.,3.,4.,0.,0.,0.,0.,0.,0.,1.,2.,3.,4.,0.,1.,2.,3.,4.]]
+        np.testing.assert_array_equal(output, output_expected)
+
     def test_estimate_padding_budget(self):
         """Test estimator by generating graph lists with different
         distributions of n_node and n_edge."""

@@ -19,4 +19,7 @@ def get_config() -> ml_collections.ConfigDict():
         "dft_type=['PAW_PBE']")
     config.use_layer_norm = False
     config.dropout_rate = 0.0
+    config.aggregation_message_type = "pna"
+    config.aggregators_message = ['sum', 'mean', 'std']
+    config.latent_size = 32
     return config

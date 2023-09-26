@@ -25,6 +25,7 @@ import ml_collections
 
 #from jraph_MPEU.utils import load_config
 from jraph_MPEU.models.mlp import MLP, shifted_softplus
+from jraph_MPEU.utils import get_pna_aggregator
 
 
 def _get_edge_embedding_fn(
@@ -413,6 +414,9 @@ class MPEU:
             self.aggregation_message_fn = jraph.segment_sum
         elif self.config.aggregation_message_type == 'mean':
             self.aggregation_message_fn = jraph.segment_mean
+        elif self.config.aggregation_message_type == 'pna':
+            self.aggregation_message_fn = get_pna_aggregator(
+                self.config.aggregators_message)
         else:
             raise ValueError(
                 f'Aggregation type {self.config.aggregation_message_type} '
@@ -422,6 +426,9 @@ class MPEU:
             self.aggregation_readout_fn = jraph.segment_sum
         elif self.config.aggregation_readout_type == 'mean':
             self.aggregation_readout_fn = jraph.segment_mean
+        elif self.config.aggregation_readout_type == 'pna':
+            self.aggregation_readout_fn = get_pna_aggregator(
+                self.config.aggregators_readout)
         else:
             raise ValueError(
                 f'Aggregation type {self.config.aggregation_readout_type} '
