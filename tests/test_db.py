@@ -13,7 +13,7 @@ from jraph_MPEU.input_pipeline import get_graph_cutoff
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('file', 'QM9/qm9_graphs_fc.db', 'database filename')
+flags.DEFINE_string('file', 'QM9/qm9_graphs.db', 'database filename')
 flags.DEFINE_integer('num', 1, 'Number of structures to print.')
 flags.DEFINE_integer(
     'verb', 1,

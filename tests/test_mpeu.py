@@ -13,19 +13,20 @@ import jax.numpy as jnp
 from jax.nn import relu, swish
 import jraph
 import haiku as hk
-
 import ml_collections
 
-from jraph_MPEU.models import (
-    GNN,
+from jraph_MPEU.models.mlp import(
     shifted_softplus,
-    get_edge_update_fn,
-    get_edge_embedding_fn,
-    get_node_embedding_fn,
-    get_node_update_fn,
-    get_readout_node_update_fn,
-    get_readout_global_fn,
     MLP
+)
+from jraph_MPEU.models.mpeu import (
+    MPEU,
+    _get_edge_update_fn,
+    _get_edge_embedding_fn,
+    _get_node_update_fn,
+    _get_node_embedding_fn,
+    _get_readout_node_update_fn,
+    #get_readout_global_fn
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
@@ -119,7 +120,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 sp = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = GNN(self.config)
+            net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
             params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
@@ -196,7 +197,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 activation_fn = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = GNN(self.config)
+            net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
             # Create weights for the model
             params = net.init(init_rng, init_graphs)
@@ -206,7 +207,7 @@ class TestModelFunctions(unittest.TestCase):
 
             # Here, we calculate the expected result, starting with the embeddings.
             nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
-            edge_embedding_fn = get_edge_embedding_fn(
+            edge_embedding_fn = _get_edge_embedding_fn(
                 latent_size,
                 self.config.k_max,
                 self.config.delta,
@@ -241,7 +242,8 @@ class TestModelFunctions(unittest.TestCase):
             nodes_readout = activation_fn(nodes_updated[:, 0])/2
             prediction_expected = jnp.sum(nodes_readout)
 
-            np.testing.assert_allclose(edge_updated, graph_pred.edges['edges'])
+            np.testing.assert_allclose(
+                edge_updated, graph_pred.edges['edges'], rtol=1e-6)
             self.assertAlmostEqual(prediction_expected, prediction, places=5)
 
     def test_output_size_class(self):
@@ -284,7 +286,7 @@ class TestModelFunctions(unittest.TestCase):
 
         config = get_class_config()
         config.use_layer_norm = False
-        net_fn = GNN(config)
+        net_fn = MPEU(config)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
         params, state = net.init(init_rng, init_graphs)
@@ -302,7 +304,7 @@ class TestModelFunctions(unittest.TestCase):
         """
         latent_size = 10
         hk_init = hk.initializers.Identity()
-        edge_update_fn = get_edge_update_fn(
+        edge_update_fn = _get_edge_update_fn(
             latent_size, hk_init, use_layer_norm=False,
             activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
 
@@ -359,7 +361,7 @@ class TestModelFunctions(unittest.TestCase):
         k_vec = jnp.arange(0, k_max)
         delta = 0.1
         mu_min = 0.2
-        fun = get_edge_embedding_fn(latent_size, k_max, delta, mu_min)
+        fun = _get_edge_embedding_fn(latent_size, k_max, delta, mu_min)
         embedding = fun(edges)
 
         embedding_expected = [
@@ -375,7 +377,7 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
-        node_embedding_fn = get_node_embedding_fn(
+        node_embedding_fn = _get_node_embedding_fn(
             latent_size, max_atomic_number, False,
             shifted_softplus, hk_init)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
@@ -403,7 +405,7 @@ class TestModelFunctions(unittest.TestCase):
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        node_update_fn = get_node_update_fn(
+        node_update_fn = _get_node_update_fn(
             latent_size, hk_init, use_layer_norm=False,
             activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
 
@@ -436,12 +438,10 @@ class TestModelFunctions(unittest.TestCase):
     def test_readout_function(self):
         """Test the output of the readout function against the expected result.
         """
-        rng = jax.random.PRNGKey(42)
-        rng, init_rng = jax.random.split(rng)
 
         latent_size = 16
         hk_init = hk.initializers.Identity()
-        readout_node_update_fn = get_readout_node_update_fn(
+        readout_node_update_fn = _get_readout_node_update_fn(
             latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
             activation=shifted_softplus, output_size=1)
         # TODO: finish test

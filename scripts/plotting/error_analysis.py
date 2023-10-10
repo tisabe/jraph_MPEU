@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import sklearn.metrics
 
 from jraph_MPEU.utils import load_config, str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -22,19 +23,64 @@ flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data 
     read from the database.')
 flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
-flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_string('plot', 'all', 'Whether to only plot a single kind of plot.\
+    Default: all plots. Plot names: regression, hist, bg_type, ldau, density, \
+    spacegroup')
 
 PREDICT_LABEL = ''
 CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
 
 
-def plot_regression(df, workdir, config, plot_name):
+def plot_error_hist(df, workdir, plot_name, hue_val):
+    """Plot absolute errors in a log-log histogram."""
+    hue_order = None
+    if hue_val=='Egap_type':
+        hue_order = (
+            'Direct SC', 'Indirect SC', 'Metal', 'Half-metal')
+        df = df.rename(columns={'Egap_type': 'Material class'})
+        hue_val = 'Material class'
+        replace_dict = {
+            'insulator-direct': 'Direct SC',
+            'insulator-indirect': 'Indirect SC',
+            'metal': 'Metal',
+            'half-metal': 'Half-metal'}
+        df = df.replace({'Material class': replace_dict})
+    fig, ax = plt.subplots()
+    gfg = sns.histplot(
+        x='abs. error', hue=hue_val, data=df, ax=ax, multiple='stack',
+        palette='Paired', log_scale=True, hue_order=hue_order)
+    ax.set_xlabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+    ax.set_ylabel('Count', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    #ax.legend(title='Bandgap type')
+    #plt.rc('legend', fontsize=FLAGS.font_size-3)
+    #plt.legend(fontsize=FLAGS.font_size)
+    # for legend text
+    plt.setp(gfg.get_legend().get_texts(), fontsize=FLAGS.font_size-2)
+    plt.setp(gfg.get_legend().get_title(), fontsize=FLAGS.font_size-2)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
+
+
+def plot_regression(df, workdir, label_str, plot_name):
     """Plot the regression using joint plot with marginal histograms."""
+    if FLAGS.label == 'egap':
+        xlim = [-0.5, 12.5]
+        ylim = [-0.5, 12.5]
+    elif FLAGS.label == 'energy':
+        xlim = None
+        ylim = None
+    else:
+        xlim = None
+        ylim = None
     g = sns.JointGrid(
-        data=df, x=config.label_str, y='prediction', marginal_ticks=False,
-        height=5, xlim = [-0.5, 12.5], ylim = [-0.5, 12.5]
+        data=df, x=label_str, y='prediction', marginal_ticks=False,
+        height=5, xlim=xlim, ylim=ylim
     )
 
     # Add the joint and marginal histogram plots
@@ -47,8 +93,14 @@ def plot_regression(df, workdir, config, plot_name):
     g.ax_joint.tick_params(which='both', labelsize=FLAGS.tick_size)
     g.ax_joint.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
     g.ax_joint.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
-    g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
+    if FLAGS.label == 'egap':
+        g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
+        g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
+    elif FLAGS.label == 'energy':
+        pass
+    else:
+        g.ax_joint.set_xticks([-4, -2, 0, 2])
+        g.ax_joint.set_yticks([-4, -2, 0, 2])
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
@@ -56,42 +108,6 @@ def plot_regression(df, workdir, config, plot_name):
     plt.tight_layout()
     plt.show()
     g.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
-
-
-def plot_regression_oxides(df, workdir, config, plot_name):
-    """Plot the regression results for only oxide materials."""
-    df_copy = df.copy()  # dataframe will be modified, so copy it before
-    # filter dataframe rows for oxides
-    df_copy = df_copy[df_copy['formula'].map(lambda formula: 'Fe' in formula)]
-
-    fig, ax = plt.subplots()
-    sns.scatterplot(
-        x=config.label_str, y='prediction', hue='split', data=df_copy, ax=ax)
-    x_ref = np.linspace(*ax.get_xlim())
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
-
-
-def plot_dft_type(df, workdir, plot_name):
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='dft_type', # plot error vs dft type
-        y='abs. error',
-        data=df,
-        ax=ax,
-        hue='split'
-    )
-    plt.legend([], [], frameon=False)
-    plt.xticks(rotation=90)
-    ax.set_xlabel('AFLOW DFT type label', fontsize=FLAGS.font_size)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def plot_space_groups(df, workdir, plot_name, counts):
@@ -102,7 +118,7 @@ def plot_space_groups(df, workdir, plot_name, counts):
         data=df,
         #hue='split',
         ax=ax,
-        color='deepskyblue'
+        color='lightblue'
     )
     plt.legend([], [], frameon=False)
     plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
@@ -121,26 +137,6 @@ def plot_space_groups(df, workdir, plot_name, counts):
             bbox=dict(boxstyle="square", ec='black', fc='white'))
     plt.yscale('log')
     plt.xticks(rotation=60)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
-
-
-def plot_bandgap_type(df, workdir, plot_name):
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='Egap_type', # plot error vs bandgap type
-        y='abs. error',
-        data=df,
-        ax=ax,
-        color='deepskyblue'
-    )
-    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
-    plt.xticks(rotation=90)
-    ax.set_xlabel('AFLOW band gap-type label', fontsize=FLAGS.font_size)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
@@ -201,8 +197,8 @@ def main(argv):
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
     else:
-        PREDICT_LABEL = r'Predicted $E_{F}$ (eV/atom)'
-        CALCULATE_LABEL = r'Calculated $E_{F}$ (eV/atom)'
+        PREDICT_LABEL = r'Predicted $E_f$ (eV/atom)'
+        CALCULATE_LABEL = r'Calculated $E_f$ (eV/atom)'
         ABS_ERROR_LABEL = 'Abs. error (eV/atom)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
@@ -233,7 +229,7 @@ def main(argv):
         df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
     else:
         print('Skipping spacegroup conversion.')
-    
+
     if 'Egap_type' in df.columns:
         df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
     else:
@@ -247,106 +243,83 @@ def main(argv):
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on train set: {mean_abs_err_train}')
+    rmse_train = (df_train['abs. error'] ** 2).mean() ** .5
+    print(f'RMSE on train set: {rmse_train}')
 
     df_val = df.loc[lambda df_temp: df_temp['split'] == 'validation']
     mean_abs_err_val = df_val.mean(0, numeric_only=True)['abs. error']
+    rmse_val = (df_val['abs. error'] ** 2).mean() ** .5
     print(f'MAE on validation set: {mean_abs_err_val}')
+    print(f'RMSE on validation set: {rmse_val}')
 
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
     mean_abs_err_test = df_test.mean(0, numeric_only=True)['abs. error']
     print(f'MAE on test set: {mean_abs_err_test}')
     rmse_test = (df_test['abs. error'] ** 2).mean() ** .5
     print(f'RMSE on test set: {rmse_test}')
-    r2_test = 1 - (df_test['abs. error'] ** 2).mean()/df_test[
-        config.label_str].std()
+    stdev = np.std(df_test[config.label_str])
+    print(f'STDEV of test set: {stdev}')
+    r2_test = sklearn.metrics.r2_score(
+        df_test[config.label_str], df_test['prediction'])
     print(f'R^2 on test set: {r2_test}')
-    """
-    # print rows with highest and lowest error
-    row_max_err = df_test.loc[df_test['abs. error'].idxmax()]
-    print(row_max_err)
-    row_min_err = df_test.loc[df_test['abs. error'].idxmin()]
-    print(row_min_err)
+    median_err = df_test.median(0, numeric_only=True)['abs. error']
+    print(f'Median error on test set: {median_err}')
 
-    mean_target = df.mean(0, numeric_only=True)[config.label_str]
-    std_target = df.std(0, numeric_only=True)[config.label_str]
-    print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
-    """
-    
-    fig, ax = plt.subplots()
-    sns.histplot(
-        x=config.label_str, y='prediction', data=df_test, ax=ax,
-        cbar=True, cbar_kws={'label': 'Count'}, bins=(100, 100))
-    x_ref = np.linspace(*ax.get_xlim())
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
-    ax.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/hist_simple.png', bbox_inches='tight', dpi=600)
+    # print rows with highest errors
+    df_test = df_test.sort_values(by='abs. error', axis='index')
+    print(df_test[-3:][['auid', 'prediction', config.label_str, 'abs. error',
+        'formula', 'crystal system', 'Egap']])
 
-    #plot_regression_oxides(df_test, workdir, config, '/regression_oxides.png')
-
-    fig, ax = plt.subplots()
-    sns.boxplot(
-        x='num_species',
-        y='abs. error',
-        data=df_test,
-        color='deepskyblue',
-        ax=ax,
-    )
-    plt.legend([], [], frameon=False)
-    ax.set_xlabel('Number of species in compound', fontsize=FLAGS.font_size)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_nspecies.png', bbox_inches='tight', dpi=600)
-
-    fig, ax = plt.subplots()
-    sns.histplot(
-        x='num_atoms',
-        y='abs. error',
-        data=df_test,
-        ax=ax,
-        cbar=True, cbar_kws={'label': 'Count'},
-        log_scale=(False, True),
-        bins=max(df_test['num_atoms'])
-    )
-    ax.set_xlabel('Number of atoms in unit cell', fontsize=FLAGS.font_size)
-    ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
-
-    plot_regression(df_test, workdir, config, '/regression_test.png')
-    #plot_regression(df_train, workdir, config, '/regression_train.png')
-    #plot_regression(df_val, workdir, config, '/regression_val.png')
-    
-    if 'spacegroup_relax' in df.columns:
-        col = df_train['crystal system']
-        counts = dict(Counter(col))
-        print(counts)
-        plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
-        plt.pie(counts.values(), labels=counts.keys())
+    if FLAGS.plot in ('all', 'natoms'):
+        fig, ax = plt.subplots()
+        sns.histplot(
+            x='num_atoms',
+            y='abs. error',
+            data=df_test,
+            ax=ax,
+            cbar=True, cbar_kws={'label': 'Count'},
+            log_scale=(False, True),
+            bins=max(df_test['num_atoms'])
+        )
+        ax.set_xlabel('Number of atoms in unit cell', fontsize=FLAGS.font_size)
+        ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
+        ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+        plt.tight_layout()
         plt.show()
-    else:
-        print('Skipping spacegroup plots.')
+        fig.savefig(workdir+'/error_vs_natoms.png', bbox_inches='tight', dpi=600)
 
-    if 'Egap_type' in df.columns:
-        col = df_train['Egap_type']
-        print(Counter(col))
-        plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
-
-    if 'density' in df.columns:
-        plot_density(df_test, workdir, '/error_vs_density.png')
-
-    if 'ldau_type' in df.columns:
-        col = df_train['ldau_type']
-        print(Counter(col))
-        plot_ldau(df, workdir, '/error_vs_ldau.png')
+    if FLAGS.plot in ('all', 'regression'):
+        plot_regression(
+            df_test, workdir, config.label_str, '/regression_test.png')
+    if FLAGS.plot in ('all', 'spacegroup'):
+        if 'spacegroup_relax' in df.columns:
+            col = df_train['crystal system']
+            counts = dict(Counter(col))
+            print(counts)
+            plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
+            plt.pie(counts.values(), labels=counts.keys())
+            plt.show()
+        else:
+            print('Skipping spacegroup plots.')
+    if FLAGS.plot in ('all', 'hist'):
+        if 'Egap_type' in df.columns:
+            plot_error_hist(df_test, workdir, '/error_hist.png', 'Egap_type')
+            col = df_train['Egap_type']
+            print(Counter(col))
+        else:
+            plot_error_hist(df_test, workdir, '/error_hist.png', None)
+    if FLAGS.plot in ('all', 'density'):
+        if 'density' in df.columns:
+            plot_density(df_test, workdir, '/error_vs_density.png')
+        else:
+            print('Skipping density plots.')
+    if FLAGS.plot in ('all', 'ldau'):
+        if 'ldau_type' in df.columns:
+            col = df_train['ldau_type']
+            print(Counter(col))
+            plot_ldau(df, workdir, '/error_vs_ldau.png')
+        else:
+            print('Skipping DFT+U plots.')
 
 
 if __name__ == "__main__":

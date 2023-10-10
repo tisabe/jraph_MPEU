@@ -8,109 +8,20 @@ After embedding we call them the node features at different iterations
 and they are labeled in the paper h_1(0) to h_N(0) for the first iteration.
 
 The distances, d_vw are fed into the RBF expansion to get initial edge features
-which are labelled in the paper eps_vw. After the first edge update we get
-e_vw(0) which are edge features.
-
-In the first edge update we concatenate the two node features h_v(0) and h_w(0)
-, which are both size C (latent_size) vectors, with the initial edge feature
-eps_vw which is size k_max. The network then outputs an edge vector e_vw(0)
-of size C (latent_size).
+which are labelled in the paper eps_vw.
 """
-
-import pickle
-from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import jraph
 import numpy as np
-import haiku as hk
 import ml_collections
 
-from jraph_MPEU.utils import load_config
+#from jraph_MPEU.utils import load_config
+from jraph_MPEU.models.mlp import MLP, shifted_softplus
 
 
-def load_model(workdir, is_training):
-    """Load model to evaluate on."""
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
-        best_state = pickle.load(state_file)
-    config = load_config(workdir)
-    # load the model params
-    params = best_state['state']['params']
-    print(f'Loaded best state at step {best_state["state"]["step"]}')
-    net_fn = GNN(config, is_training)
-    # compatibility layer to load old models the were initialized without state
-    try:
-        hk_state = best_state['state']['hk_state']
-        net = hk.transform_with_state(net_fn)
-    except KeyError:
-        print('Loaded old stateless function. Converting to stateful.')
-        hk_state = {}
-        net = hk.with_empty_state(hk.transform(net_fn))
-    return net, params, hk_state
-
-
-# Define the shifted softplus activation function.
-# Compute log(2) outside of shifted_softplus so it only needs
-# to be computed once.
-LOG2 = jnp.log(2)
-
-
-def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
-    """Continuous and shifted version of relu activation function.
-
-    The function is: log(exp(x) + 1) - log(2)
-    This implementation is from PB Jorgensen while SchNet uses
-    log(0.5*exp(x)+0.5).
-
-    The benefit compared to a ReLU is that x < 0 you don't have a dead
-    zone. And the function is C(n) smooth, infinitely differentiable
-    across whole domain.
-    """
-    return jnp.logaddexp(x, 0) - LOG2
-
-class MLP(hk.Module):
-    """Define a custom multi-layer perceptron module, which includes dropout,
-    after every weight layer and layer normalization after the last layer.
-    """
-    def __init__(
-            self,
-            name: str,
-            output_sizes: Sequence[int],
-            use_layer_norm=False,
-            dropout_rate=0.0,
-            activation=shifted_softplus,
-            with_bias=False,
-            activate_final=True,
-            w_init=None
-    ):
-        super().__init__(name=name)
-        self.mlp = hk.nets.MLP(
-            output_sizes=output_sizes,
-            w_init=w_init,
-            with_bias=with_bias,
-            activation=activation,
-            activate_final=activate_final,
-            name=name
-        )
-        self.dropout_rate = dropout_rate
-        self.use_layer_norm = use_layer_norm
-        if self.use_layer_norm:
-            self.layer_norm = hk.LayerNorm(
-                axis=-1,
-                create_scale=True,
-                create_offset=True,
-                name=name + "_layer_norm")
-
-    def __call__(self, inputs):
-        outputs = self.mlp(inputs, self.dropout_rate, hk.next_rng_key())
-        if self.use_layer_norm:
-            outputs = self.layer_norm(outputs)
-        return outputs
-
-
-def get_edge_embedding_fn(
+def _get_edge_embedding_fn(
         latent_size: int, k_max: int, delta: float, mu_min: float):
     """Return the edge embedding function.
 
@@ -152,7 +63,7 @@ def get_edge_embedding_fn(
     return edge_embedding_fn
 
 
-def get_node_embedding_fn(
+def _get_node_embedding_fn(
         latent_size: int, max_atomic_number: int, use_layer_norm, activation,
         hk_init=None):
     """Return the node embedding function.
@@ -189,7 +100,7 @@ def get_node_embedding_fn(
     return node_embedding_fn
 
 
-def get_embedder(
+def _get_embedder(
         latent_size, k_max, delta, mu_min, max_atomic_number, hk_init,
         use_layer_norm, activation
     ):
@@ -201,43 +112,20 @@ def get_embedder(
     # Map embedding function and node embedding function to graphs using
     # jraph.
     embedder = jraph.GraphMapFeatures(
-        embed_edge_fn=get_edge_embedding_fn(
+        embed_edge_fn=_get_edge_embedding_fn(
             latent_size, k_max, delta, mu_min),
-        embed_node_fn=get_node_embedding_fn(
+        embed_node_fn=_get_node_embedding_fn(
             latent_size, max_atomic_number, use_layer_norm, activation,
             hk_init),
         embed_global_fn=None)
     return embedder
 
 
-def get_edge_update_fn(
+def _get_edge_update_fn(
         latent_size: int, hk_init, use_layer_norm, activation, dropout_rate,
         mlp_depth):
-    """Return the edge update function and message update function.
-
-    Takes in the previous edge vector value e_vw(t-1) and concatenates with
-    the node feature vectors of node v, h_v(t), and node w, h_w(t). Then passes
-    this concatenated vector into a FC network with softplus activation, output
-    size of 2C. Then passes that output into a a FC network with no activation,
-    output size of C. See Figure 1 or Equation 7 of the PB jorgensen paper for
-    more details.
-
-    We also compute the message update function. The reason they are in the
-    same function is that they have the same input (edge vector and sending
-    and receiving node features). Jraph expects the update functions to be
-    combined.
-
-    Note: Figure 1 activations and equation 7 has a inconsistency. This
-        was brought up to PB Jorgensen. In Figure 1 it's the identity function
-        for the second activation. In Equation 7 it's the softplus actiavtion
-        again. PB Jorgensen said there is a mistake in Equation 7 and it should
-        be the identity function.
-
-
-    Note: Would be interesting to see what happens if we use the same network
-        for each iteration. Right now each iteration of edge updates uses a
-        seperate NN. This was experimented in the very deep GNN paper by
-        DeepMind.
+    """Return the edge update function. This does NOT update the edge hidden
+    states, but only computes the message function for SchNet.
 
     Args:
         latent_size: Dimensionality of the edge and node feature vectors.
@@ -263,36 +151,18 @@ def get_edge_update_fn(
                 be concatenated with the edge vector.
             global_edge_attributes: Not used but expected by jraph function.
         """
-        del global_edge_attributes  # Not used but expected by jraph.
+        # Not used but expected by jraph.
+        del global_edge_attributes, received_attributes
 
-        # Concatenate the sending node feature vector with the receiving node
-        # feature vector and the edge vector for the edge connecting the
-        # sending and receiving node.
-        edge_node_concat = jnp.concatenate([
-            sent_attributes, received_attributes,
-            edge_message['edges']], axis=-1)
-        # Edge update network. First network is FC input size 3C (or 2C+k_max
-        # for first iteration), output size 2C with shifted softplus
-        # activation. Second network is FC, input 2C, output C, identity as
-        # actiavtion (e.g. linear network).
-        net_edge = MLP(
-            'edge_update', [2*latent_size] + [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-            activation=activation, activate_final=False, w_init=hk_init)
-
-        edge_message['edges'] = net_edge(edge_node_concat)
-
-        # Then, compute edge-wise messages. The input is the edge feature
-        # vector. See Figure 1 middle figure for details. The edge feature
-        # vector gets passed through two FC layers with shifted softplus.
-        # Dimensionality doesn't change at all from input to output here.
-        net_message_edge = MLP(
+        # Compute the radial basis filters through the filter-generating
+        # function
+        net_filter = MLP(
             'message_edge_net', [latent_size]*mlp_depth,
             use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
             activation=activation, activate_final=True, w_init=hk_init)
-        edges_new = net_message_edge(edge_message['edges'])
+        edges_new = net_filter(edge_message['edges'])
 
-        # We also pass the sending/receiving node feature vector through a
+        # We also pass the sending node feature vector through a
         # linear embedding layer (FC with no actiavtion).
         net_message_node = MLP(
             'message_node_net', [latent_size]*(mlp_depth-1),
@@ -301,15 +171,15 @@ def get_edge_update_fn(
         nodes_new = net_message_node(sent_attributes)
 
         # Then element wise multiply together the output of the
-        # net_emessage_edge and the output from feeding the sending/receiving
-        # node feature vectors to the net_message node.
+        # filter_net and the output from feeding the sending node feature
+        # vectors to the net_message_node.
         edge_message['messages'] = jnp.multiply(
             edges_new, nodes_new)
         return edge_message
     return edge_update_fn
 
 
-def get_node_update_fn(
+def _get_node_update_fn(
         latent_size, hk_init, use_layer_norm, activation, dropout_rate,
         mlp_depth):
     """Return the node update function.
@@ -339,8 +209,11 @@ def get_node_update_fn(
 
         Args:
             nodes: Node feature vector at previous iteration (h_i(t-1)).
-            sent_attributes: Not used, but expected by jraph.
-            received_attributes: The aggregatation of incoming messages.
+            sent_attributes: Not used, but expected by jraph. Inforation that
+            gets sent out, aggegated.
+            received_attributes: The aggregatation of incoming egde attributes.
+            For PB Jorg the messages are defined edge wise (directional) and
+            attached to the edge attribute.
         """
         # These input arguments are not used but expected by jraph.
         del sent_attributes, global_attributes
@@ -358,7 +231,7 @@ def get_node_update_fn(
     return node_update_fn
 
 
-def get_readout_global_fn(
+def _get_readout_global_fn(
         latent_size, global_readout_mlp_layers, dropout_rate,
         activation, label_type: str):
     """Return the readout global function.
@@ -393,7 +266,6 @@ def get_readout_global_fn(
         if global_readout_mlp_layers > 0:
             if label_type == 'class':
                 # return logits, softmax happens in loss function
-                # TODO: maybe decrease hidden layers to create funnelling
                 net = MLP(
                     'readout', [latent_size] * global_readout_mlp_layers + [2],
                     use_layer_norm=False, dropout_rate=dropout_rate,
@@ -410,7 +282,7 @@ def get_readout_global_fn(
     return readout_global_fn
 
 
-def get_readout_node_update_fn(
+def _get_readout_node_update_fn(
         latent_size, hk_init, use_layer_norm, dropout_rate,
         activation, output_size):
     """Return readout node update function.
@@ -466,7 +338,7 @@ def get_readout_node_update_fn(
     return readout_node_update_fn
 
 
-class GNN:
+class SchNet:
     """Graph neural network class where we define the interactions/updates."""
     def __init__(self, config: ml_collections.ConfigDict, is_training=True):
         """Initialize the GNN using a config.
@@ -530,7 +402,7 @@ class GNN:
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
-        embedder = get_embedder(
+        embedder = _get_embedder(
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
             self.config.hk_init, self.norm, self.activation
@@ -544,10 +416,10 @@ class GNN:
             # updates and then the node updates and then global updates (which
             # we don't do yet).
             net = jraph.GraphNetwork(
-                update_node_fn=get_node_update_fn(
+                update_node_fn=_get_node_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
                     self.activation, dropout_rate, self.config.mlp_depth),
-                update_edge_fn=get_edge_update_fn(
+                update_edge_fn=_get_edge_update_fn(
                     self.config.latent_size, self.config.hk_init, self.norm,
                     self.activation, dropout_rate, self.config.mlp_depth),
                 update_global_fn=None,
@@ -567,11 +439,11 @@ class GNN:
             node_output_size = 1
 
         net_readout = jraph.GraphNetwork(
-            update_node_fn=get_readout_node_update_fn(
+            update_node_fn=_get_readout_node_update_fn(
                 self.config.latent_size, self.config.hk_init, self.norm,
                 dropout_rate, self.activation, node_output_size),
             update_edge_fn=None,
-            update_global_fn=get_readout_global_fn(
+            update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,
                 global_readout_mlp_layers=self.config.global_readout_mlp_layers,
                 dropout_rate=dropout_rate,

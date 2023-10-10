@@ -27,6 +27,7 @@ flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_bool('element_names', False, 'Whether to print element names.')
 
 # define the element types from the periodic table
 element_types = {
@@ -67,14 +68,14 @@ def main(argv):
     config = load_config(workdir)
 
     # set correct axis labels
-    x_label = '# compounds in training split with species'
+    x_label = '# compounds in training set'
     if config.label_type == 'scalar':
         if FLAGS.label == 'egap':
             y_label = r'MAE ($E_g$/eV)'
         elif FLAGS.label == 'energy':
             y_label = r'Calculated $U_0$ (eV)'
         else:
-            y_label = r'MAE ($E_{F}$ per atom/eV)'
+            y_label = r'MAE ($E_f$ per atom/eV)'
     else:
         y_label = 'Accuracy per species'
 
@@ -120,6 +121,7 @@ def main(argv):
 
     # get species counts from train split dataframe
     count_dict = defaultdict(int)
+    ldau_dict = defaultdict(int)
 
     for _, row in df_train.iterrows():
         symbols = row['formula']
@@ -129,6 +131,7 @@ def main(argv):
         counts = Formula(symbols).count()  # dictionary with species and number
         for symbol in counts.keys():
             count_dict[symbol] += 1
+            ldau_dict[symbol] += row.ldau_type
 
     mae_dict = {}
     for species, error_list in errors_dict.items():
@@ -150,35 +153,29 @@ def main(argv):
         species.append(key)
         counts.append(count_dict[key])
         maes.append(mae_dict[key])
-
-    fig, ax = plt.subplots()
-    #ax.scatter(counts, maes)
     df_plot = pd.DataFrame(
         data={'species': species, 'counts': counts, 'maes': maes}
     )
     df_plot['element class'] = df_plot['species'].apply(get_type)
     df_plot = df_plot.sort_values('element class', axis=0, ascending=False)
-    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
 
-    for txt, count, mae in zip(keys_intersect, counts, maes):
-        ax.annotate(txt, (count, mae))
-    ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
-    ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.legend(title='').set_visible(True)
-    plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(workdir+'/species_vs_count.png', bbox_inches='tight', dpi=600)
+    # plot number of fit metric depending on number of compounds
+    # split dataframe in half for better legend
+    df1 = df_plot[df_plot['element class'] > 'Noble gases']
+    df2 = df_plot[df_plot['element class'] <= 'Noble gases']
 
-    # make the same plot but without text to add again manually
     fig, ax = plt.subplots()
-    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax)
+    sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax, s=80)
+    if FLAGS.element_names:
+        for txt, count, mae in zip(keys_intersect, counts, maes):
+            ax.annotate(txt, (count, mae))
     ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
     ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
     ax.legend(title='').set_visible(True)
+    plt.rc('legend', fontsize=FLAGS.tick_size-3)
+    #sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
@@ -189,6 +186,28 @@ def main(argv):
         writer = csv.writer(csv_file)
         for key, value in count_dict.items():
             writer.writerow([key, value])
+
+    # plot counts of species total and with ldau correction
+    df_ldau = pd.DataFrame(columns=['Element', 'Number', 'Type'])
+    for i, key in enumerate(count_dict.keys()):
+        df_ldau.loc[i] = [key, count_dict[key], 'Total']
+    N = len(df_ldau)
+    for i, key in enumerate(count_dict.keys()):
+        df_ldau.loc[i + N] = [key, ldau_dict[key], 'DFT+U']
+
+
+    print(df_ldau.head())
+    fig, ax = plt.subplots()
+    sns.catplot(data=df_ldau, x='Element', y='Number', hue='Type', ax=ax, kind='bar')
+    #ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
+    #ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
+    #ax.legend(title='').set_visible(True)
+    #plt.yscale('log')
+    plt.tight_layout()
+    plt.show()
+    #fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)
 
 if __name__ == "__main__":
     app.run(main)

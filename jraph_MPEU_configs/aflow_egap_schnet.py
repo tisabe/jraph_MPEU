@@ -13,10 +13,10 @@ def get_config() -> ml_collections.ConfigDict():
     # Optimizer
     config.optimizer = 'adam'
     config.schedule = 'exponential_decay'
-    config.init_lr = 1e-4 # initial learning rate
+    config.init_lr = 1e-3 # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = 100_000
-    config.decay_rate = 0.98
+    config.decay_rate = 0.96
 
     config.loss_type = 'MSE'
 
@@ -42,9 +42,9 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
 
     # MPNN hyperparameters
-    config.model_str = 'MPEU'
+    config.model_str = 'SchNet'
     config.message_passing_steps = 3
-    config.latent_size = 256
+    config.latent_size = 64
     config.hk_init = None
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'mean'

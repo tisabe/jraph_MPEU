@@ -47,6 +47,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = [None]
 
     # MPNN hyperparameters
+    config.model_str = ['MPEU']
     config.message_passing_steps = [0, 4]
     config.latent_size = [64, 384]
     config.hk_init = [None]

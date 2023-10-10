@@ -19,10 +19,11 @@ from jraph_MPEU.input_pipeline import (
 from jraph_MPEU.utils import (
     get_valid_mask, load_config, normalize_targets_dict, scale_targets
 )
-from jraph_MPEU.models import load_model
+from jraph_MPEU.models.loading import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False):
+def get_predictions(dataset, net, params, hk_state, label_type,
+    mc_dropout=False, batch_size=32):
     """Get predictions for a single dataset split.
 
     Args:
@@ -52,7 +53,7 @@ def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False
     preds = []
     for _ in range(n_samples):
         reader = DataReader(
-            data=dataset, batch_size=32, repeat=False)
+            data=dataset, batch_size=batch_size, repeat=False)
         preds_sample = np.array([])
         for graph in reader:
             key, subkey = jax.random.split(key)
@@ -74,51 +75,6 @@ def get_predictions(dataset, net, params, hk_state, label_type, mc_dropout=False
             preds_sample = np.concatenate([preds_sample, preds_valid], axis=0)
         preds.append(preds_sample)
     return preds
-
-
-def load_inference_file(workdir, redo=False):
-    """Return the inferences of the model and data defined in workdir.
-
-    This function finds inferences that have already been saved in the working
-    directory. If a file with inferences has been found, they are loaded and
-    returned in a dictionary with splits as keys.
-    If there is no file with inferences in workdir or 'redo' is true, the model
-    is loaded and inferences are calculated.
-    """
-    config = load_config(workdir)
-    inference_dict = {}
-    path = workdir + '/inferences.pkl'
-    if not os.path.exists(path) or redo:
-        # compute the inferences
-        logging.info('Loading model.')
-        net, params, hk_state = load_model(workdir, is_training=False)
-        logging.info('Loading datasets.')
-        dataset, mean, std = load_data(workdir)
-        splits = dataset.keys()
-        print(splits)
-
-        for split in splits:
-            data_list = dataset[split]
-            logging.info(f'Predicting {split} data.')
-            preds = get_predictions(
-                data_list, net, params, hk_state, config.label_type)
-            targets = [graph.globals[0] for graph in data_list]
-            # scale the predictions and targets using the std
-            preds = np.array(preds)*float(std) + mean
-            targets = np.array(targets)*float(std) + mean
-
-            inference_dict[split] = {}
-            inference_dict[split]['preds'] = preds
-            inference_dict[split]['targets'] = targets
-
-        with open(path, 'wb') as inference_file:
-            pickle.dump(inference_dict, inference_file)
-    else:
-        # load inferences from dict
-        logging.info('Loading existing inference.')
-        with open(path, 'rb') as inference_file:
-            inference_dict = pickle.load(inference_file)
-    return inference_dict
 
 
 def get_results_df(workdir, limit=None, mc_dropout=False):
@@ -162,7 +118,8 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
         # the csv from file, this has to be converted from string to list
         row_dict['formula'] = row.formula
-        inference_df = inference_df.append(row_dict, ignore_index=True)
+        inference_df = pandas.concat(
+            [inference_df, pandas.DataFrame([row_dict])], ignore_index=True)
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
@@ -181,7 +138,8 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(
-        graphs, net, params, hk_state, config.label_type, mc_dropout)
+        graphs, net, params, hk_state, config.label_type, mc_dropout,
+        config.batch_size)
     if config.label_type == 'scalar':
         # scale the predictions using the std and mean
         logging.debug(f'using {pooling} pooling function')

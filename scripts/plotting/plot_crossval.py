@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import haiku as hk
 
 
 def min_of_previous(array):
@@ -15,8 +16,16 @@ def min_of_previous(array):
 
 def split_list(list_a, chunk_size):
     # split list_a into even chunks of chunk_size elements
-    for i in range(0, len(list_a), chunk_size):
-        yield list_a[i:i + chunk_size]
+    if isinstance(chunk_size, int):
+        for i in range(0, len(list_a), chunk_size):
+            yield list_a[i:i + chunk_size]
+    else:
+        for i in chunk_size:
+            yield [list_a[j] for j in i]
+
+
+def id_list_to_int_list(ids_list):
+    return [int(ids.removeprefix('id')) for ids in ids_list]
 
 
 def main(args):
@@ -24,7 +33,12 @@ def main(args):
     df = pd.DataFrame({})
     dict_minima = {}
     print(args.max_step)
+    # make a dict to list ids depending on how the model training was stopped
+    finish_condition = {
+        "stopped_early": [], "aborted_early": [], "time_elapsed": [],
+        "unknown": [], "reached_max_steps": []}
     for dirname in os.listdir(args.file):
+        workdir = args.file + '/' + dirname
         try:
             metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
             # open the file with evaluation metrics
@@ -34,6 +48,15 @@ def main(args):
             config_path = args.file + '/' + dirname + '/config.json'
             with open(config_path, 'r') as config_file:
                 config_dict = json.load(config_file)
+
+            if os.path.exists(workdir + '/STOPPED_EARLY'):
+                finish_condition["stopped_early"].append(dirname)
+            elif os.path.exists(workdir + '/ABORTED_EARLY'):
+                finish_condition["aborted_early"].append(dirname)
+            elif os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+                finish_condition["reached_max_steps"].append(dirname)
+            else:
+                finish_condition["time_elapsed"].append(dirname)
 
             split = 'validation'
             metrics = metrics_dict[split]
@@ -75,40 +98,43 @@ def main(args):
                 'min_step_rmse': min_step_rmse,
                 'directory': dirname
             }
-            #print(row_dict)
-            df = df.append(row_dict, ignore_index=True)
+            state_dir = workdir+'/checkpoints/best_state.pkl'
+            """
+            with open(state_dir, 'rb') as state_file:
+                best_state = pickle.load(state_file)
+            params = best_state['state']['params']
+            num_params = hk.data_structures.tree_size(params)
+            row_dict['num_params'] = num_params
+            """
+            df = pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
 
         except OSError:
-            pass
-            #print(f'{dirname} not a valid path, path is skipped.')
+            if os.path.exists(workdir + '/ABORTED_EARLY'):
+                # in this case, the training was aborted before the first
+                # checkpoint
+                finish_condition["aborted_early"].append(dirname)
+            else:
+                finish_condition["unknown"].append(dirname)
 
-    dict_minima_top = {}
+    for key, dir_list in finish_condition.items():
+        print(f"# {key}: {len(dir_list)}")
+    print(f"Aborted early: {finish_condition['aborted_early']}")
+    print(f"Time elapsed: {finish_condition['time_elapsed']}")
+    print(f"Unkown: {finish_condition['unknown']}")
 
-    # print the best 5 configs
+
+    # print list of best 10 configs
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
-    for i in range(5):
-        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
+    id_list_best = []
+    n_ids = 10
+    for i in range(n_ids):
+        #print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
+        id_list_best.append(df_copy.iloc[i]['directory'])
+    id_list_best = id_list_to_int_list(id_list_best)
+    print(f'Top {n_ids} models: ')
+    print(id_list_best)
 
-    # print the worst 5 configs
-    df_copy = df_copy.sort_values(by='rmse', axis='index', ascending=False)
-    for i in range(5):
-        print(f'{i}. maximum rmse configuration: \n', df_copy.iloc[i])
-    """
-    for i in range(10):
-        # get index for lowest mae
-        i_min = df_copy['rmse'].idxmin()
-        print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i_min])
-        name = df_copy.iloc[i_min]['directory']
-        df_copy = df_copy.drop([i_min])
-        dict_minima_top[name] = dict_minima[name]
-    """
-    """
-    for column in dict_minima_top:
-        plt.plot(dict_minima_top[column], label=column)
-    plt.legend()
-    plt.show()
-    """
     # drop the worst n configs
     for i in range(args.drop_n):
         i_max = df['rmse'].idxmax()
@@ -130,24 +156,30 @@ def main(args):
         'batch_size': 'Batch size', 'layer_norm': 'Layer norm',
         'global_readout_mlp_layers': 'Readout layers',
         'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
+    df = df.astype({'mlp_depth': 'int32'})
+    df = df.astype({'global_readout_mlp_layers': 'int32'})
+    df = df.astype({'batch_size': 'int32'})
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
+    df = df.astype({'layer_norm': 'bool'})
     df = df.astype({'seed': 'int32'})
-    n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    #n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    n_subplots_max = [[0,1,2,3],[4,5,6],[7,8,9]]
     count = 0  # count up plots for saving them in different files
     for box_xnames_split in split_list(box_xnames, n_subplots_max):
         fig, ax = plt.subplots(
             1, len(box_xnames_split), figsize=(len(box_xnames_split)*4, 8),
             sharey=True)
         for i, name in enumerate(box_xnames_split):
-            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
+            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='lightblue')
             sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
             ax[i].set_xlabel(col_to_label[name], fontsize=args.fontsize)
             if i == 0:
                 ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
             else:
                 ax[i].set_ylabel('')
-            ax[i].tick_params(axis='both', which='both', labelsize=18)
+            ax[i].tick_params(
+                axis='both', which='both', labelsize=args.fontsize-4)
             ax[i].xaxis.labelpad = 15
         #plt.yscale('log')
         plt.rc('font', size=16)
@@ -158,10 +190,28 @@ def main(args):
             dpi=600)
         count += 1
 
-    sns.scatterplot(data=df, x='rmse', y='mae')
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df, x='rmse', y='mae', ax=ax)
+    ax.set_xlabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
+    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
+    ax.set_title('Bandgap', loc='center', y=1.0, pad=-30)
+    ax.tick_params(which='both', labelsize=16)
+    #plt.rc('font', size=16)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(
+        args.file + '/rmse_mae.png', bbox_inches='tight', dpi=600)
+    """
+    fig, ax = plt.subplots()
+    sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
+    ax.set_xlabel('# of parameters', fontsize=args.fontsize)
+    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
+    fig.savefig(
+        args.file + '/params_mae.png', bbox_inches='tight', dpi=600)
+    """
     return 0
 
 
@@ -192,7 +242,7 @@ if __name__ == "__main__":
         help='unit string')
     parser.add_argument(
         '-fontsize', type=int, dest='fontsize',
-        default=22,
+        default=18,
         help='fontsize of axis labels')
     args_main = parser.parse_args()
     main(args_main)

@@ -73,6 +73,7 @@ class UnitTests(unittest.TestCase):
                 os.path.join(test_dir, 'checkpoints'),
                 config.checkpoint_every_steps,
                 config.eval_every_steps,
+                config.batch_size,
                 config.early_stopping_steps)
 
             eval_splits = ['train', 'validation', 'test']

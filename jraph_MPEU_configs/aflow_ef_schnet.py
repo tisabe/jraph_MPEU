@@ -1,6 +1,7 @@
-"""Define the default hyperparameters for aflow data."""
+"""Define the default hyperparameters for model and training."""
 
 import ml_collections
+from jraph_MPEU_configs.default_mp import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     """Get hyperparameter configuration.
@@ -13,10 +14,10 @@ def get_config() -> ml_collections.ConfigDict():
     # Optimizer
     config.optimizer = 'adam'
     config.schedule = 'exponential_decay'
-    config.init_lr = 1e-4 # initial learning rate
+    config.init_lr = 1e-3 # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = 100_000
-    config.decay_rate = 0.98
+    config.decay_rate = 0.96
 
     config.loss_type = 'MSE'
 
@@ -30,21 +31,24 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_checkpoints = 1
     # data split settings
     config.data_file = 'aflow/graphs_all_12knn.db'
-    config.label_str = 'Egap'
+    config.label_str = 'enthalpy_formation_atom'
     config.label_type = 'scalar'  # or 'class', also changes the loss function
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
 
     # data selection parameters
     # remove outliers in formation enthalpy and other dft types
-    config.selection = ("dft_type=['PAW_PBE']")
+    config.selection = (
+        "enthalpy_formation_atom<70,"
+        "enthalpy_formation_atom>-10,"
+        "dft_type=['PAW_PBE']")
     config.limit_data = None
     config.num_edges_max = None
 
     # MPNN hyperparameters
-    config.model_str = 'MPEU'
+    config.model_str = 'SchNet'
     config.message_passing_steps = 3
-    config.latent_size = 256
+    config.latent_size = 64
     config.hk_init = None
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'mean'

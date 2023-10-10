@@ -20,6 +20,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.init_lr = 1e-4
 
     # MPNN hyperparameters
+    config.model_str = 'MPEU'
     config.latent_size = 256
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'mean'

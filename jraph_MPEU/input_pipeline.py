@@ -105,8 +105,12 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     for i in range(len(atoms)):
         nodes.append(atom_numbers[i])
 
+    # Loop over the atoms in the unit cell.
     for i in range(len(atoms)):
+        # Get the neighbourhoods of atom i
         neighbor_indices, offset = neighborhood.get_neighbors(i)
+        # Loop over the neighbours of atom i. Offset helps us calculate the
+        # distance to atoms in neighbouring unit cells.
         for j, offs in zip(neighbor_indices, offset):
             i_pos = atom_positions[i]
             j_pos = atom_positions[j] + np.dot(offs, unitcell)
