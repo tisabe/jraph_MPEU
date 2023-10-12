@@ -97,13 +97,13 @@ def save_config(config: ml_collections.ConfigDict, workdir: str):
     File will be saved as config.json at workdir directory.
     """
     config_dict = vars(config)['_fields']
-    with open(os.path.join(workdir, 'config.json'), 'w') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'w', encoding="utf-8") as config_file:
         json.dump(config_dict, config_file, indent=4, separators=(',', ': '))
 
 
 def load_config(workdir: str) -> ml_collections.ConfigDict:
     """Load and return a config from the directory workdir."""
-    with open(os.path.join(workdir, 'config.json'), 'r') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'r', encoding="utf-8") as config_file:
         config_dict = json.load(config_file)
     config = dict_to_config(config_dict)
     return update_config_fields(config)
@@ -169,7 +169,7 @@ def normalize_targets(inputs, outputs, aggregation_type):
     elif aggregation_type == 'mean':
         scaled_targets = outputs
     else:
-        raise Exception(f"Unrecognized readout type: {aggregation_type}")
+        raise ValueError(f"Unrecognized readout type: {aggregation_type}")
     mean = np.mean(scaled_targets)
     std = np.std(scaled_targets)
 
@@ -196,7 +196,7 @@ def normalize_graphs(graphs, mean, std, aggregation_type):
         elif aggregation_type == 'mean':
             label = (label - mean)/std
         else:
-            raise Exception(f"Unrecognized readout type: {aggregation_type}")
+            raise ValueError(f"Unrecognized readout type: {aggregation_type}")
         labels.append(label[0])
     graphs = add_labels_to_graphs(graphs, labels)
     return graphs

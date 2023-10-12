@@ -8,7 +8,7 @@ as input features.
 import os
 from xmlrpc.client import Boolean
 import random
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List
 import warnings
 import json
 
@@ -32,8 +32,7 @@ from jraph_MPEU.utils import (
 def load_data(workdir):
     """Load datasets only using the working directory."""
     config = load_config(workdir)
-    dataset, mean, std = get_datasets(config, workdir)  # might refactor
-    return dataset, mean, std
+    return get_dataset(config, workdir)
 
 
 def get_graph_fc(atoms: Atoms):
@@ -43,9 +42,7 @@ def get_graph_fc(atoms: Atoms):
     The edges will be fully connected, so every node is connected to every other node.
     """
     if np.any(atoms.get_pbc()):
-        #raise Exception('Received Atoms object with periodic boundary conditions. ' +
-        #    'Fully connected graph cannot be generated.')
-        raise Exception('PBC not allowed for fully connected graph.')
+        raise ValueError('PBC not allowed for fully connected graph.')
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
     receivers = []
@@ -282,7 +279,7 @@ def asedb_to_graphslist(
 
 
 def atoms_to_nodes_list(
-        graphs_dict: dict, num_list: list) -> dict:
+        graphs_list: List, num_list: List) -> dict:
     """Encodes the atomic numbers of nodes in a graph in compact fashion.
 
     Return graphs with atomic numbers as graph-nodes turned into
@@ -302,20 +299,20 @@ def atoms_to_nodes_list(
     """
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
-    for graph in graphs_dict.values():
+    for graph in graphs_list:
         nodes = graph.nodes
         for i, num in enumerate(nodes):
             nodes[i] = num_list.index(num)
         graph._replace(nodes=nodes)
 
-    return graphs_dict
+    return graphs_list
 
 
-def get_atom_num_list(graphs_dict):
+def get_atom_num_list(graphs_list):
     """Return the atomic num list. See atoms_to_nodes_list for details."""
     num_list = [] # List with atomic numbers in the graphs list.
 
-    for graph in graphs_dict.values():  # Loop over all graphs.
+    for graph in graphs_list:  # Loop over all graphs.
         nodes = graph.nodes  # Grab information about nodes in the graph.
         for num in nodes:  # Loop over nodes in a graph.
             if not num in num_list:
@@ -405,7 +402,7 @@ class DataReader:
 
 def get_train_val_test_split_dict(
         id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=42):
-    """Return the id_list split into train, validation and test indices."""
+    """Return the id_list turned into dict with ids as keys and split as value."""
     if abs(train_frac + val_frac + test_frac - 1.0) > 1e-5:
         raise ValueError('Train, val and test fractions do not add up to one.')
     (
@@ -423,58 +420,27 @@ def get_train_val_test_split_dict(
             test_size=test_frac/(test_frac+val_frac),
             random_state=1)
     # seed-41 as seed is 42 by default, but default random state should be 1
-    split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
-    return split_dict
-
-
-def split_dict_to_lists(split_dict_in):
-    """Convert split_dict to signature {'split1': [...], 'split2': [...], ...}.
-
-    split_dict must have signature
-    {1: 'split1', 2: 'split1',... 11: 'split2',...}.
-    """
-    split_lists = {}
-    for id_single, split in split_dict_in.items():
-        if split in split_lists.keys():
-            split_lists[split].append(id_single)
-        else:
-            split_lists[split] = []
-            split_lists[split].append(id_single)
-    return split_lists
-
-
-def lists_to_split_dict(split_lists):
-    """Convert split_lists to signature {1: 'split1', 2: 'split1', ... }.
-
-    split_lists must have signature {'split1': [...], 'split2': [...], ...}.
-    """
+    split_lists = {'train': train_set, 'validation': val_set, 'test': test_set}
     split_dict = {}
-    for split, ids in split_lists.items():
-        for id_single in ids:
+    for split, ids_list in split_lists.items():
+        for id_single in ids_list:
             split_dict[id_single] = split
     return split_dict
 
 
-def save_split_dict(split_lists, workdir):
-    """Save the split_lists in json file at workdir.
-
-    The split_lists has signature:
-    {'split1': [1, 2,...], 'split2': [11, 21...]}, ... and this is turned into
-    the signature {1: 'split1', 2: 'split1',... 11: 'split2',...}.
-    This format is more practical when doing the inference after training."""
-    split_dict = lists_to_split_dict(split_lists)
-
-    with open(os.path.join(workdir, 'splits.json'), 'w') as splits_file:
-        json.dump(split_dict, splits_file, indent=4, separators=(',', ': '))
+def save_split_dict(split_dict, workdir):
+    """Save the split_dict in json file at workdir."""
+    with open(os.path.join(workdir, 'splits.json'), 'w', encoding="utf-8") as split_file:
+        json.dump(split_dict, split_file, indent=4, separators=(',', ': '))
 
 
 def load_split_dict(workdir):
     """Load the split dict that saved ids and their split in workdir.
 
     The keys are integer ids and the values are splitnames as strings."""
-    with open(os.path.join(workdir, 'splits.json'), 'r') as splits_file:
-        splits_dict = json.load(splits_file, parse_int=True)
-    return {int(k): v for k, v in splits_dict.items()}
+    with open(os.path.join(workdir, 'splits.json'), 'r', encoding="utf-8") as split_file:
+        split_dict = json.load(split_file, parse_int=True)
+    return {int(k): v for k, v in split_dict.items()}
 
 
 def cut_egap(egap: float, threshold: float = 0.0):
@@ -485,9 +451,11 @@ def cut_egap(egap: float, threshold: float = 0.0):
         return 0
 
 
-def get_datasets(config, workdir):
-    """New version of dataset getter."""
-    # TODO: put in real docstring.
+def get_dataset(config, workdir):
+    """Return dataset specified in config, using files in workdir.
+    
+    Returns a dict with split names as keys and graph lists as values.
+    """
     # Pull the data from the ase database. If there is no file with splits
     # present, pull the data using the parameters selection and limit.
     # If the file with splits is present, load it and pull the data using the
@@ -495,80 +463,81 @@ def get_datasets(config, workdir):
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
         logging.info(f'Did not find split file at {split_path}. Pulling data.')
-        graphs_list, labels_list, ids = asedb_to_graphslist(
+        # ids are 1-based
+        graphs_list, labels_list, ids_list = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
             selection=config.selection,
             num_edges_max=config.num_edges_max,
             limit=config.limit_data)
-        # transform graphs list into graphs dict, same for labels
-        graphs_dict = {}
-        labels_dict = {}
-        for (graph, label, id_single) in zip(graphs_list, labels_list, ids):
-            graphs_dict[id_single] = graph
-            labels_dict[id_single] = label
-
+        # generate split file
+        logging.debug('Generating splits and saving split file.')
+        # If split file did not exist before, generate and save it
+        split_dict = get_train_val_test_split_dict(
+            ids_list, 1.0-(config.val_frac+config.test_frac), config.val_frac,
+            config.test_frac, seed=config.seed
+        )
+        save_split_dict(split_dict, workdir)
     else:
         logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
-        graphs_dict = {}
-        labels_dict = {}
+        graphs_list = []
+        labels_list = []
+        ids_list = []
         split_dict = load_split_dict(workdir)
         ase_db = ase.db.connect(config.data_file)
         for id_single in split_dict.keys():
             row = ase_db.get(id_single)
             graph = ase_row_to_jraph(row)
-            #graphs_list.append(graph)
-            graphs_dict[id_single] = graph
             label = row.key_value_pairs[config.label_str]
-            #labels_list.append(label)
-            labels_dict[id_single] = label
-    # In either path, the list ids has been created at this point. ids contains
+            graphs_list.append(graph)
+            labels_list.append(label)
+            ids_list.append(id_single)
+    # In either path, the ids_list has been created at this point. ids contains
     # the asedb row.id of each graph that has been pulled.
 
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
     if not os.path.exists(num_path):
-        num_list = get_atom_num_list(graphs_dict)
+        num_list = get_atom_num_list(graphs_list)
         # save num list here
-        with open(num_path, 'w+') as num_file:
+        with open(num_path, 'w+', encoding="utf-8") as num_file:
             json.dump(num_list, num_file)
     else:
-        with open(num_path, 'r') as num_file:
+        with open(num_path, 'r', encoding="utf-8") as num_file:
             num_list = json.load(num_file)
-    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+    graphs_list = atoms_to_nodes_list(graphs_list, num_list)
 
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
-        graphs_dict[id_single] = graph._replace(globals=np.array([label]))
-
-    if not os.path.exists(split_path):
-        logging.debug('Generating splits and saving split file.')
-        # If split file did not exist before, generate and save it
-        split_lists = get_train_val_test_split_dict(
-            ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
-            config.test_frac, seed=config.seed
-        )
-        save_split_dict(split_lists, workdir)
-    else:
-        # If it did exist, convert split_dict to split_lists
-        split_lists = split_dict_to_lists(split_dict)
-
-    graphs_split = {}  # dict with the graphs list divided into splits
-    for key, id_list in split_lists.items():
-        graphs_split[key] = []  # init lists for every split
-        for id_single in id_list:
-            # append graph from graph_list using the id in split_dict
-            graphs_split[key].append(graphs_dict[id_single])
+    split_names = set(split_dict.values())
+    graphs_split = {}
+    labels_split = {}
+    for split_name in split_names:
+        graphs_split[split_name] = []
+        labels_split[split_name] = []
+    for id_single, graph, label in zip(ids_list, graphs_list, labels_list):
+        graphs_split[split_dict[id_single]].append(graph)
+        labels_split[split_dict[id_single]].append(label)
 
     # get normalization metrics from train data
     if config.label_type == 'scalar':
         mean, std = get_normalization_metrics(
             graphs_split['train'], config.aggregation_readout_type)
         logging.info(f'Mean: {mean}, Std: {std}')
+        normalization_dict = {
+            'type': 'scalar',
+            'aggr': config.aggregation_readout_type,
+            'mean': mean,
+            'std': std
+        }
     elif config.label_type == 'class':
-        mean, std = None, None
+        normalization_dict = {
+            'type': 'class',
+            'aggr': config.aggregation_readout_type,
+            'mean': None,
+            'std': None
+        }
     else:
         raise ValueError(f'{config.label_type} not recognized as label type.')
 
@@ -580,4 +549,5 @@ def get_datasets(config, workdir):
             for i, graph in enumerate(graphs_list):
                 label = cut_egap(graph.globals[0], config.egap_cutoff)
                 graphs_list[i] = graph._replace(globals=np.array([label]))
-    return graphs_split, mean, std
+
+    return graphs_split, labels_split, normalization_dict

@@ -10,7 +10,8 @@ from typing import (
     Sequence,
     Tuple,
     Any,
-    Mapping
+    Mapping,
+    List
 )
 
 from absl import logging
@@ -28,14 +29,13 @@ from jraph_MPEU.utils import (
     #Time_logger,
     replace_globals,
     get_valid_mask,
-    save_config
+    save_config,
+    add_labels_to_graphs
 )
 from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )
-from jraph_MPEU.inference import get_results_df
-
 # maximum loss, if training batch loss exceeds this, stop training
 _MAX_TRAIN_LOSS = 1e10
 
@@ -138,8 +138,8 @@ class CheckpointingUpdater:
 
         step = np.array(state['step'])
         if step % self._checkpoint_every_n == 0:
-            path = os.path.join(self._checkpoint_dir,
-                                'checkpoint_{:07d}.pkl'.format(step))
+            path = os.path.join(
+                self._checkpoint_dir, f'checkpoint_{step:07d}.pkl')
             checkpoint_state = jax.device_get(state)
             logging.info('Serializing experiment state to %s', path)
             with open(path, 'wb') as state_file:
@@ -534,15 +534,49 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, std = get_datasets(config, workdir)
+    graphs_split, labels_split, normalization_dict = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection
     save_config(config, workdir)
 
+    evaluater = train_and_validate_from_graphslist(
+        graphs_split['train'],
+        labels_split['train'],
+        graphs_split['validation'],
+        labels_split['validation'],
+        workdir,
+        config,
+        normalization_dict
+    )
+
+    lowest_val_loss = evaluater.lowest_val_loss
+    logging.info(f'Lowest validation loss: {lowest_val_loss}')
+
+    return evaluater, lowest_val_loss
+
+
+def train_and_validate_from_graphslist(
+    train_inputs: List[jraph.GraphsTuple],
+    train_outputs: List[float],
+    val_inputs: List[jraph.GraphsTuple],
+    val_outputs: List[float],
+    workdir: str, config: ml_collections.ConfigDict,
+    normalization_dict: dict
+):
+    """Run training and validation on model specified using workdir and config.
+    
+    The model is initialized from the parameters in config, and model weights
+    are saved in /workdir/checkpoints.
+    """
+    # add labels as globals to graphs
+    train_graphs = add_labels_to_graphs(train_inputs, train_outputs)
+    val_graphs = add_labels_to_graphs(val_inputs, val_outputs)
+    eval_datasets = {"train": train_graphs, "validation": val_graphs}
+
     # initialize data reader with training data
     train_reader = DataReader(
-        data=datasets['train'],
+        data=train_graphs,
         batch_size=config.batch_size,
         repeat=True,
         seed=config.seed)
@@ -561,11 +595,11 @@ def train_and_evaluate(
     logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
 
     # Decide on splits of data on which to evaluate.
-    eval_splits = ['train', 'validation', 'test']
+    eval_splits = ['train', 'validation']
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
     if config.label_type == 'scalar':
-        evaluater.set_loss_scalar(std)
+        evaluater.set_loss_scalar(normalization_dict['std'])
     else:
         evaluater.set_loss_scalar(1.0)
 
@@ -586,7 +620,7 @@ def train_and_evaluate(
         state, loss_metrics = updater.update(state, graphs)
 
         # Log periodically the losses/step count.
-        is_last_step = (step == config.num_train_steps_max)
+        is_last_step = step == config.num_train_steps_max
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
@@ -596,7 +630,7 @@ def train_and_evaluate(
             logging.info('Invalid loss, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w'):
+                with open(workdir + '/ABORTED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
 
@@ -604,13 +638,13 @@ def train_and_evaluate(
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits)
+        early_stop = evaluater.update(state, eval_datasets, eval_splits)
 
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/STOPPED_EARLY'):
-                with open(workdir + '/STOPPED_EARLY', 'w'):
+                with open(workdir + '/STOPPED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
 
@@ -620,22 +654,7 @@ def train_and_evaluate(
             logging.info(
                 'Reached maximum number of steps without early stopping.')
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
                     pass
 
-    lowest_val_loss = evaluater.lowest_val_loss
-    logging.info(f'Lowest validation loss: {lowest_val_loss}')
-
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
-    return evaluater, lowest_val_loss
+    return evaluater
