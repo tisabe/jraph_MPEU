@@ -52,11 +52,12 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --gres=gpu:a100:1    # Use one a100 GPU
 
 # Load the environment with modules and python packages.
-source /u/dansp/envs/activate_jax.sh
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python3 scripts/main.py --workdir=<folder_name> --config=<folder_name>/<config_name>
+cd /u/dansp/jraph_MPEU
+source activate_jax.sh
+srun python3.9 scripts/main.py --workdir=<folder_name> --config=<folder_name>/<config_name>
 # --config.label_str=<label_str>
 """
 
