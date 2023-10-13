@@ -1,21 +1,8 @@
-"""Test zip creation."""
+"""Test creating experiments for profiling."""
 
-import glob
 import os
-import sys
-
-import pytest
-from pathlib import Path
 
 from jraph_MPEU import create_profile_experiments as cpe
-
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-# import jraph_mpeu.create_profile_experiments as cpe
-
-
-EXPECTED_PATHS = [
-    'light_minimal_2.sh',
-]
 
 
 def test_get_settings_list(
@@ -131,34 +118,3 @@ def test_create_folder_and_files_for_setting(tmp_path):
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
             'static/64/gpu:a100/iteration_2/profiling_job.sh') in job_files
-
-# def test_create_jobs(tmp_path):
-#     folder_base_path = tmp_path / "test_dir"
-#     folder_base_path.mkdir()
-
-#     # Now create the jobs:
-#     job_script_folder = tmp_path / 'job_dir'
-#     mat_grouping = 'aflow_2000'
-#     job_script_folder.mkdir()
-#     full_folder = (job_script_folder / mat_grouping)
-#     full_folder.mkdir()
-
-#     zhd.create_jobs(
-#         folder_base_path.resolve(),
-#         job_script_folder.resolve(),
-#         mat_grouping)
-
-#     job_paths = (full_folder / 'zip_job_scripts.txt').read_text()
-
-#     for path in EXPECTED_PATHS:
-#         assert path in job_paths
-
-#     with open(full_folder / EXPECTED_PATHS[0], 'r') as fd:
-#         job_script = fd.read()
-#         print(job_script)
-#         print('\n\n')
-#         command = (
-#             f'zip -r /perm/projects/bep00098/zipped_files/aflow_2000/light_minimal_2.zip '
-#             f'{folder_base_path / "light" / "minimal" / "atomic_zora" / "2"}')
-        
-#         assert command in job_script
