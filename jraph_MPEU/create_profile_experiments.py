@@ -28,7 +28,7 @@ flags.DEFINE_list(
     'batching_method', 'None',
     'Can be either "static" or "dynamic".')
 flags.DEFINE_list(
-    'computing_method', 'None',
+    'computing_type', 'None',
     'Can be either "gpu:v100", "gpu:a100" or "cpu".')
 flags.DEFINE_string(
     'experiment_dir', 'None',
@@ -53,7 +53,6 @@ JOB_SCRIPT = """
 #SBATCH --gres=gpu:a100:1    # Use one a100 GPU
 
 # Load the environment with modules and python packages.
-module purge
 source /u/dansp/envs/activate_jax.sh
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
