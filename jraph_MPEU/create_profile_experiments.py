@@ -42,7 +42,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
 <constraint>
-#SBATCH --cpus-per-task=72
+#SBATCH --cpus-per-task=18
 #SBATCH --ntasks-per-core=1
 #SBATCH --mem=32000  # Request 32 GB of main memory per node in MB units.
 #SBATCH --mail-type=none
