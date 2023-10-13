@@ -35,8 +35,7 @@ flags.DEFINE_string(
     'Directory for experiments.')
 
 
-JOB_SCRIPT = """
-#!/bin/bash -l
+JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -o <folder_name>/%j.out
 #SBATCH -e <folder_name>/%j.err
 #SBATCH -D <folder_name>/
