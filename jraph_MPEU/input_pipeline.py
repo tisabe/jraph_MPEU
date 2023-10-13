@@ -547,7 +547,9 @@ def get_dataset(config, workdir):
                 graphs_list, mean, std, config.aggregation_readout_type)
         elif config.label_type == 'class':
             for i, graph in enumerate(graphs_list):
+                print(graph)
                 label = cut_egap(graph.globals[0], config.egap_cutoff)
                 graphs_list[i] = graph._replace(globals=np.array([label]))
+                break
 
     return graphs_split, labels_split, normalization_dict

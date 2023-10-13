@@ -15,7 +15,7 @@ import jax.numpy as jnp
 import jraph
 
 from jraph_MPEU import train
-from jraph_MPEU.input_pipeline import get_datasets
+from jraph_MPEU.input_pipeline import get_dataset
 from jraph_MPEU_configs import test_numerics as cfg_num
 from jraph_MPEU_configs import default_test as cfg
 
@@ -28,7 +28,7 @@ class TestTrain(unittest.TestCase):
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
         with tempfile.TemporaryDirectory() as test_dir:
-            datasets, _, _ = get_datasets(self.config, test_dir)
+            datasets, _, _ = get_dataset(self.config, test_dir)
             self.datasets = datasets
 
     def test_cross_entropy(self):

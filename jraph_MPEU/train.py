@@ -33,7 +33,7 @@ from jraph_MPEU.utils import (
     add_labels_to_graphs
 )
 from jraph_MPEU.input_pipeline import (
-    get_datasets,
+    get_dataset,
     DataReader,
 )
 # maximum loss, if training batch loss exceeds this, stop training
@@ -534,7 +534,7 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    graphs_split, labels_split, normalization_dict = get_datasets(config, workdir)
+    graphs_split, labels_split, normalization_dict = get_dataset(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection

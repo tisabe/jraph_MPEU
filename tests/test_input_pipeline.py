@@ -19,7 +19,7 @@ from jraph_MPEU.input_pipeline import (
     get_train_val_test_split_dict,
     save_split_dict,
     load_split_dict,
-    get_datasets,
+    get_dataset,
     get_atom_num_list,
     label_list_to_class_dict,
     label_list_to_int_class_list
@@ -59,8 +59,8 @@ class TestPipelineFunctions(unittest.TestCase):
         class_list = label_list_to_int_class_list(label_list, class_dict)
         self.assertTrue(class_list_expected == class_list)
 
-    def test_get_datasets(self):
-        """Test new version of get_datasets.
+    def test_get_dataset(self):
+        """Test new version of get_dataset.
 
         For this an ase database is generated with atoms objects and graphs
         attributes. Also a config with parameters is generated."""
@@ -104,7 +104,7 @@ class TestPipelineFunctions(unittest.TestCase):
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
-            graphs_split, mean, std = get_datasets(
+            graphs_split, labels_split, normalization_dict = get_dataset(
                 config, test_dir
             )
             # calculate expected metrics using only training labels
@@ -112,16 +112,16 @@ class TestPipelineFunctions(unittest.TestCase):
                 label_values[np.array(test_split_dict['train'])-1])
             std_expected = np.std(
                 label_values[np.array(test_split_dict['train'])-1])
-            self.assertAlmostEqual(mean, mean_expected)
-            self.assertAlmostEqual(std, std_expected)
-            self.assertTrue(mean is not None)
-            self.assertTrue(std is not None)
+            self.assertAlmostEqual(normalization_dict['mean'], mean_expected)
+            self.assertAlmostEqual(normalization_dict['std'], std_expected)
+            self.assertTrue(normalization_dict['mean'] is not None)
+            self.assertTrue(normalization_dict['std'] is not None)
 
             # check that the splits.json and atomic_num_list.json file was created
             self.assertTrue(os.path.exists(path_split))
             self.assertTrue(os.path.exists(path_num))
             # check that the atomic num list has at least one entry
-            with open(path_num) as list_file:
+            with open(path_num, encoding="utf-8") as list_file:
                 num_list = json.load(list_file)
             self.assertTrue(len(num_list) > 0)
 
@@ -132,11 +132,11 @@ class TestPipelineFunctions(unittest.TestCase):
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
-                labels = [(graph.globals[0]*std)+mean for graph in graph_list]
+                labels = [(graph.globals[0]*normalization_dict['std'])+normalization_dict['mean'] for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
 
             # load the dataset again to check if generated jsons work
-            graphs_split, mean, std = get_datasets(
+            graphs_split, labels_split, normalization_dict = get_dataset(
                 config, test_dir
             )
             # TODO: test that the nodes are still transformed in the same way
@@ -147,7 +147,7 @@ class TestPipelineFunctions(unittest.TestCase):
                 for node, node_old in zip(nodes, nodes_old):
                     np.testing.assert_array_equal(node, node_old)
 
-    def test_get_datasets_class(self):
+    def test_get_dataset_class(self):
         """Test get_dataset function using classification label.
         
         For this test to work, an aflow dataset has to be created using
@@ -170,13 +170,18 @@ class TestPipelineFunctions(unittest.TestCase):
         config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
-            graphs_split, mean, std = get_datasets(config, workdir)
+            graphs_split, labels_split, normalization_dict = get_dataset(config, workdir)
             globals_list = []
             for graph in graphs_split['train']:
                 globals_list.append(graph.globals[0])
             # check that there are only zeros and ones in the list
             self.assertTrue(sorted(set(globals_list)) == [0, 1])
             # TODO: check that threshold is evaluated correctly
+        self.assertTrue(normalization_dict['mean'] is None)
+        self.assertTrue(normalization_dict['std'] is None)
+        self.assertTrue(normalization_dict['aggr'] == config.aggregation_readout_type)
+        self.assertTrue(normalization_dict['type'] == 'class')
+        #self.assertIsInstance(labels_split['train'], list)
 
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving

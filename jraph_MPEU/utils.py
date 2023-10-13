@@ -6,13 +6,14 @@ import time
 import json
 from ast import literal_eval
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, List
 
 import jax.numpy as jnp
 import jraph
 import numpy as np
 import ml_collections
 from sklearn.model_selection import ParameterGrid
+import pandas as pd
 
 from jraph_MPEU_configs.default import get_config
 
@@ -186,20 +187,76 @@ def get_normalization_metrics(graphs, aggregation_type):
     return mean, std
 
 
-def normalize_graphs(graphs, mean, std, aggregation_type):
+def normalize_graphs(graphs, labels, normalization_dict):
     """Return graphs with normalized global values."""
-    labels = []
-    for graph in graphs:
-        label = np.array(graph.globals)
-        if aggregation_type == 'sum':
-            label = (label - (mean*graph.n_node[0]))/std
-        elif aggregation_type == 'mean':
-            label = (label - mean)/std
-        else:
-            raise ValueError(f"Unrecognized readout type: {aggregation_type}")
-        labels.append(label[0])
-    graphs = add_labels_to_graphs(graphs, labels)
+    aggregation_type = normalization_dict['aggr']
+    label_type = normalization_dict['type']
+
+    if label_type == 'class':
+        return graphs
     return graphs
+
+
+def normalize_scalar(inputs, outputs, config):
+    aggregation_type = config.aggregation_readout_type
+    label_type = config.label_type
+
+    outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
+    n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
+    for i in range(len(outputs)):
+        n_atoms[i] = inputs[i].n_node[0]
+
+    if aggregation_type == 'sum':
+        scaled_targets = np.array(outputs)/n_atoms
+    elif aggregation_type == 'mean':
+        scaled_targets = outputs
+    else:
+        raise ValueError(f"Unrecognized readout type: {aggregation_type}")
+    mean = np.mean(scaled_targets)
+    std = np.std(scaled_targets)
+    normalization_dict = {
+        'type': label_type,
+        'aggr': aggregation_type,
+        'mean': mean,
+        'std': std
+    }
+
+    if aggregation_type == 'sum':
+        return (outputs - (mean*n_atoms))/std, normalization_dict
+    else:
+        return (scaled_targets - mean)/std, normalization_dict
+
+def normalize(
+    inputs: List[jraph.GraphsTuple],
+    outputs: List[float],
+    config: ml_collections.ConfigDict):
+    """Return normalized inputs and outputs, normalization dict, based on config.
+    
+    Normalization dict contains information on how to undo the normalization.
+    At the moment inputs is list of graphs, and outputs is list of scalars,
+    but in the future this should be extended to both being graphs, with
+    normalization of various input and output features.
+             graph_i
+            /   |   \
+           /    |    \
+    globals   nodes  edges
+            /   |   \
+           /    |    \
+    feature1   ...  featureN
+       |   \
+       |    \
+    value  type
+    """
+    global_features = []
+    node_features = []
+    edge_features = []
+    for graph in inputs:
+        global_features.append(graph.globals)
+        node_features.append(graph.nodes)
+        edge_features.append(graph.edges)
+    df_globals = pd.json_normalize(global_features, max_level=1)
+    df_nodes = pd.json_normalize(node_features, max_level=1)
+    df_edges = pd.json_normalize(edge_features, max_level=1)
 
 
 def scale_targets(inputs, outputs, mean, std, aggregation_type):
