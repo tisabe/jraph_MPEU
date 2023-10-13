@@ -54,9 +54,7 @@ JOB_SCRIPT = """
 
 # Load the environment with modules and python packages.
 module purge
-source ~/envs/activate_jax.sh
-
-# export JAX_LOG_COMPILES=1
+source /u/dansp/envs/activate_jax.sh
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
