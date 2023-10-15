@@ -75,10 +75,11 @@ def test_create_job_script(tmp_path):
     assert os.path.isfile(job_script_path_name)
     with open(job_script_path_name, 'r') as fd:
         job_script = fd.readlines()
+        print(job_script)
         assert ('#SBATCH -o ' + str(folder_base_path) + '/%j.out\n') in job_script
         assert '<gres>' not in job_script
         assert '#SBATCH --gres=gpu:a100:1    # Use one a100 GPU\n' in job_script
-        assert ('srun python3 scripts/main.py' + ' --workdir=' + str(folder_base_path) +
+        assert ('srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) +
             ' --config=' + str(folder_base_path) + '/' + 'test_config\n') in job_script
 
 
@@ -114,7 +115,7 @@ def test_create_folder_and_files_for_setting(tmp_path):
         assert len(job_files) == 2
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/32/gpu:a100/iteration_1/profiling_job.sh\n') in job_files
+            'static/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/64/gpu:a100/iteration_2/profiling_job.sh') in job_files
+            'static/64/gpu_a100/iteration_2/profiling_job.sh') in job_files

@@ -114,7 +114,9 @@ def create_job_script(
         '<config_name>', str(config_name))
     job_script = job_script.replace(
         '<folder_name>', str(folder_name))
-    
+    job_script = job_script.replace(
+        '<job_name>',
+        setting['batching_method'] + '_' + str(setting['batch_size']))    
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
@@ -122,6 +124,11 @@ def create_job_script(
         gres = '#SBATCH --gres=' + setting['computing_type'] + ':1'
         job_script = job_script.replace(
             '<gres>', str(gres))
+    else:
+        job_script = job_script.replace(
+            '<constraint>', '')
+        job_script = job_script.replace(
+            '<gres>', '')        
     job_script_path_name = Path(folder_name) / 'profiling_job.sh'
     with open(job_script_path_name, 'w') as fd:
         fd.write(job_script)
@@ -140,7 +147,7 @@ def create_folder_for_setting(base_dir, setting):
         setting['dataset'] + '/' +
         setting['batching_method'] + '/' +
         str(setting['batch_size']) + '/' +
-        setting['computing_type'] + '/' +
+        setting['computing_type'].replace(':', '_') + '/' +
         'iteration_' + str(setting['iteration']))
     if not os.path.isdir(folder_name):
         # Make a directory for this setting.
