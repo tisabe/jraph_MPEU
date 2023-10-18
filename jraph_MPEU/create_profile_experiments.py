@@ -57,7 +57,7 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 cd /u/dansp/jraph_MPEU
 source activate_jax.sh
-srun python3.9 scripts/main.py --workdir=<folder_name> --config=<folder_name>/<config_name>
+srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
 # --config.label_str=<label_str>
 """
 

@@ -69,8 +69,9 @@ def test_create_job_script(tmp_path):
         'computing_type': 'gpu:a100',
         'iteration': 1,
     }
-    config_name = 'test_config'
-    job_script_path_name = cpe.create_job_script(setting, config_name, folder_base_path)
+    config_name = 'test_config.py'
+    job_script_path_name = cpe.create_job_script(
+        setting, str(folder_base_path / config_name), folder_base_path)
     assert job_script_path_name == folder_base_path / 'profiling_job.sh'
     assert os.path.isfile(job_script_path_name)
     with open(job_script_path_name, 'r') as fd:
@@ -80,7 +81,7 @@ def test_create_job_script(tmp_path):
         assert '<gres>' not in job_script
         assert '#SBATCH --gres=gpu:a100:1    # Use one a100 GPU\n' in job_script
         assert ('srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) +
-            ' --config=' + str(folder_base_path) + '/' + 'test_config\n') in job_script
+            ' --config=' + str(folder_base_path) + '/' + 'test_config.py\n') in job_script
 
 
 def test_create_folder_and_files_for_setting(tmp_path):
@@ -119,3 +120,19 @@ def test_create_folder_and_files_for_setting(tmp_path):
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
             'static/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
+    # Open one of the job paths and check the job script is good.
+    print(str(folder_base_path))
+    with open(
+        str(folder_base_path) + \
+        '/profiling_experiments/mpnn/aflow/' + \
+        'static/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
+        job_script = fd.readlines()
+        print(job_script)
+        assert '#SBATCH --gres=gpu:a100:1    # Use one a100 GPU\n' in job_script
+        expected_srun_statement = (
+            'srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) + \
+            '/profiling_experiments/mpnn/aflow/static/32/gpu_a100/iteration_1' + \
+            ' --config=' + str(folder_base_path) + '/' + \
+            'profiling_experiments/mpnn/aflow/static/32/gpu_a100/iteration_1/config_aflow_static_32.py\n')
+        print(expected_srun_statement)
+        assert expected_srun_statement in job_script
