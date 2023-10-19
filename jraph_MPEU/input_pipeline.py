@@ -369,14 +369,14 @@ class DataReader:
         # This makes this thing complicated. From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
-        if dynamic_batch is True:
-            self.batch_generator = jraph.dynamically_batch(
-                self._generator,
-                self.budget.n_node,
-                self.budget.n_edge,
-                self.budget.n_graph)
-        else:
-            self.batch_generator = self.static_batch()
+        # if dynamic_batch is True:
+        #     self.batch_generator = jraph.dynamically_batch(
+        #         self._generator,
+        #         self.budget.n_node,
+        #         self.budget.n_edge,
+        #         self.budget.n_graph)
+        # else:
+        #     self.batch_generator = self.static_batch()
 
     def static_batch(self):
         # logging.info('STATIC batch: grab another graph')
@@ -393,15 +393,15 @@ class DataReader:
 
     @functools.partial(jax.jit, static_argnums=0)
     def __next__(self):
-        # # logging.info('STATIC batch: grab another graph')
-        # graphs = []
-        # for _ in range(self.batch_size):
-        #     graph = next(self._generator)
-        #     graphs.append(graph)
-        # graphs = jraph.batch(graphs)
-        # # logging.info('STATIC batch: yield graphs')
-        # return pad_graph_to_nearest_power_of_two(graphs)
-        return next(self.batch_generator)
+        # logging.info('STATIC batch: grab another graph')
+        graphs = []
+        for _ in range(self.batch_size):
+            graph = next(self._generator)
+            graphs.append(graph)
+        graphs = jraph.batch(graphs)
+        # logging.info('STATIC batch: yield graphs')
+        return pad_graph_to_nearest_power_of_two(graphs)
+        # return next(self.batch_generator)
 
 
     def _make_generator(self):

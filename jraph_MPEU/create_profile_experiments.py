@@ -49,13 +49,11 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=12:00:00
 <gres>
-#SBATCH --gres=gpu:a100:1    # Use one a100 GPU
-
-# Load the environment with modules and python packages.
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 cd /u/dansp/jraph_MPEU
+# Load the environment with modules and python packages.
 source activate_jax.sh
 srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
 # --config.label_str=<label_str>
@@ -91,7 +89,7 @@ def create_config_file_path(
     config = config.replace(
         '<batch_size>', str(setting['batch_size']))
     if setting['dataset'] == 'aflow':
-        data_file = 'aflow/graphs_knn24_ICSD_bandgaps_and_fe_11_28.db'
+        data_file = 'aflow/graphs_knn_fix.db'
         label_str = 'enthalpy_formation_atom'
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
