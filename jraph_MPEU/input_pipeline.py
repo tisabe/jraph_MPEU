@@ -375,8 +375,8 @@ class DataReader:
                 self.budget.n_node,
                 self.budget.n_edge,
                 self.budget.n_graph)
-        # else:
-        #     self.batch_generator = self.static_batch()
+        else:
+            self.batch_generator = self.static_batch()
 
     def static_batch(self):
         # logging.info('STATIC batch: grab another graph')
@@ -391,17 +391,16 @@ class DataReader:
     def __iter__(self):
         return self
 
-    # @functools.partial(jax.jit, static_argnums=0)
-    # def __next__(self):
-    #     # logging.info('STATIC batch: grab another graph')
-    #     graphs = []
-    #     for _ in range(self.batch_size):
-    #         graph = next(self._generator)
-    #         graphs.append(graph)
-    #     graphs = jraph.batch(graphs)
-    #     # logging.info('STATIC batch: yield graphs')
-    #     return pad_graph_to_nearest_power_of_two(graphs)
-    #     # return next(self.batch_generator)
+    @functools.partial(jax.jit, static_argnums=0)
+    def __next__(self):
+        # logging.info('STATIC batch: grab another graph')
+        # graphs = []
+        # for _ in range(self.batch_size):
+        #     graph = next(self._generator)
+        #     graphs.append(graph)
+        # graphs = jraph.batch(graphs)
+        # yield pad_graph_to_nearest_power_of_two(graphs)
+        return next(self.batch_generator)
 
 
     def _make_generator(self):
