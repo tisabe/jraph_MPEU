@@ -400,7 +400,7 @@ class DataReader:
     def __iter__(self):
         return self
 
-    @functools.partial(jax.jit, static_argnums=0)
+    # @functools.partial(jax.jit, static_argnums=0)
     def __next__(self):
         # logging.info('STATIC batch: grab another graph')
         # graphs = []
