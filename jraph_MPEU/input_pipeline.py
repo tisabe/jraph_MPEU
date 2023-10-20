@@ -385,6 +385,9 @@ class DataReader:
             graph = next(self._generator)
             graphs.append(graph)
         graphs = jraph.batch(graphs)
+        print('graphs[0]')
+        print(graphs[0])
+        print(type(graphs[0]))
         # logging.info('STATIC batch: yield graphs')
         yield pad_graph_to_nearest_power_of_two(graphs)
 
