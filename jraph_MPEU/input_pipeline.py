@@ -395,7 +395,8 @@ class DataReader:
         logging.info(graphs[-1])
         logging.info(type(graphs[-1]))
         # logging.info('STATIC batch: yield graphs')
-        yield pad_graph_to_nearest_power_of_two(graphs)
+        return pad_graph_to_nearest_power_of_two(graphs)
+        # yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):
         return self
@@ -409,7 +410,15 @@ class DataReader:
         #     graphs.append(graph)
         # graphs = jraph.batch(graphs)
         # yield pad_graph_to_nearest_power_of_two(graphs)
-        return next(self.batch_generator)
+        logging.info('STATIC batch: grab another graph')
+        graphs = []
+        for _ in range(self.batch_size):
+            graph = next(self._generator)
+            graphs.append(graph)
+        graphs = jraph.batch(graphs)
+        return pad_graph_to_nearest_power_of_two(graphs)
+
+        # return next(self.batch_generator)
 
 
     def _make_generator(self):
