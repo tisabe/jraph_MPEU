@@ -301,6 +301,12 @@ class TestPipelineFunctions(unittest.TestCase):
         # Check that the accumulated sum of labels is larger than the sum of
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
+        self.assertEqual(len(graphs.n_node), batch_size)
+        for i, n_node in enumerate(reversed(graphs.n_node)):
+            if i == 0:
+                self.assertTrue(n_node) == 15
+            else:
+                self.assertTrue(n_node) == 5
 
 
     def test_DataReader_repeat_static(self):
@@ -319,7 +325,7 @@ class TestPipelineFunctions(unittest.TestCase):
         labels = range(num_graphs)
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
-        num_batches = 3  # Number of batches to query and test
+        num_batches = 5  # Number of batches to query and test
         reader = DataReader(graphs, batch_size, True, 42, False)
         labels_repeat_sum = 0
 
@@ -331,6 +337,27 @@ class TestPipelineFunctions(unittest.TestCase):
         # Check that the accumulated sum of labels is larger than the sum of
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
+        total_nodes = 0
+        total_edges = 0
+        num_graphs = len(graphs.n_node)
+        print(num_graphs)
+        self.assertEqual(num_graphs, batch_size)
+        print(graphs.n_node)
+        for i in range(num_graphs):
+            if (num_graphs - i) == 1:  # Last index of array:
+                self.assertEqual(graphs.n_node[i], 19)
+            else:
+                self.assertEqual(graphs.n_node[i], 5)
+                self.assertEqual(graphs.n_edge[i], 6)
+
+            total_nodes += graphs.n_node[i]
+            total_edges += graphs.n_edge[i]
+        # Check that the sum of the n_nodes is a power of 2.
+        # We perform a bitwise AND on the integer and the integer -1
+        # to check if in binary. Ex. 4 is 100 and 3 is 011 so 4 & 3 is 111.
+        print(total_nodes)
+        self.assertEqual(total_nodes & (total_nodes - 1), 0)
+        self.assertEqual(total_edges & (total_edges - 1), 0)
 
 
     def test_ase_row_to_jraph(self):

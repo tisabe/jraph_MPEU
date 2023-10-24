@@ -391,8 +391,9 @@ class DataReader:
         # logging.info('STATIC batch: grab another graph')
         for graph in graphs_tuple_iterator:
             graphs = []
-            # print(f'len of graphs {len(graphs)}')
-            for _ in range(batch_size):
+            # We want only one less than thebatch size since
+            # we will pad the batch to the nearest power of two.
+            for _ in range(batch_size-1):
                 # try:
                 graph = next(self._generator)
                 graphs.append(graph)
@@ -417,10 +418,9 @@ class DataReader:
             # except StopIteration:
             #     # print('there')
             #     pass
-            batch = pad_graph_to_nearest_power_of_two(graphs)
             # print('padded batch')
             # print(batch)
-            yield batch
+            yield pad_graph_to_nearest_power_of_two(graphs)
         # yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):
@@ -470,7 +470,6 @@ class DataReader:
                 idx = idx % self.total_num_graphs
             graph = self.data[idx]
             idx += 1
-            print(idx)
             yield graph
 
 
