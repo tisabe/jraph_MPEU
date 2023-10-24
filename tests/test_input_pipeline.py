@@ -302,6 +302,37 @@ class TestPipelineFunctions(unittest.TestCase):
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
 
+
+    def test_DataReader_repeat_static(self):
+        """Test the DataReader repeating and shuffling."""
+
+        num_graphs = 20 # number of graphs
+        graph = jraph.GraphsTuple(
+            nodes=np.asarray([0, 1, 2, 3, 4]),
+            edges=np.ones((6, 2)),
+            senders=np.array([0, 1]),
+            receivers=np.array([2, 2]),
+            n_node=np.asarray([5]),
+            n_edge=np.asarray([6]),
+            globals=None)
+        graphs = [graph] * num_graphs
+        labels = range(num_graphs)
+        graphs = add_labels_to_graphs(graphs, labels)
+        batch_size = 10
+        num_batches = 3  # Number of batches to query and test
+        reader = DataReader(graphs, batch_size, True, 42, False)
+        labels_repeat_sum = 0
+
+        for _ in range(num_batches):
+            graphs = next(reader)
+            labels_batch = graphs.globals
+            labels_repeat_sum += np.sum(labels_batch)
+
+        # Check that the accumulated sum of labels is larger than the sum of
+        # original labels. This can only be true if the reader is looping.
+        self.assertTrue(labels_repeat_sum > np.sum(labels))
+
+
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
         database = ase.db.connect('matproj/mp_graphs.db')

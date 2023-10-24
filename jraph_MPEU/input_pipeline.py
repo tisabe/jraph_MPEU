@@ -5,6 +5,8 @@ graphs, where the labels are standardized and the nodes have the right numbers
 as input features.
 """
 
+from typing import Generator, Iterator, Sequence
+
 import os
 from xmlrpc.client import Boolean
 import random
@@ -14,6 +16,7 @@ import json
 
 from absl import logging
 import jraph
+from jraph._src import graph as gn_graph
 import sklearn.model_selection
 import numpy as np
 import ase.db
@@ -22,7 +25,6 @@ from ase import Atoms
 from ase.neighborlist import NeighborList
 
 import functools
-import jax
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
@@ -376,26 +378,49 @@ class DataReader:
                 self.budget.n_edge,
                 self.budget.n_graph)
         else:
-            self.batch_generator = self.static_batch()
+            self.batch_generator = self.static_batch(
+                self._generator,
+                self.batch_size
+            )
 
-    def static_batch(self):
+    # def static_batch(self):
+    def static_batch(
+            self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
+            batch_size: int,
+            ) -> Generator[gn_graph.GraphsTuple, None, None]:
         # logging.info('STATIC batch: grab another graph')
-        graphs = []
-        for _ in range(self.batch_size):
-            graph = next(self._generator)
-            graphs.append(graph)
-        graphs = jraph.batch(graphs)
-        print('test print')
-        logging.info('type of graphs')
-        logging.info(type(graphs))
-        logging.info('graphs[0]')
-        logging.info(graphs[0])
-        logging.info(type(graphs[0]))
-        logging.info('graphs[-1]')
-        logging.info(graphs[-1])
-        logging.info(type(graphs[-1]))
-        # logging.info('STATIC batch: yield graphs')
-        return pad_graph_to_nearest_power_of_two(graphs)
+        for graph in graphs_tuple_iterator:
+            graphs = []
+            # print(f'len of graphs {len(graphs)}')
+            for _ in range(batch_size):
+                # try:
+                graph = next(self._generator)
+                graphs.append(graph)
+                #     print(i+1)
+                # except StopIteration:
+                #     break
+            # print('test print')
+            # print(f'len of graphs {len(graphs)}')
+            # logging.info('type of graphs')
+            # logging.info(type(graphs))
+            # logging.info('graphs[0]')
+            # logging.info(graphs[0])
+            # logging.info(type(graphs[0]))
+            # logging.info('graphs[-1]')
+            # logging.info(graphs[-1])
+            # logging.info(type(graphs[-1]))
+            # logging.info('STATIC batch: yield graphs')
+            # Here the StopIteration is happening
+            # try:
+            graphs = jraph.batch(graphs)
+                # print('here')
+            # except StopIteration:
+            #     # print('there')
+            #     pass
+            batch = pad_graph_to_nearest_power_of_two(graphs)
+            # print('padded batch')
+            # print(batch)
+            yield batch
         # yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):
@@ -410,15 +435,14 @@ class DataReader:
         #     graphs.append(graph)
         # graphs = jraph.batch(graphs)
         # yield pad_graph_to_nearest_power_of_two(graphs)
-        logging.info('STATIC batch: grab another graph')
-        graphs = []
-        for _ in range(self.batch_size):
-            graph = next(self._generator)
-            graphs.append(graph)
-        graphs = jraph.batch(graphs)
-        return pad_graph_to_nearest_power_of_two(graphs)
-
-        # return next(self.batch_generator)
+        # logging.info('STATIC batch: grab another graph')
+        # graphs = []
+        # for _ in range(self.batch_size):
+        #     graph = next(self._generator)
+        #     graphs.append(graph)
+        # graphs = jraph.batch(graphs)
+        # return pad_graph_to_nearest_power_of_two(graphs)
+        return next(self.batch_generator)
 
 
     def _make_generator(self):
@@ -446,6 +470,7 @@ class DataReader:
                 idx = idx % self.total_num_graphs
             graph = self.data[idx]
             idx += 1
+            print(idx)
             yield graph
 
 

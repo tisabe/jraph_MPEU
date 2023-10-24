@@ -234,6 +234,7 @@ def pad_graph_to_nearest_power_of_two(
     # Add 1 since we need at least one padding graph for pad_with_graphs.
     # We do not pad to nearest power of two because the batch size is fixed.
     pad_graphs_to = graphs_tuple.n_node.shape[0] + 1
+    print('pad graph to closes power of two')
     return jraph.pad_with_graphs(graphs_tuple, pad_nodes_to, pad_edges_to,
                                  pad_graphs_to)
 
