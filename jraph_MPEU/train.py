@@ -67,7 +67,8 @@ class Updater:
     @functools.partial(jax.jit, static_argnums=0)
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
-        print('Print Message: RECOMPILING')
+        # Note this LOG message should only be called by the program
+        # when it's get recalled and can't be run with same JAX compilation.
         logging.info('LOG Message: Recompiling!')
         rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
