@@ -15,6 +15,7 @@ import warnings
 import json
 
 from absl import logging
+import jax
 import jraph
 from jraph._src import graph as gn_graph
 import sklearn.model_selection
