@@ -429,7 +429,9 @@ def get_train_val_test_split_dict(
 
 
 def save_split_dict(split_dict, workdir):
-    """Save the split_dict in json file at workdir."""
+    """Save the split_dict in json file at workdir.
+    
+    split_dict has format: {id1: split1, id2: split2,...}."""
     with open(os.path.join(workdir, 'splits.json'), 'w', encoding="utf-8") as split_file:
         json.dump(split_dict, split_file, indent=4, separators=(',', ': '))
 
@@ -510,6 +512,7 @@ def get_dataset(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
+    # divide the graphs into different splits
     split_names = set(split_dict.values())
     graphs_split = {}
     labels_split = {}

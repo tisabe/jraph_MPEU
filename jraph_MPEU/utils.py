@@ -250,13 +250,21 @@ def normalize(
     global_features = []
     node_features = []
     edge_features = []
+    n_nodes = []
     for graph in inputs:
         global_features.append(graph.globals)
         node_features.append(graph.nodes)
         edge_features.append(graph.edges)
-    df_globals = pd.json_normalize(global_features, max_level=1)
-    df_nodes = pd.json_normalize(node_features, max_level=1)
-    df_edges = pd.json_normalize(edge_features, max_level=1)
+        n_nodes.append(graph.n_node[0])
+    df_globals = pd.DataFrame(global_features)
+    df_nodes = pd.DataFrame(node_features)
+    #df_edges = pd.json_normalize(edge_features, max_level=1)
+    df_edges = pd.DataFrame({})
+    df_features = pd.concat(
+        [df_globals, df_nodes, pd.DataFrame({"n_node": n_nodes})], axis=1,
+        keys=["global", "node"])
+    print(n_nodes)
+    return df_features
 
 
 def scale_targets(inputs, outputs, mean, std, aggregation_type):

@@ -89,9 +89,16 @@ class TestPipelineFunctions(unittest.TestCase):
             # create and connect to temporary database
             database = ase.db.connect(config.data_file)
             test_split_dict = {
-                'train': [1, 2, 3, 4, 5],
-                'validation': [6, 7, 8],
-                'test': [9, 10]}
+                1: 'train',
+                2: 'train',
+                3: 'train',
+                4: 'train',
+                5: 'train',
+                6: 'validation',
+                7: 'validation',
+                8: 'test',
+                9: 'test',
+                10: 'test'}
             save_split_dict(test_split_dict, test_dir)
             for label_value in label_values:
                 # example structure
@@ -187,18 +194,18 @@ class TestPipelineFunctions(unittest.TestCase):
         """Test the saving and loading of a split dict by generating, saving
         and loading a split dict in a temporary file."""
         test_dict = {
-            'train': [1, 2, 3, 4, 5],
-            'validation': [6, 7, 8],
-            'test': [9]}
+            1: 'train',
+            2: 'train',
+            3: 'validation',
+            4: 'test',
+        }
         with tempfile.TemporaryDirectory() as test_dir:
             save_split_dict(test_dict, test_dir)
             dict_loaded = load_split_dict(test_dir)
         # the loaded dict now has signature
         # {1: 'split1', 2: 'split1',... 11: 'split2',...}.
-        for key, ids in test_dict.items():
-            for i in ids:
-                self.assertEqual(
-                    key, dict_loaded[i], f"Failed dict: {dict_loaded[i]}")
+        for id_single, split in test_dict.items():
+            self.assertEqual(split, dict_loaded[id_single])
 
     def test_get_splits_fail(self):
         """Test getting the indices for train/test/validation splits.
@@ -223,24 +230,39 @@ class TestPipelineFunctions(unittest.TestCase):
         test_frac = 0.1
         split_dict = get_train_val_test_split_dict(
             id_list, train_frac, val_frac, test_frac)
-        self.assertEqual(len(split_dict['train']), 75)
-        self.assertEqual(len(split_dict['validation']), 15)
-        self.assertEqual(len(split_dict['test']), 10)
+
+        split_lists = {'train': [], 'validation': [], 'test': []}
+        for id_single, split in split_dict.items():
+            self.assertIsInstance(id_single, int)
+            split_lists[split].append(id_single)
+
+        self.assertEqual(len(split_lists['train']), 75)
+        self.assertEqual(len(split_lists['validation']), 15)
+        self.assertEqual(len(split_lists['test']), 10)
 
     def test_get_splits(self):
         """Test getting the exact indices for reproducibility in later versions."""
-        id_list = range(1, 21)
+        id_list = range(1, 11)
         train_frac = 0.5
         val_frac = 0.3
         test_frac = 0.2
         split_dict = get_train_val_test_split_dict(
             id_list, train_frac, val_frac, test_frac)
-        np.testing.assert_array_equal(
-            split_dict['train'], [6, 15, 10, 8, 17, 12, 4, 1, 16, 13])
-        np.testing.assert_array_equal(
-            split_dict['validation'], [19, 9, 2, 14, 5, 18])
-        np.testing.assert_array_equal(
-            split_dict['test'], [20, 3, 7, 11])
+        expected = {
+            7: 'train',
+            8: 'train',
+            4: 'train',
+            1: 'train',
+            6: 'train',
+            2: 'validation',
+            3: 'validation',
+            10: 'validation',
+            5: 'test',
+            9: 'test'
+        }
+        for (id_single, split), (id_expect, split_expect) in zip(split_dict.items(), expected.items()):
+            self.assertEqual(id_single, id_expect)
+            self.assertEqual(split, split_expect)
 
     def test_get_cutoff_val(self):
         """Test getting the cutoff types and values from the datasets."""
@@ -414,19 +436,17 @@ class TestPipelineFunctions(unittest.TestCase):
         graph2 = jraph.GraphsTuple(
             n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
-        graphs_dict = {1: graph0, 3: graph1, 4:graph2}
-        num_list = get_atom_num_list(graphs_dict)
-        graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+        graphs_list = [graph0, graph1, graph2]
+        num_list = get_atom_num_list(graphs_list)
+        graphs_list = atoms_to_nodes_list(graphs_list, num_list)
 
-        nodes0_expected = np.array([0, 0, 0, 1])
-        nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])
-        nodes2_expected = np.array([0, 0, 0, 0, 1, 2])
-        nodes0 = graphs_dict[1].nodes
-        nodes1 = graphs_dict[3].nodes
-        nodes2 = graphs_dict[4].nodes
-        np.testing.assert_array_equal(nodes0_expected, nodes0)
-        np.testing.assert_array_equal(nodes1_expected, nodes1)
-        np.testing.assert_array_equal(nodes2_expected, nodes2)
+        nodes_expected = []
+        nodes_expected.append(np.array([0, 0, 0, 1]))
+        nodes_expected.append(np.array([0, 0, 0, 0, 0, 0, 1, 1]))
+        nodes_expected.append(np.array([0, 0, 0, 0, 1, 2]))
+        nodes = [graph.nodes for graph in graphs_list]
+        for node_expected, node_actual in zip(nodes_expected, nodes):
+            np.testing.assert_array_equal(node_expected, node_actual)
         # also check that the list of atomic numbers has three different entries
         self.assertEqual(len(num_list), 3)
         self.assertTrue(len(num_list) == len(set(num_list)))

@@ -19,7 +19,8 @@ from jraph_MPEU.utils import (
     add_labels_to_graphs,
     update_config_fields,
     get_num_pairs,
-    str_to_list
+    str_to_list,
+    normalize
 )
 
 
@@ -38,6 +39,30 @@ def get_random_graph(key) -> jraph.GraphsTuple:
 
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def test_normalize(self):
+        """Test the normalize function."""
+        n1 = {"z": [1,2], "e_aff": [0., 0.1]}
+        n2 = {"z": [1,3,4], "e_aff": [2., 0.1, 3.]}
+        n3 = {"z": [3], "e_aff": [0.1]}
+        g1 = {"g_a": 0., "g_b": 4.}
+        g2 = {"g_a": 1., "g_b": 6.}
+        g3 = {"g_a": 2., "g_b": 2.}
+        n_node1, n_node2, n_node3 = [2], [3], [1]
+
+        inputs = [
+            jraph.GraphsTuple(nodes=n1, globals=g1, n_node=n_node1,
+                edges=None, receivers=None, senders=None, n_edge=None),
+            jraph.GraphsTuple(nodes=n2, globals=g2, n_node=n_node2,
+                edges=None, receivers=None, senders=None, n_edge=None),
+            jraph.GraphsTuple(nodes=n3, globals=g3, n_node=n_node3,
+                edges=None, receivers=None, senders=None, n_edge=None),
+        ]
+        outputs = []
+        config = ml_collections.ConfigDict()
+        df_features = normalize(inputs, outputs, config)
+        print(df_features)
+        print(df_features.keys())
+
     def test_estimate_padding_budget(self):
         """Test estimator by generating graph lists with different
         distributions of n_node and n_edge."""
