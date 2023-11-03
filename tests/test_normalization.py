@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 import jraph
 
-from jraph_MPEU.normalization import GraphPreprocessor
+from jraph_MPEU.normalization import GraphPreprocessor, ElementEncoder
 
 
 class Unittest(unittest.TestCase):
@@ -43,6 +43,15 @@ class Unittest(unittest.TestCase):
                 'feature': 'scalar_intrinsic'
             }
         }
+
+    def test_ElementEncoder(self):
+        element_list = [
+            np.array([8,1,1]), # H2O
+            np.array([6,1,1,1,1])] # Methane
+        encoder = ElementEncoder()
+        encoder.fit(element_list)
+        transformed_list = encoder.transform(element_list)
+        print(transformed_list)
 
     def test_GraphPreprocessor(self):
         config = {}

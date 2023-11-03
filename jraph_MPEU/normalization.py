@@ -7,17 +7,36 @@ from collections import defaultdict
 
 import jraph
 import sklearn.preprocessing as skp
+import numpy as np
+
+
+class ElementEncoder:
+    """Class to encode lists of elements. Specifically for node vectors
+    representing elements or atomic numbers."""
+    def __init__(self):
+        self.enc = skp.OneHotEncoder(sparse_output=False)
+
+    def fit(self, element_list: List[np.array]):
+        flattened_list = np.hstack(element_list) # stacks and flattens arrays
+        self.enc.fit(np.expand_dims(flattened_list, 1))
+
+    def transform(self, element_list: List[np.array])->List[np.array]:
+        transformed_list = []
+        for elements in element_list:
+            elements = np.expand_dims(elements, 1)
+            transformed = self.enc.transform(elements)
+            transformed_list.append(transformed)
+        return transformed_list
+
+    def fit_transform(self, element_list: List[np.array])->List[np.array]:
+        pass
 
 
 TRANSFORMS = {
     'scalar_intrinsic': skp.StandardScaler,
     'one_hot': skp.OneHotEncoder,
+    'element_list': ElementEncoder
 }
-
-
-def init_new_transformer(input: List, transform_name: str):
-    transformer = TRANSFORMS[transform_name]()
-    return transformer
 
 
 class GraphPreprocessor:
