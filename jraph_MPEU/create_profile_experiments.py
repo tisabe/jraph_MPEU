@@ -41,14 +41,14 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -D <folder_name>/
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
-<constraint>
 #SBATCH --cpus-per-task=20
 #SBATCH --ntasks-per-core=1
-#SBATCH --mem=182500  # Request 32 GB of main memory per node in MB units.
+#SBATCH --mem=0  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=12:00:00
 <gres>
+<constraint>
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
@@ -119,7 +119,7 @@ def create_job_script(
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
             '<constraint>', str(constraint))
-        gres = '#SBATCH --gres=' + setting['computing_type'] + ':2'
+        gres = '#SBATCH --gres=' + setting['computing_type'] + ':4'
         job_script = job_script.replace(
             '<gres>', str(gres))
     else:
