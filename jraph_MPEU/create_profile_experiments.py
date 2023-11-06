@@ -41,7 +41,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -D <folder_name>/
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=20
+#SBATCH --cpus-per-task=72
 #SBATCH --ntasks-per-core=1
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
@@ -128,7 +128,7 @@ def create_job_script(
             '<constraint>', '')
         job_script = job_script.replace(
             '<gres>', '')
-        job_script = job_script.replace('<mem>', '120_000')        
+        job_script = job_script.replace('<mem>', '256000')        
     job_script_path_name = Path(folder_name) / 'profiling_job.sh'
     with open(job_script_path_name, 'w') as fd:
         fd.write(job_script)
