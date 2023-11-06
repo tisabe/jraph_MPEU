@@ -52,9 +52,10 @@ def test_create_config_file_path(tmp_path):
     assert os.path.isfile(config_file_path)
     with open(config_file_path, 'r') as fd:
         config = fd.readlines()
+        print(config)
         assert '    config.batch_size = 32\n' in config
         assert '    config.dynamic_batch = False\n' in config
-        assert '    config.data_file = aflow/graphs_knn24_ICSD_bandgaps_and_fe_11_28.db\n' in config
+        assert '    config.data_file = aflow/graphs_knn_fix.db\n' in config
         assert '    config.label_str = enthalpy_formation_atom\n'
 
 
@@ -79,7 +80,7 @@ def test_create_job_script(tmp_path):
         print(job_script)
         assert ('#SBATCH -o ' + str(folder_base_path) + '/%j.out\n') in job_script
         assert '<gres>' not in job_script
-        assert '#SBATCH --gres=gpu:a100:1    # Use one a100 GPU\n' in job_script
+        assert '#SBATCH --gres=gpu:a100:4\n' in job_script
         assert ('srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) +
             ' --config=' + str(folder_base_path) + '/' + 'test_config.py\n') in job_script
 
@@ -128,7 +129,7 @@ def test_create_folder_and_files_for_setting(tmp_path):
         'static/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
         job_script = fd.readlines()
         print(job_script)
-        assert '#SBATCH --gres=gpu:a100:1    # Use one a100 GPU\n' in job_script
+        assert '#SBATCH --gres=gpu:a100:4\n' in job_script
         expected_srun_statement = (
             'srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) + \
             '/profiling_experiments/mpnn/aflow/static/32/gpu_a100/iteration_1' + \
