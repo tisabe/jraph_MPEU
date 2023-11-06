@@ -122,13 +122,13 @@ def create_job_script(
         gres = '#SBATCH --gres=' + setting['computing_type'] + ':4'
         job_script = job_script.replace(
             '<gres>', str(gres))
-        job_script = job_script.replace('<mem>', 0)
+        job_script = job_script.replace('<mem>', '0')
     else:
         job_script = job_script.replace(
             '<constraint>', '')
         job_script = job_script.replace(
             '<gres>', '')
-        job_script = job_script.replace('<mem>', 120_000)        
+        job_script = job_script.replace('<mem>', '120_000')        
     job_script_path_name = Path(folder_name) / 'profiling_job.sh'
     with open(job_script_path_name, 'w') as fd:
         fd.write(job_script)
