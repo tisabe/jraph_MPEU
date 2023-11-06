@@ -43,7 +43,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=20
 #SBATCH --ntasks-per-core=1
-#SBATCH --mem=0  # In MB, when we set to 0, we reserve node.
+#SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=12:00:00
@@ -66,9 +66,9 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
     config.eval_every_steps = 200_000
-    config.num_train_steps_max = 2_000_000
+    config.num_train_steps_max = 1_000_000
     config.log_every_steps = 200_000
-    config.checkpoint_every_steps = 2_000_000
+    config.checkpoint_every_steps = 1_000_000
     config.selection = None
     config.data_file = <data_file>
     config.label_str = <label_str>
@@ -122,11 +122,13 @@ def create_job_script(
         gres = '#SBATCH --gres=' + setting['computing_type'] + ':4'
         job_script = job_script.replace(
             '<gres>', str(gres))
+        job_script = job_script.replace('<mem>', 0)
     else:
         job_script = job_script.replace(
             '<constraint>', '')
         job_script = job_script.replace(
-            '<gres>', '')        
+            '<gres>', '')
+        job_script = job_script.replace('<mem>', 120_000)        
     job_script_path_name = Path(folder_name) / 'profiling_job.sh'
     with open(job_script_path_name, 'w') as fd:
         fd.write(job_script)
