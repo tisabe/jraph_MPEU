@@ -89,8 +89,8 @@ def create_config_file_path(
     config = config.replace(
         '<batch_size>', str(setting['batch_size']))
     if setting['dataset'] == 'aflow':
-        data_file = 'aflow/graphs_knn.db'
-        label_str = 'enthalpy_formation_atom'
+        data_file = "\'aflow/graphs_knn.db\'"
+        label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
 
