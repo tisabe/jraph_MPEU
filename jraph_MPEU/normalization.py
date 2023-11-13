@@ -17,13 +17,12 @@ class ElementEncoder:
         self.enc = skp.OneHotEncoder(sparse=False)
 
     def fit(self, element_list: List[np.array]):
-        flattened_list = np.hstack(element_list) # stacks and flattens arrays
-        self.enc.fit(np.expand_dims(flattened_list, 1))
+        flattened_list = np.concatenate(list(element_list)) # stacks and flattens arrays
+        self.enc.fit(flattened_list)
 
     def transform(self, element_list: List[np.array])->List[np.array]:
         transformed_list = []
         for elements in element_list:
-            elements = np.expand_dims(elements, 1)
             transformed = self.enc.transform(elements)
             transformed_list.append(transformed)
         return transformed_list
@@ -33,7 +32,17 @@ class ElementEncoder:
         return self.transform(element_list)
 
     def inverse_transform(self, one_hot_list: List[np.array])->List[np.array]:
-        raise NotImplementedError
+        n_atoms_list = [len(one_hot_vector) for one_hot_vector in one_hot_list]
+        element_list = []
+        atoms = self.enc.inverse_transform(np.concatenate(list(one_hot_list)))
+        atoms = atoms.reshape((-1,1))
+
+        start_index = 0
+        for n_atoms in n_atoms_list:
+            element_list.append(atoms[start_index:start_index+n_atoms])
+            start_index += n_atoms
+
+        return element_list
 
 
 class ExtrinsicScalarEncoder:
@@ -80,7 +89,7 @@ TRANSFORMS_THAT_TAKE_N_NODE = (
 )
 
 
-def collect_graph_values_dict(graphs: List[jraph.GraphsTuple]):
+def collect_graph_values_dict(graphs: List[jraph.GraphsTuple])->dict:
     """Returns a dict with graph properties in lists."""
     graph_values_dict = {
         'globals': {},
@@ -104,15 +113,33 @@ def collect_graph_values_dict(graphs: List[jraph.GraphsTuple]):
 
         for prop_name, value in graph.nodes.items():
             if not prop_name in graph_values_dict['nodes']:
-                graph_values_dict['nodes'][prop_name] = []
-            graph_values_dict['nodes'][prop_name].append(value)
+                #graph_values_dict['nodes'][prop_name] = []
+                graph_values_dict['nodes'][prop_name] = value
+            #graph_values_dict['nodes'][prop_name].append(value)
+            else:
+                graph_values_dict['nodes'][prop_name] = np.concatenate(
+                    (graph_values_dict['nodes'][prop_name], value))
         
         for prop_name, value in graph.edges.items():
             if not prop_name in graph_values_dict['edges']:
-                graph_values_dict['edges'][prop_name] = []
-            graph_values_dict['edges'][prop_name].append(value)
+                #graph_values_dict['edges'][prop_name] = []
+                graph_values_dict['edges'][prop_name] = value
+            else:
+                #graph_values_dict['edges'][prop_name].append(value)
+                graph_values_dict['edges'][prop_name] = np.concatenate(
+                    (graph_values_dict['edges'][prop_name], value))
     return graph_values_dict
-        
+
+
+def graph_to_dict(graph: jraph.GraphsTuple)->dict:
+    """Convert jraph GraphsTuple to dict with keys 'globals', 'nodes', etc."""
+    graph_tr = {
+        "n_node": graph.n_node, "nodes": graph.nodes,
+        "n_edge": graph.n_edge, "edges": graph.edges,
+        "senders": graph.senders, "receivers": graph.receivers,
+        "globals": graph.globals}
+    return graph_tr
+
 
 class GraphPreprocessor:
     """Class to calculate and apply transformation to graph structured data."""
@@ -153,24 +180,47 @@ class GraphPreprocessor:
 
         for feature, feature_dict in self.property_dict.items():
             # feature is e.g. 'globals'
+            print(feature)
             for prop_name, prop_transform in feature_dict.items():
+                print(prop_name)
                 # prop_name is e.g. 'Egap', prop_transform is e.g. 'scalar'
                 transform = TRANSFORMS[prop_transform]()
                 self.transforms_dict[feature][prop_name] = transform
+                print(graph_values_dict[feature][prop_name])
                 if prop_transform in TRANSFORMS_THAT_TAKE_N_NODE:
                     transform.fit(
-                        X=graph_values_dict[feature][prop_name],
+                        graph_values_dict[feature][prop_name],
                         n_nodes=graph_values_dict['n_nodes'])
                 else:
-                    transform.fit(X=graph_values_dict[feature][prop_name])
+                    transform.fit(graph_values_dict[feature][prop_name])
 
         return self.transforms_dict
 
     def transform(self, graphs: List[jraph.GraphsTuple]):
-        raise NotImplementedError
+        graphs_tr = []
+        for graph in graphs:
+            graph_dict = graph_to_dict(graph)
+            for feature, feature_dict in self.property_dict.items():
+                print(feature)
+                # feature is e.g. 'globals'
+                for prop_name, prop_transform in feature_dict.items():
+                    print(prop_name)
+                    # prop_name is e.g. 'Egap', prop_transform is e.g. 'scalar'
+                    print(graph_dict[feature][prop_name])
+                    transform = self.transforms_dict[feature][prop_name]
+                    graph_dict[feature][prop_name] = transform.transform(
+                        [graph_dict[feature][prop_name]])[0]
+
+            graph_tr = jraph.GraphsTuple(
+                n_node=graph.n_node, nodes=graph_dict["nodes"],
+                n_edge=graph.n_edge, edges=graph_dict["edges"],
+                senders=graph.senders, receivers=graph.receivers,
+                globals=graph_dict["globals"])
+            graphs_tr.append(graph_tr)
+        return graphs_tr
 
     def fit_transform(self, graphs: List[jraph.GraphsTuple]):
-        self.fit(graph)
+        self.fit(graphs)
         return self.transform(graphs)
 
     def inverse_transform(self, graphs: List[jraph.GraphsTuple]):

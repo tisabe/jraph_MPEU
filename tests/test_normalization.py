@@ -16,14 +16,14 @@ class Unittest(unittest.TestCase):
     def setUp(self):
         """Set up default test case."""
         graph0 = jraph.GraphsTuple(
-            n_node=np.array([4]), nodes={'feature': np.array([0,0,2,2])},
-            n_edge=np.array([4]), edges={'feature': np.array([3,3,4,4])},
+            n_node=np.array([4]), nodes={'feature': np.array([[0],[0],[2],[2]])},
+            n_edge=np.array([4]), edges={'feature': np.array([[3],[3],[4],[4]])},
             senders=np.array([0,1,2,3]), receivers=np.array([0,1,2,3]),
             globals={'categorical_feature': np.array([0]),
             'scalar_feature': np.array([0])})
         graph1 = jraph.GraphsTuple(
-            n_node=np.array([6]), nodes={'feature': np.array([0,0,2,2,4,4])},
-            n_edge=np.array([6]), edges={'feature': np.array([3,3,4,4,5,5])},
+            n_node=np.array([6]), nodes={'feature': np.array([[0],[0],[2],[2],[4],[4]])},
+            n_edge=np.array([6]), edges={'feature': np.array([[3],[3],[4],[4],[5],[5]])},
             senders=np.array([0,1,2,3,4,5]), receivers=np.array([0,1,2,3,4,5]),
             globals={'categorical_feature': np.array([1]),
             'scalar_feature': np.array([1])})
@@ -36,10 +36,10 @@ class Unittest(unittest.TestCase):
         }
         self.property_dict_default = {
             'globals': {
-                'feature': 'one_hot'
+                'categorical_feature': 'one_hot'
             },
             'nodes': {
-                'feature': 'scalar_intrinsic'
+                'feature': 'element_list'
             },
             'edges': {
                 'feature': 'scalar_intrinsic'
@@ -84,8 +84,8 @@ class Unittest(unittest.TestCase):
 
     def test_ElementEncoder(self):
         element_list = [
-            np.array([8,1,1]), # H2O
-            np.array([6,1,1,1,1])] # Methane
+            np.array([[8],[1],[1]]), # H2O
+            np.array([[6],[1],[1],[1],[1]])] # Methane
         encoder = ElementEncoder()
         encoder.fit(element_list)
         transformed_list = encoder.transform(element_list)
@@ -96,8 +96,8 @@ class Unittest(unittest.TestCase):
             np.array([[0,1,0],[1,0,0],[1,0,0],[1,0,0],[1,0,0]]))
 
         element_list = [
-            np.array(['H','H','O']), # H2O
-            np.array(['C','H','H','H','H'])] # Methane
+            np.array([['H'],['H'],['O']]), # H2O
+            np.array([['C'],['H'],['H'],['H'],['H']])] # Methane
         encoder = ElementEncoder()
         encoder.fit(element_list)
         transformed_list = encoder.transform(element_list)
@@ -106,6 +106,21 @@ class Unittest(unittest.TestCase):
         np.testing.assert_array_equal(
             transformed_list[1],
             np.array([[1,0,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0]]))
+
+        inv_list = encoder.inverse_transform(transformed_list)
+        for elements, inv_elements in zip(element_list, inv_list):
+            np.testing.assert_array_equal(elements, inv_elements)
+
+    def test_ElementEncoder_rand(self):
+        n_samples = 50
+        element_list = [
+            np.random.randint(1, 10, size=(np.random.randint(1, 20),1)) for _ in range(n_samples)]
+        encoder = ElementEncoder()
+        transformed_list = encoder.fit_transform(element_list)
+
+        inv_list = encoder.inverse_transform(transformed_list)
+        for elements, inv_elements in zip(element_list, inv_list):
+            np.testing.assert_array_equal(elements, inv_elements)
 
     def test_GraphPreprocessor_globals(self):
         config = {}
@@ -132,6 +147,18 @@ class Unittest(unittest.TestCase):
         processor = GraphPreprocessor(self.property_dict_globals, config)
         with self.assertRaises(AssertionError):
             processor.fit(list_batched)
+
+    def test_graphs_transform(self):
+        config = {}
+        processor = GraphPreprocessor(self.property_dict_default, config)
+        transform_dict = processor.fit(self.graphs_default)
+
+        for graph in self.graphs_default:
+            print(graph)
+        graphs_tr = processor.transform(self.graphs_default)
+        print()
+        for graph in graphs_tr:
+            print(graph)
 
 
 if __name__ == '__main__':
