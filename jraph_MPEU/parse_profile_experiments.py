@@ -17,11 +17,8 @@ import os
 import sys
 import csv
 import numpy as np
-import mendeleev
 from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-import data_gen.gen_data as dg
-import parsing.json_parser as js
 
 
 FLAGS = flags.FLAGS
@@ -52,10 +49,7 @@ class OutputParser():
     """Parses data output."""
     def __init__(
             self, paths_txt_file, csv_filename, db_name,
-            paths_to_resubmit, paths_misbehaving,
-            paths_increase_charge_mix,
-            paths_decrease_charge_mix, paths_out_of_npl,
-            paths_symmetry_issues):
+            paths_to_resubmit, paths_misbehaving):
         """Constructor
 
         Args:
@@ -76,10 +70,6 @@ class OutputParser():
         self.path_list = self.get_path_list(paths_txt_file)
         # self.atoms_obj_list = atoms_obj_list
         self.logger = logging.getLogger(__name__)
-        # Get the atoms object from the path
-        # self.read_geometry()
-        # Create a DataGen Object to grab the tier map.
-        self.tier_map = dg.GenData('None', 'None', 'None', 'None').tier_map
         # CSV filename of where to save parsed data.
         self.csv_filename = csv_filename
         self.db_name = db_name  # ASE db name.
@@ -124,114 +114,6 @@ class OutputParser():
             print("I/O error")
             self.logger.error("I/O error writing header to csv file.")
             sys.exit('I/O issues writing header to csv file.')
-
-    def read_geometry(self, path):
-        """Collect data from geometry file.
-
-        Args:
-        path: to folder containing geometry.in file.
-        """
-        # Check if path to geometry.in file exists
-        if relaxation:
-            geometry_file = path + '/relaxation/geometry.in.next_step'
-        else:
-            geometry_file = path + '/geometry.in'
-        if os.path.exists(geometry_file):
-            atoms_object = ase.io.read(
-                geometry_file, format='aims')
-        else:
-            if relaxation:
-                print(
-                    f'file {path}/relaxation/geometry.in.next_step does not exist.')
-                self.logger.error(
-                    f'file {path}/relaxation/geometry.in.next_step does not exist.')
-            else:
-                print(f'file {path}/geometry.in does not exist')
-                self.logger.error('geometry input not found')
-            sys.exit('geometry input not found.')
-
-        return atoms_object
-
-    def read_ase_params(self, path):
-        """Read ASE Parameters used in the simulation."""
-        ase_param_file = path + 'parameters.ase'
-        if os.path.exists(path):
-            params = ase.calculators.calculator.Parameters.read(
-                ase_param_file)
-        else:
-            logging.error(
-                'ASE Parameters file not found in %s', ase_param_file)
-        return params
-
-
-    def get_bandgap_data(self, calc):
-        """"Get bandgap data from aims calculations."""
-        if calc.name != 'aims':
-            self.logging.error(
-                'This method has not yet been developed for other codes.')
-        # DTS: Initalize homo lumo gap to zero.
-        HOMO_LUMO_gap = 0
-        # Store the occupatancy values for each eigenvalue.
-        # occupation = calc.get_occupations()  # Read occupation at Gamma point.
-        # Initialize the bandgap to None.
-        gap_bandstructure = None
-        # DTS: we open out the aims.out file to read data.
-        with open(calc.label + 'aims.out', 'r') as aims_output:
-            # DTS: we go line by line in the output.out file.
-            for line in aims_output.readlines():
-                # Grab the aims version.
-                if line.rfind('          Version ') != -1:
-                    # Take last value of the line, the version.
-                    aims_version = split_line(line)[-1]
-                # Grab the estimated overall HOMO-LUMO gap.   
-                if line.rfind('ESTIMATED overall HOMO-LUMO gap:') != -1:
-                    HOMO_LUMO_gap = float(split_line(line)[4])  # VBM CBM Gap
-                # Look for line showing energy differences between bands.
-                if line.rfind('| Energy difference      :') != -1:
-                    # DTS: if the last value of the occupation vector
-                    # is non-zero then all energy levels are filled.
-                    # This means we don't have a bandgap.
-                    if occupation[-1] != 0:
-                        gap_bandstructure = -1
-                    else:
-                        # DTS: Grab the bandstructure gap
-                        if split_line(line)[-2] != '****************':
-                            gap_bandstructure = float(split_line(line)[-2])
-
-        if gap_bandstructure is None:
-            # Check to see if all KS states are occupied.
-            if occupation[-1] != 0:
-                # If this is true then all states
-                # are occupied and there is no orbital
-                # that is unoccupied -> LUMO = 0.
-                LUMO = 0
-                HOMO = -1
-            else:
-                gap_bandstructure = self.get_band_file_data(calc)
-        return HOMO_LUMO_gap, gap_bandstructure
-
-    def get_band_file_data(self, calc):
-        """Take a deep look into bandstructure files to get bandgap."""
-        band_files = glob.glob(calc.label+'band*')
-        gap_bandstructure = 1.0e6
-        HOMO = -1.0e6
-        LUMO = 1.0e6
-        # Go through each band file one at a time.
-        # Update the HOMO if we find a larger HOMO.
-        # Update LUMO if we find a smaller LUMO.
-        for band in band_files:
-            # Previously laodtxt was not defined, so I assumed it's np.loadtext.
-            data = np.loadtxt(band)[:, 4:]
-            HOMO = max(
-                HOMO,
-                data[:, np.arange(1, len(data[0, :]), 2)][
-                    data[:, np.arange(0, len(data[0, :]), 2)] != 0].max())
-            if sum(data[:, np.arange(0, len(data[0, :]), 2)] == 0) != 0:
-                LUMO = min(LUMO, data[:, np.arange(1, len(data[0, :]), 2)][
-                    data[:, np.arange(0, len(data[0, :]), 2)] == 0].min())
-
-        gap_bandstructure = LUMO-HOMO
-        return gap_bandstructure
 
     @staticmethod
     def parse_path(path, ICSD_number=True, expansion=False):
@@ -302,13 +184,15 @@ class OutputParser():
 
 
         # Check if sim finished, if not if time expired.
-        calc_finished_bool, most_recent_error_file = self.check_calc_finished(
+        calc_ran_bool, most_recent_error_file = self.check_experiment_ran(
                 parent_path)
+        
 
-        if calc_finished_bool:
-            # Grab number of times it recompiled
-		    # Grab timing infromation from the log
-            self.get_recompile_and_timing_info(submission_path)
+        calc_expired_bool = self.check_sim_time_lim(most_recent_error_file)
+
+        if calc_ran_bool and calc_expired_bool:
+            self.add_expired_path(submission_path)
+        elif calc_ran_bool and not calc_expired_bool:
             # Add time/day when this row of data was grabbed.
             data_dict['time_day'] = time_and_day
             # Add the path from which data was taken.
@@ -316,7 +200,9 @@ class OutputParser():
 
             data_dict = self.update_dict_with_batching_method_size(
                 parent_path, data_dict)
-            data_dict = self.grab_recompiles_and_timing(
+            # Grab number of times it recompiled
+		    # Grab timing infromation from the log
+            data_dict = self.get_recompile_and_timing_info(
                 most_recent_error_file, data_dict)
             return data_dict
 
@@ -325,11 +211,10 @@ class OutputParser():
             self.add_misbehaving_path(submission_path)
             return None
         
-    def grab_recompiles_and_timing(self, most_recent_error_file, data_dict):
+    def get_recompile_and_timing_info(self, most_recent_error_file, data_dict):
         """Go through err file and parse the recompilation and timing info.
 
         I1107 20:07:21.992192 22949931718464 train.py:72] LOG Message: Recompiling!
-
         07 20:59:07.525845 22949931718464 train.py:605] Step 1000000 train loss: 1.8053530084216618e-06
         I1107 20:59:07.705219 22949931718464 train.py:349] RMSE/MAE train: [0.0019891  0.00134341]
         I1107 20:59:07.705431 22949931718464 train.py:349] RMSE/MAE validation: [0.06648617 0.01503589]
@@ -340,19 +225,18 @@ class OutputParser():
         I1107 20:59:07.805134 22949931718464 train.py:636] Mean update time: 0.0026955132026672364
         """
         recompilation_counter = 0
-        step_counter = 0
-        step_200_000_train_loss = np.nan
-        step_400_000_train_loss = np.nan
-        step_600_000_train_loss = np.nan
-        step_800_000_train_loss = np.nan
-        step_1_000_000_train_loss = np.nan
+        # step_200_000_train_loss = np.nan
+        # step_400_000_train_loss = np.nan
+        # step_600_000_train_loss = np.nan
+        # step_800_000_train_loss = np.nan
+        # step_1_000_000_train_loss = np.nan
+        experiment_completed = False
 
         with open(most_recent_error_file, 'r') as fin:
             for line in list(fin.readlines()):
                 if "LOG Message: Recompiling!" in line:
                     recompilation_counter = recompilation_counter + 1
                 if "Step " in line:
-
                     split_line = line.split(' ')
                     step_num = split_line[-4]
                 elif 'RMSE/MAE train' in line:
@@ -360,19 +244,27 @@ class OutputParser():
                     rmse = line.split(' ')[-1].split(']')[-2]
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
                 elif 'RMSE/MAE validation' in line:
-                    # Grab the training loss
+                    # Grab the val loss
                     rmse = line.split(' ')[-1].split(']')[-2]
                     data_dict[f'step_{step_num}_val_rmse'] = rmse                    
                 elif 'RMSE/MAE test' in line:
-                    # Grab the training loss
+                    # Grab the test loss
                     rmse = line.split(' ')[-1].split(']')[-2]
                     data_dict[f'step_{step_num}_test_rmse'] = rmse
-                elif 'RMSE/MAE test' in line:
+                elif 'Mean batching time' in line:
                     # Grab the training loss
-                    rmse = line.split(' ')[-1].split(']')[-2]
-                    data_dict[f'step_{step_num}_test_rmse'] = rmse
+                    batching_time = line.split(' ')[-1]
+                    data_dict[f'step_{step_num}_batching_time'] = batching_time
+                elif 'Mean update time' in line:
+                    # Grab the training loss
+                    update_time = line.split(' ')[-1]
+                    data_dict[f'step_{step_num}_update_time'] = update_time
+                elif 'Reached maximum number of steps without early stopping' in line:
+                    experiment_completed = True
+        
         
         data_dict['recompilation_counter'] = recompilation_counter
+        data_dict['experiment_completed'] = experiment_completed
         return data_dict
         
     def update_dict_with_batching_method_size(self, parent_path, data_dict):
@@ -381,19 +273,13 @@ class OutputParser():
         Sample path:
         /mpnn/aflow/dynamic/64/gpu_a100/iteration_5"""
         settings_list = parent_path.split('/')
-        data_dict['iteration'] = settings_list[-1]
+        data_dict['iteration'] = int(settings_list[-1].split('_')[-1])
         data_dict['computing_type'] = settings_list[-2]
-        data_dict['batch_size'] = settings_list[-3]
+        data_dict['batch_size'] = int(settings_list[-3])
         data_dict['batching_type'] = settings_list[-4]
         data_dict['dataset'] = settings_list[-5]
         data_dict['model'] = settings_list[-6]
         return data_dict
-
-
-        
-
-    def get_recompile_and_timing_info(self):
-        pass
 
     def check_if_djob_out_exists(self, submission_path):
         """Check if the simulation never ran."""
@@ -449,7 +335,7 @@ class OutputParser():
 
 
     @staticmethod
-    def check_calc_finished(parent_path):
+    def check_experiment_ran(parent_path):
         """Check if simulation exited nicely.
 
         We look to see if a .err file was created meaning the profiling
@@ -464,51 +350,27 @@ class OutputParser():
         """
         # Grab all .err files.
 
-        error_files = glob.glob(parent_path + '/*.err').sort()
+        error_files = glob.glob(os.path.join(parent_path, '*.err'))
+        error_files.sort()
         # If the error_files list is empty, return calc_finished is false.
-        
-        if len(error_files) == 0: 
-            calc_finished_bool = False
+        print(parent_path)
+        print(os.path.isfile(os.path.join(parent_path, 'sample_err_file.err')))
+        calc_ran_bool = False
+
+        if error_files is None:
+            calc_ran_bool = False
             most_recent_error_file = None
-        else:
-            calc_finished_bool = True
+        elif len(error_files) != 0: 
+            calc_ran_bool = True
             most_recent_error_file = error_files[-1]
+        else:
+            raise ValueError(
+                'unexpected non zero length and no none glob output')
 
-
-        return calc_finished_bool, most_recent_error_file
-
-    @staticmethod
-    def get_most_recent_djob_err(path):
-        """Get the most recent job error path for a simulation.
-
-        Args:
-        path: (str) string to the submission script path.
-
-        Returns:
-        djob_path: (str) string to the most recent djob error path.
-        """
-        # Get list of files in the folder where djob.err would
-        # live (aims.out as well).
-        file_list = os.listdir(path)
-        # Now we need to check for djob.err type files.
-        djob_err_list = [x for x in file_list if 'djob.err.' in x]
-        # Check if the list is empty
-        if not djob_err_list:
-            return None
-        # Now we need to choose the most recent djob err file. Let's
-        # look at which has the largest integer after splitting the
-        # file name by . and looking at last value. We first
-        # list of integers of name of Jobs.
-        djob_int_list = [x.split('.')[-1] for x in djob_err_list]
-        # Now find the index with the largest integer.
-        most_recent_job_num = djob_int_list.index(max(djob_int_list))
-        # Use the index to get the djob err path name.
-        most_recent_djob_err_path = djob_err_list[most_recent_job_num]
-
-        return most_recent_djob_err_path
+        return calc_ran_bool, most_recent_error_file
 
     @staticmethod
-    def check_sim_time_lim(path):
+    def check_sim_time_lim(most_recent_error_file):
         """If time expired on sim, it returns True.
 
         If the sim didn't have a Have a nice day in aims.out
@@ -538,20 +400,17 @@ class OutputParser():
         # By default the bool we return is False since we
         # haven't seen markers.
         expired_time_bool = False
-        out_of_npl_bool = False
         # Get the path to most recent djob error.
-        most_recent_djob_err = OutputParser.get_most_recent_djob_err(path)
-        if most_recent_djob_err is not None:
+        if most_recent_error_file is not None:
             # Print path of most recent djob error.
-            print('Most Recent Djob Err: %s' % most_recent_djob_err)
-            for line in reversed(list(open(path + '/' + most_recent_djob_err))):
-                print(line)
-                if first_marker in line and second_marker not in line:
-                    out_of_npl_bool = True
-                if first_marker in line and second_marker in line:
-                    expired_time_bool = True
-                    break
-        return expired_time_bool, out_of_npl_bool
+            print('Most Recent Djob Err: %s' % most_recent_error_file)
+            with open(most_recent_error_file, 'r') as fd:
+                for line in reversed(fd.readlines()):
+                    print(line)
+                    if first_marker in line and second_marker in line:
+                        expired_time_bool = True
+                        break
+        return expired_time_bool
 
     def connect_to_db(self):
         """Write simulation data to a ASE database.
@@ -612,49 +471,6 @@ class OutputParser():
                 print("Error: %s" % e)
                 self.logger.error(
                     "This path: %s gives this error: %s" % (path, e))
-
-
-def get_data_from_csv(atom_num, functional, column):
-    """Get data from csv file for functional, atom num, column.
-
-    Note this method is copied from dataframe_prep. TODO: dts,
-    combine this method and the one from dataframe prep into
-    a single method and test it better.
-
-    atom_num: atom number by # of protons.
-    functional (string): lda or pbe?
-    column (string): what column of data are we looking at from the
-        the fhi-aims monomers database are we looking at. ex. 'EA_half'.
-        Check the csv to find the names of the columns available.
-    """
-    # CSVs containing really tight FHI-aims data about
-    # things like electron affinity, ionization potential
-    # and radii.
-    self.pbe_features_csv = (
-        '/home/speckhard/Documents/theory/errorbar_project/'
-        'error_modelling/modelling/data/descriptor_aims_data/'
-        'really_tight_full_cut20_pbesol.csv')
-    self.lda_features_csv = (
-        '/home/speckhard/Documents/theory/errorbar_project/'
-        'error_modelling/modelling/data/descriptor_aims_data/'
-        'really_tight_full_cut20_pw-lda.csv')
-    # Load descriptor csv files into dataframes.
-    self.pbe_features_df = pd.read_csv(self.pbe_features_csv)
-    self.lda_features_df = pd.read_csv(self.lda_features_csv)
-
-    if functional == 'pbe':
-        csv_val = float(self.pbe_features_df[
-            self.pbe_features_df[
-                'Atomic number'] == atom_num][column])
-    elif functional == 'pw-lda':
-        csv_val = float(self.lda_features_df[
-            self.lda_features_df[
-                'Atomic number'] == atom_num][column])
-    else:
-        raise BadFunctional(functional)
-
-    return csv_val
-
 
 def split_line(lines):
     """Split input line"""
