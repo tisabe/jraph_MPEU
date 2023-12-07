@@ -75,8 +75,25 @@ class OutputParser():
         self.db_name = db_name  # ASE db name.
         # Name of columns for header in csv.
         self.csv_columns = [
-            'ml_architecture', 'dataset', 'batching_type', 'batch_size',
-            'compute_device', 'iteration']
+            'model', 'time_day', 'dataset', 'batching_type', 'batch_size',
+            'computing_type', 'iteration', 'experiment_completed',
+            'submission_path', 'path', 'recompilation_counter',
+            'step_200000_train_rmse',
+            'step_200000_val_rmse', 'step_200000_test_rmse',
+            'step_200000_batching_time', 'step_200000_update_time',
+            'step_400000_train_rmse',
+            'step_400000_val_rmse', 'step_400000_test_rmse',
+            'step_400000_batching_time', 'step_400000_update_time',
+            'step_600000_train_rmse',
+            'step_600000_val_rmse', 'step_600000_test_rmse',
+            'step_600000_batching_time', 'step_600000_update_time',            
+            'step_800000_train_rmse',
+            'step_800000_val_rmse', 'step_800000_test_rmse',
+            'step_800000_batching_time', 'step_800000_update_time',               
+            'step_1000000_train_rmse',
+            'step_1000000_val_rmse', 'step_1000000_test_rmse',
+            'step_1000000_batching_time', 'step_1000000_update_time',             
+            ]
 
         # Define a list of paths that we shoudl resubmit
         # to a longer queue since they expired during calculation.
@@ -115,45 +132,6 @@ class OutputParser():
             self.logger.error("I/O error writing header to csv file.")
             sys.exit('I/O issues writing header to csv file.')
 
-    @staticmethod
-    def parse_path(path, ICSD_number=True, expansion=False):
-        """Parse data from file path.
-
-        This method takes in a path and splits
-        the path based on forward slashes. It works
-        backwards (right to left) and assigns values
-        to what settings were used for data contained
-        in the path.
-
-        Args:
-        path: (str) full pathname to folder where calc output is stored.
-
-        Returns:
-        settings_dict: (dict) dictionary that contains data to be saved.
-        """
-        # Split the path name based on forward slashes
-        list_of_settings = path.split('/')
-        setting_dict = {}
-        try:
-            if ICSD_number:
-                setting_dict['compound_name'] = list_of_settings[-2].split('_')[0]
-                setting_dict['ICSD_number'] = int(list_of_settings[-2].split('_')[-1])
-            else:
-                setting_dict['compound_name'] = list_of_settings[-2]
-            setting_dict['k_point_density'] = int(list_of_settings[-3])
-            setting_dict['rel_setting'] = list_of_settings[-4]
-            setting_dict['basis_size'] = list_of_settings[-5]
-            setting_dict['num_setting'] = list_of_settings[-6]
-            setting_dict['functional'] = list_of_settings[-7]
-            if expansion:
-                setting_dict['expansion'] = list_of_settings[-8]
-        except IndexError:
-            # Static method doesn't can't access private member
-            # variable.
-            print('path: %s, is not properly formatted', path)
-            sys.exit('path not formated correctly')
-        return setting_dict
-
     def gather_all_path_data(self, submission_path):
         """Parse all data contained in path.
 
@@ -175,42 +153,46 @@ class OutputParser():
         time_and_day = get_time_and_day()
         # Get information related to settings from the
         # submission script path. E.g. batch size, batching type.
-        data_dict = self.parse_path(submission_path)
+
         # Ok, now remove the last part of the path since
         # the /submission_XY.sh is not useful. Let's take
         # the parent directory.
         parent_path = os.path.dirname(submission_path)
-        # Check if the simulation was even started.
 
+        data_dict = {
+            'recompilation_counter': np.nan,
+            'experiment_completed': np.nan
+        }
+        data_dict = self.update_dict_with_batching_method_size(
+            parent_path, data_dict)
+        data_dict['submission_path'] = submission_path
 
         # Check if sim finished, if not if time expired.
         calc_ran_bool, most_recent_error_file = self.check_experiment_ran(
                 parent_path)
         
-
         calc_expired_bool = self.check_sim_time_lim(most_recent_error_file)
 
         if calc_ran_bool and calc_expired_bool:
             self.add_expired_path(submission_path)
+
         elif calc_ran_bool and not calc_expired_bool:
             # Add time/day when this row of data was grabbed.
             data_dict['time_day'] = time_and_day
             # Add the path from which data was taken.
             data_dict['path'] = submission_path
 
-            data_dict = self.update_dict_with_batching_method_size(
-                parent_path, data_dict)
             # Grab number of times it recompiled
 		    # Grab timing infromation from the log
             data_dict = self.get_recompile_and_timing_info(
                 most_recent_error_file, data_dict)
-            return data_dict
 
         else:
             print(f'path: {submission_path} added as misbehaving.')
             self.add_misbehaving_path(submission_path)
-            return None
-        
+
+        return data_dict
+
     def get_recompile_and_timing_info(self, most_recent_error_file, data_dict):
         """Go through err file and parse the recompilation and timing info.
 
@@ -232,6 +214,37 @@ class OutputParser():
         # step_1_000_000_train_loss = np.nan
         experiment_completed = False
 
+        # initialize values in case we don't find them.
+        data_dict[f'step_200000_train_rmse'] = np.nan
+        data_dict[f'step_200000_val_rmse'] = np.nan
+        data_dict[f'step_200000_test_rmse'] = np.nan
+        data_dict[f'step_200000_batching_time'] = np.nan
+        data_dict[f'step_200000_update_time'] = np.nan
+        # 400000
+        data_dict[f'step_400000_train_rmse'] = np.nan
+        data_dict[f'step_400000_val_rmse'] = np.nan
+        data_dict[f'step_400000_test_rmse'] = np.nan
+        data_dict[f'step_400000_batching_time'] = np.nan
+        data_dict[f'step_400000_update_time'] = np.nan
+        # 600000
+        data_dict[f'step_600000_train_rmse'] = np.nan
+        data_dict[f'step_600000_val_rmse'] = np.nan
+        data_dict[f'step_600000_test_rmse'] = np.nan
+        data_dict[f'step_600000_batching_time'] = np.nan
+        data_dict[f'step_600000_update_time'] = np.nan
+        # 800000
+        data_dict[f'step_800000_train_rmse'] = np.nan
+        data_dict[f'step_800000_val_rmse'] = np.nan
+        data_dict[f'step_800000_test_rmse'] = np.nan
+        data_dict[f'step_800000_batching_time'] = np.nan
+        data_dict[f'step_800000_update_time'] = np.nan
+        # 1000000
+        data_dict[f'step_1000000_train_rmse'] = np.nan
+        data_dict[f'step_1000000_val_rmse'] = np.nan
+        data_dict[f'step_1000000_test_rmse'] = np.nan
+        data_dict[f'step_1000000_batching_time'] = np.nan
+        data_dict[f'step_1000000_update_time'] = np.nan
+
         with open(most_recent_error_file, 'r') as fin:
             for line in list(fin.readlines()):
                 if "LOG Message: Recompiling!" in line:
@@ -241,28 +254,28 @@ class OutputParser():
                     step_num = split_line[-4]
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
-                    rmse = line.split(' ')[-1].split(']')[-2]
+                    print(line.split(' ')[-2])
+                    rmse = float(line.split(' ')[-3].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
-                    rmse = line.split(' ')[-1].split(']')[-2]
+                    rmse = float(line.split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_val_rmse'] = rmse                    
                 elif 'RMSE/MAE test' in line:
                     # Grab the test loss
-                    rmse = line.split(' ')[-1].split(']')[-2]
+                    rmse = float(line.split(' ')[-3].split('[')[-1])
                     data_dict[f'step_{step_num}_test_rmse'] = rmse
                 elif 'Mean batching time' in line:
                     # Grab the training loss
-                    batching_time = line.split(' ')[-1]
+                    batching_time = float(line.split(' ')[-1])
                     data_dict[f'step_{step_num}_batching_time'] = batching_time
                 elif 'Mean update time' in line:
                     # Grab the training loss
-                    update_time = line.split(' ')[-1]
+                    update_time = float(line.split(' ')[-1])
                     data_dict[f'step_{step_num}_update_time'] = update_time
                 elif 'Reached maximum number of steps without early stopping' in line:
                     experiment_completed = True
-        
-        
+
         data_dict['recompilation_counter'] = recompilation_counter
         data_dict['experiment_completed'] = experiment_completed
         return data_dict
@@ -280,36 +293,6 @@ class OutputParser():
         data_dict['dataset'] = settings_list[-5]
         data_dict['model'] = settings_list[-6]
         return data_dict
-
-    def check_if_djob_out_exists(self, submission_path):
-        """Check if the simulation never ran."""
-        if os.path.isfile(submission_path + '/relaxation/calculation/aims.out'):
-            return False
-        else:
-            return True
-
-    def get_queue(self, submission_path):
-        """Get queue information from the submission path script.
-
-        Args:
-        submissions_path: (str) simulation submission script.
-
-        Returns:
-        queue: (str) which queue the script was submitted to -
-            general/short."""
-        queue = 'None'
-        with open(submission_path) as f:
-            script_text = f.read()
-            if '#SBATCH --partition=short' in script_text:
-                queue = 'short'
-            elif '#SBATCH --partition=general' in script_text:
-                queue = 'general'
-            else:
-                self.logger.error(
-                    'Unable to find queue in sub'
-                    'script %s' % submission_path)
-                print('Unable to find queue info %s' % submission_path)
-        return queue
 
     def add_expired_path(self, submission_path):
         """Add a path name where a simulation expired to due to being out of time.
@@ -403,10 +386,10 @@ class OutputParser():
         # Get the path to most recent djob error.
         if most_recent_error_file is not None:
             # Print path of most recent djob error.
-            print('Most Recent Djob Err: %s' % most_recent_error_file)
+            # print('Most Recent Djob Err: %s' % most_recent_error_file)
             with open(most_recent_error_file, 'r') as fd:
                 for line in reversed(fd.readlines()):
-                    print(line)
+                    # print(line)
                     if first_marker in line and second_marker in line:
                         expired_time_bool = True
                         break
@@ -424,14 +407,13 @@ class OutputParser():
         # Create header if csv file doesn't exist.
         if not os.path.isfile(self.csv_filename):
             self.create_header()
-        with ase.db.core.connect(self.db_name) as db:
-            with open(self.csv_filename, 'a') as csv_file:
-                dict_writer = csv.DictWriter(
+        with open(self.csv_filename, 'a') as csv_file:
+            dict_writer = csv.DictWriter(
                     csv_file, fieldnames=self.csv_columns)
-                self.write_all_path_data(
-                    dict_writer, db)
+            self.write_all_path_data(
+                    dict_writer)
 
-    def write_all_path_data(self, dict_writer, db):
+    def write_all_path_data(self, dict_writer):
         """Write all data from path list to csv and db.
 
         Args:
@@ -443,29 +425,13 @@ class OutputParser():
         for path in self.path_list:
             try:
                 # Get data stored in files in the path folder.
-                data_dict, _, relaxed_ase_atoms_obj = self.gather_all_path_data(
-                    path)
+                data_dict = self.gather_all_path_data(path)
                 if data_dict is None:
                     raise ValueError(f'No data dict for path: {path}')
 
                 # Commented out for speedup
                 dict_writer.writerow(data_dict)
 
-
-                # Feed the following dictionary key worded args
-                # to db write.
-                # expansion=expansion, basis_functions=tier, name=path,
-                # functional=functional, basis_size=basis_size,
-                # rel_setting=rel_setting,
-                # k_point_density=k_point_density, total_energy=total_energy,
-                # free_energy=free_energy, gap=HOMO_LUMO_gap,
-                # gap_gamma=gamma_gap, gap_bandstructure=gap_bandstructure,
-                # volume=volume)
-
-                # Commented out for speedup
-                db.write(
-                    relaxed_ase_atoms_obj, attach_calculator=True,
-                    **data_dict)
             except Exception as e:
                 print("This path: %s has issues" % path)
                 print("Error: %s" % e)
