@@ -30,10 +30,6 @@ flags.DEFINE_string(
     'None',
     'Where to store data as csv that has been parsed.')
 flags.DEFINE_string(
-    'db_name',
-    'None',
-    'Where to save parsed data as ASE db.')
-flags.DEFINE_string(
     'paths_to_resubmit',
     'None',
     'Paths where have a nice day was not found.'
@@ -45,10 +41,10 @@ flags.DEFINE_string(
     'and paths expired.')
 
 
-class OutputParser():
+class ProfilingParser():
     """Parses data output."""
     def __init__(
-            self, paths_txt_file, csv_filename, db_name,
+            self, paths_txt_file, csv_filename,
             paths_to_resubmit, paths_misbehaving):
         """Constructor
 
@@ -56,7 +52,6 @@ class OutputParser():
         path_txt_file: (str) of paths where DFT output files
             can be found.
         csv_filename: (str) where to save data to a csv file.
-        db_name: (str) where to save data as an ASE db.
         paths_to_resubmit: (str) path where to save simulation
             paths that didn't exit nicely so they can be
             resubmited.
@@ -72,7 +67,6 @@ class OutputParser():
         self.logger = logging.getLogger(__name__)
         # CSV filename of where to save parsed data.
         self.csv_filename = csv_filename
-        self.db_name = db_name  # ASE db name.
         # Name of columns for header in csv.
         self.csv_columns = [
             'model', 'time_day', 'dataset', 'batching_type', 'batch_size',
@@ -474,10 +468,7 @@ def main(argv):
     if csv_filename == 'None':
         sys.exit('csv filename name is None')
     print('csv filename is %s' % csv_filename)
-    db_name = FLAGS.db_name
-    if db_name == 'None':
-        sys.exit('db name is None')
-    print('db name is %s' % db_name)
+
     paths_to_resubmit = FLAGS.paths_to_resubmit
     if paths_to_resubmit == 'None':
         sys.exit('paths to resubmit is None')
@@ -491,10 +482,9 @@ def main(argv):
         'File to store paths to'
         ' resubmit %s' % paths_misbehaving)
 
-    parse_obj = OutputParser(
+    parse_obj = ProfilingParser(
         paths_txt_file=paths_txt_file,
         csv_filename=csv_filename,
-        db_name=db_name,
         paths_to_resubmit=paths_to_resubmit,
         paths_misbehaving=paths_misbehaving)
     # Now submit all jobs
