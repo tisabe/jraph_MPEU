@@ -248,16 +248,15 @@ class ProfilingParser():
                     step_num = split_line[-4]
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
-                    print(line.split(' ')[-2])
-                    rmse = float(line.split(' ')[-3].split('[')[-1])
+                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
-                    rmse = float(line.split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_val_rmse'] = rmse                    
                 elif 'RMSE/MAE test' in line:
                     # Grab the test loss
-                    rmse = float(line.split(' ')[-3].split('[')[-1])
+                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_test_rmse'] = rmse
                 elif 'Mean batching time' in line:
                     # Grab the training loss
@@ -331,7 +330,6 @@ class ProfilingParser():
         error_files.sort()
         # If the error_files list is empty, return calc_finished is false.
         print(parent_path)
-        print(os.path.isfile(os.path.join(parent_path, 'sample_err_file.err')))
         calc_ran_bool = False
 
         if error_files is None:
@@ -379,11 +377,8 @@ class ProfilingParser():
         expired_time_bool = False
         # Get the path to most recent djob error.
         if most_recent_error_file is not None:
-            # Print path of most recent djob error.
-            # print('Most Recent Djob Err: %s' % most_recent_error_file)
             with open(most_recent_error_file, 'r') as fd:
                 for line in reversed(fd.readlines()):
-                    # print(line)
                     if first_marker in line and second_marker in line:
                         expired_time_bool = True
                         break
