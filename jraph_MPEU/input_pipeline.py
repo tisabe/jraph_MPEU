@@ -33,7 +33,7 @@ from jraph_MPEU.utils import (
     add_labels_to_graphs,
     load_config,
     pad_graph_to_nearest_power_of_two,
-    pad_graph_to_nearest_power_of_64,
+    pad_graph_to_nearest_multiple_of_64,
 )
 
 
@@ -425,7 +425,7 @@ class DataReader:
             # print('padded batch')
             # print(batch)
             if self.static_round_to_multiple:
-                yield pad_graph_to_nearest_power_of_64(graphs)
+                yield pad_graph_to_nearest_multiple_of_64(graphs)
             else:
                 yield pad_graph_to_nearest_power_of_two(graphs)
         # yield pad_graph_to_nearest_power_of_two(graphs)
