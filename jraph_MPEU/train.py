@@ -548,7 +548,8 @@ def train_and_evaluate(
         batch_size=config.batch_size,
         repeat=True,
         seed=config.seed,
-        dynamic_batch=config.dynamic_batch)
+        dynamic_batch=config.dynamic_batch,
+        static_round_to_multiple=config.static_round_to_multiple)
 
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
