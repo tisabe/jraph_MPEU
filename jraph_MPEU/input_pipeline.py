@@ -32,7 +32,8 @@ from jraph_MPEU.utils import (
     normalize_targets_dict,
     add_labels_to_graphs,
     load_config,
-    pad_graph_to_nearest_power_of_two
+    pad_graph_to_nearest_power_of_two,
+    pad_graph_to_nearest_power_of_64,
 )
 
 
@@ -355,7 +356,8 @@ class DataReader:
     def __init__(
             self, data: Sequence[jraph.GraphsTuple],
             batch_size: int, repeat: Boolean, seed: int = None,
-            dynamic_batch: bool = True):
+            dynamic_batch: bool = True,
+            static_round_to_multiple: bool = True):
         self.data = data[:]  # Pass a copy of the list.
         self.batch_size = batch_size
         self.repeat = repeat
@@ -364,6 +366,7 @@ class DataReader:
         self._generator = self._make_generator()
         self._timing_measurements_batching = []
         self._update_measurements = []
+        self.static_round_to_multiple = static_round_to_multiple
 
         self.budget = estimate_padding_budget_for_batch_size(
             self.data, batch_size,
@@ -387,7 +390,7 @@ class DataReader:
     # def static_batch(self):
     def static_batch(
             self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
-            batch_size: int,
+            batch_size: int, round_to_multiple: bool = True,
             ) -> Generator[gn_graph.GraphsTuple, None, None]:
         # logging.info('STATIC batch: grab another graph')
         for graph in graphs_tuple_iterator:
@@ -421,7 +424,10 @@ class DataReader:
             #     pass
             # print('padded batch')
             # print(batch)
-            yield pad_graph_to_nearest_power_of_two(graphs)
+            if self.static_round_to_multiple:
+                yield pad_graph_to_nearest_power_of_64(graphs)
+            else:
+                yield pad_graph_to_nearest_power_of_two(graphs)
         # yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):

@@ -212,6 +212,14 @@ def _nearest_bigger_power_of_two(num: int) -> int:
     return base
 
 
+def _nearest_bigger_multiple_of_64(num: int) -> int:
+    """Computes the nearest power of two greater than num for padding."""
+    base = 64
+    while base < num:
+        base += 64
+    return base
+
+
 def pad_graph_to_nearest_power_of_two(
         graphs_tuple: jraph.GraphsTuple) -> jraph.GraphsTuple:
     """Pads a batched `GraphsTuple` to the nearest power of two.
