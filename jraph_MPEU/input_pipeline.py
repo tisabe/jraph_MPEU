@@ -548,7 +548,7 @@ def get_datasets(config, workdir):
         # If split file did not exist before, generate and save it
         split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
-            config.test_frac, seed=config.seed
+            config.test_frac, seed=config.seed_splits
         )
         save_split_dict(split_lists, workdir)
     else:

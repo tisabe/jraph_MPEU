@@ -254,7 +254,7 @@ def main(_):
             config_dict = json.load(config_file)
             label_str = config_dict['label_str']
 
-    #plot_prediction(df_result, label_str)
+    plot_prediction(df_result, label_str)
     plot_stdev(df_result, label_str)
 
 

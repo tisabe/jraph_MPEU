@@ -455,7 +455,7 @@ def init_state(
     """Initialize a TrainState object using hyperparameters in config,
     and the init_graphs. This is a representative batch of graphs."""
     # Initialize rng.
-    rng = jax.random.PRNGKey(config.seed)
+    rng = jax.random.PRNGKey(config.seed_weights)
 
     # Create and initialize network.
     logging.info('Initializing network.')
@@ -545,7 +545,7 @@ def train_and_evaluate(
         data=datasets['train'],
         batch_size=config.batch_size,
         repeat=True,
-        seed=config.seed)
+        seed=config.seed_datareader)
 
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model

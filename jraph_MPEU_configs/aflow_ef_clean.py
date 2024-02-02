@@ -8,6 +8,10 @@ def get_config() -> ml_collections.ConfigDict():
     Returns a ml_collections.ConfigDict() object."""
     config = get_config_super() # inherit from default mp config
 
+    config.seed_splits = 42
+    config.seed_datareader = 42
+    config.seed_weights = 42
+
     config.data_file = 'aflow/graphs_all_12knn.db'
     config.label_str = 'enthalpy_formation_atom'
     #config.label_str = 'Egap'
@@ -19,5 +23,5 @@ def get_config() -> ml_collections.ConfigDict():
         "dft_type=['PAW_PBE']")
     config.use_layer_norm = False
     config.dropout_rate = 0.0
-    config.limit_data = 10000
+    config.limit_data = None
     return config
