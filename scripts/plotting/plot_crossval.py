@@ -3,12 +3,29 @@ import os
 import pickle
 import json
 
+from absl import app
+from absl import flags
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import haiku as hk
 
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string('directory', 'results/aflow/crossval_grid',
+    'input directory name')
+flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+flags.DEFINE_integer('max_step', 100000000,
+    'maximum number of steps to take the mse/mae minimum from')
+flags.DEFINE_integer('drop_n', 0,
+    'Number of worst values to drop, for clearer visualization')
+flags.DEFINE_integer('n_plots', 5,
+    'Number of subplots in a single box plot frame.')
+flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "eV/atom" or "eV"')
 
 def min_of_previous(array):
     return [min(array[:i]) for i in range(len(array))]
@@ -32,20 +49,20 @@ def main(args):
     # plot learning curves
     df = pd.DataFrame({})
     dict_minima = {}
-    print(args.max_step)
+    print(FLAGS.max_step)
     # make a dict to list ids depending on how the model training was stopped
     finish_condition = {
         "stopped_early": [], "aborted_early": [], "time_elapsed": [],
         "unknown": [], "reached_max_steps": []}
-    for dirname in os.listdir(args.file):
-        workdir = args.file + '/' + dirname
+    for dirname in os.listdir(FLAGS.directory):
+        workdir = FLAGS.directory + '/' + dirname
         try:
-            metrics_path = args.file + '/'+dirname+'/checkpoints/metrics.pkl'
+            metrics_path = FLAGS.directory+'/'+dirname+'/checkpoints/metrics.pkl'
             # open the file with evaluation metrics
             with open(metrics_path, 'rb') as metrics_file:
                 metrics_dict = pickle.load(metrics_file)
 
-            config_path = args.file + '/' + dirname + '/config.json'
+            config_path = FLAGS.directory + '/' + dirname + '/config.json'
             with open(config_path, 'r') as config_file:
                 config_dict = json.load(config_file)
 
@@ -61,8 +78,8 @@ def main(args):
             split = 'validation'
             metrics = metrics_dict[split]
             # get arrays with mae and rmse for this run
-            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < args.max_step]
-            loss_mae = [row[1][1] for row in metrics if int(row[0]) < args.max_step]
+            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < FLAGS.max_step]
+            loss_mae = [row[1][1] for row in metrics if int(row[0]) < FLAGS.max_step]
             n_mean = 1 # number of points for running mean
             #  compute running mean using convolution
             loss_rmse = np.convolve(loss_rmse, np.ones(n_mean)/n_mean, mode='valid')
@@ -74,7 +91,7 @@ def main(args):
                 continue
 
             dict_minima[dirname] = list(loss_mae)
-            step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
+            step = [int(row[0]) for row in metrics if int(row[0]) < FLAGS.max_step]
             min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
             activation_name_convert = {
@@ -136,7 +153,7 @@ def main(args):
     print(id_list_best)
 
     # drop the worst n configs
-    for i in range(args.drop_n):
+    for i in range(FLAGS.drop_n):
         i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
@@ -163,7 +180,7 @@ def main(args):
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'layer_norm': 'bool'})
     df = df.astype({'seed': 'int32'})
-    #n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    #n_subplots_max = FLAGS.n_plots  # maximum number of subplots in a single large plot
     n_subplots_max = [[0,1,2,3],[4,5,6],[7,8,9]]
     count = 0  # count up plots for saving them in different files
     for box_xnames_split in split_list(box_xnames, n_subplots_max):
@@ -173,76 +190,47 @@ def main(args):
         for i, name in enumerate(box_xnames_split):
             sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='lightblue')
             sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
-            ax[i].set_xlabel(col_to_label[name], fontsize=args.fontsize)
+            ax[i].set_xlabel(col_to_label[name], fontsize=FLAGS.fontsize)
             if i == 0:
-                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
+                ax[i].set_ylabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
             else:
                 ax[i].set_ylabel('')
             ax[i].tick_params(
-                axis='both', which='both', labelsize=args.fontsize-4)
+                axis='both', which='both', labelsize=FLAGS.fontsize-4)
             ax[i].xaxis.labelpad = 15
         #plt.yscale('log')
         plt.rc('font', size=16)
         plt.tight_layout()
         plt.show()
         fig.savefig(
-            args.file+f'/grid_search_{count}.png', bbox_inches='tight',
+            FLAGS.directory+f'/grid_search_{count}.png', bbox_inches='tight',
             dpi=600)
         count += 1
 
     fig, ax = plt.subplots()
     sns.scatterplot(data=df, x='rmse', y='mae', ax=ax)
-    ax.set_xlabel(f'RMSE ({args.unit})', fontsize=args.fontsize)
-    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
+    ax.set_xlabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
+    ax.set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
     ax.set_title('Bandgap', loc='center', y=1.0, pad=-30)
     ax.tick_params(which='both', labelsize=16)
     #plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
     fig.savefig(
-        args.file + '/rmse_mae.png', bbox_inches='tight', dpi=600)
+        FLAGS.directory + '/rmse_mae.png', bbox_inches='tight', dpi=600)
     """
     fig, ax = plt.subplots()
     sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
-    ax.set_xlabel('# of parameters', fontsize=args.fontsize)
-    ax.set_ylabel(f'MAE ({args.unit})', fontsize=args.fontsize)
+    ax.set_xlabel('# of parameters', fontsize=FLAGS.fontsize)
+    ax.set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
     fig.savefig(
-        args.file + '/params_mae.png', bbox_inches='tight', dpi=600)
+        FLAGS.directory + '/params_mae.png', bbox_inches='tight', dpi=600)
     """
     return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Show ensemble of loss curves.')
-    parser.add_argument(
-        '-f', '-F', type=str, dest='file',
-        default='results/aflow/crossval_grid',
-        help='input super directory name')
-    parser.add_argument(
-        '-step', type=int, dest='max_step',
-        default=100000000,  # an arbitrary large number...
-        help='maximum number of steps to take the mse/mae minimum from'
-    )
-    parser.add_argument(
-        '-drop_n', type=int, dest='drop_n',
-        default=0,
-        help='Number of worst values to drop, for clearer visualization'
-    )
-    parser.add_argument(
-        '-n_plots', type=int, dest='n_plots',
-        default=5,
-        help='Number of subplots in a single box plot frame.'
-    )
-    parser.add_argument(
-        '-unit', type=str, dest='unit',
-        default='eV/atom',
-        help='unit string')
-    parser.add_argument(
-        '-fontsize', type=int, dest='fontsize',
-        default=18,
-        help='fontsize of axis labels')
-    args_main = parser.parse_args()
-    main(args_main)
+    app.run(main)

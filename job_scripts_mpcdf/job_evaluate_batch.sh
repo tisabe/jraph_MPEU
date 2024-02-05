@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=1-10        # indices are inclusive
+#SBATCH --array=11-50        # indices are inclusive
 # Standard output and error:
 #SBATCH -o ./output_slurm/eval_%A_%a.out
 #SBATCH -e ./output_slurm/eval_%A_%a.err 
