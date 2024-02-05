@@ -21,8 +21,10 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('directory', 'results/aflow/egap_rand_search',
     'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
+flags.DEFINE_bool('plot', False, 'Whether to plot parity plots.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
+flags.DEFINE_integer('n_best', 10, 'number of best models to pick for ensemble')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
@@ -38,23 +40,6 @@ def id_list_to_int_list(ids_list):
 
 
 def plot_prediction(df_ensemble, label_str):
-    df_ensemble['abs. error'] = abs(
-        df_ensemble['prediction'] - df_ensemble[label_str])
-    for split in ['train', 'validation', 'test']:
-        df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
-        stdev = np.std(df_split[label_str])
-        print(f'STDEV of {split} set: {stdev}')
-        mean_abs_err = df_split.mean(0, numeric_only=True)['abs. error']
-        print(f'MAE on {split} set: {mean_abs_err}')
-        rmse = (df_split['abs. error'] ** 2).mean() ** .5
-        print(f'RMSE on {split} set: {rmse}')
-        r2_split = sklearn.metrics.r2_score(
-            df_split[label_str], df_split['prediction']
-        )
-        print(f'R^2 on {split} set: {r2_split}')
-        median_err = df_split.median(0, numeric_only=True)['abs. error']
-        print(f'Median error on {split} set: {median_err}')
-
     fig, ax = plt.subplots()
     sns.scatterplot(
         ax=ax,
@@ -75,8 +60,6 @@ def plot_prediction(df_ensemble, label_str):
 
 
 def plot_stdev(df_ensemble, label_str):
-    df_ensemble['abs. error'] = abs(
-        df_ensemble['prediction'] - df_ensemble[label_str])
     for split in ['train', 'validation', 'test']:
         df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
         r2_split = sklearn.metrics.r2_score(
@@ -178,13 +161,15 @@ def main(_):
                 min_step_rmse = step[np.argmin(loss_rmse)]
                 min_step_mae = step[np.argmin(loss_mae)]
                 row_dict = {
-                    'mae': min_mae,
-                    'rmse': min_rmse,
-                    'min_step_mae': min_step_mae,
-                    'min_step_rmse': min_step_rmse,
-                    'directory': dirname
+                    'mae': [min_mae],
+                    'rmse': [min_rmse],
+                    'min_step_mae': [min_step_mae],
+                    'min_step_rmse': [min_step_rmse],
+                    'directory': [dirname]
                 }
-                df = df.append(row_dict, ignore_index=True)
+                #df = df.append(row_dict, ignore_index=True)
+                df = pd.concat(
+                    [df, pd.DataFrame(row_dict)], axis=0, ignore_index=True)
 
             except OSError:
                 pass
@@ -195,7 +180,7 @@ def main(_):
         id_list_best = []
         rmse_list_best = []
         mae_list_best = []
-        n_ids = 10
+        n_ids = FLAGS.n_best
         for i in range(n_ids):
             #print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
             id_list_best.append(df_copy.iloc[i]['directory'])
@@ -254,8 +239,27 @@ def main(_):
             config_dict = json.load(config_file)
             label_str = config_dict['label_str']
 
-    plot_prediction(df_result, label_str)
-    plot_stdev(df_result, label_str)
+    df_result['abs. error'] = abs(
+        df_result['prediction'] - df_result[label_str])
+
+    for split in ['train', 'validation', 'test']:
+        df_split = df_result.loc[lambda df_temp: df_temp['split'] == split]
+        stdev = np.std(df_split[label_str])
+        print(f'STDEV of {split} set: {stdev}')
+        mean_abs_err = df_split.mean(0, numeric_only=True)['abs. error']
+        print(f'MAE on {split} set: {mean_abs_err}')
+        rmse = (df_split['abs. error'] ** 2).mean() ** .5
+        print(f'RMSE on {split} set: {rmse}')
+        r2_split = sklearn.metrics.r2_score(
+            df_split[label_str], df_split['prediction']
+        )
+        print(f'R^2 on {split} set: {r2_split}')
+        median_err = df_split.median(0, numeric_only=True)['abs. error']
+        print(f'Median error on {split} set: {median_err}')
+
+    if FLAGS.plot:
+        plot_prediction(df_result, label_str)
+        plot_stdev(df_result, label_str)
 
 
 if __name__ == "__main__":
