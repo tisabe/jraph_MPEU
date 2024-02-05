@@ -25,6 +25,9 @@ flags.DEFINE_list(
     'batch_size', 'None',
     'Batch sizes as ints to use for training.')
 flags.DEFINE_list(
+    'static_round_to_multiple', 'None',
+    'Round static batching to multiple or power.')
+flags.DEFINE_list(
     'batching_method', 'None',
     'Can be either "static" or "dynamic".')
 flags.DEFINE_list(
@@ -76,6 +79,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.batch_size = <batch_size>
+    config.static_round_to_multiple = <static_round_to_multiple>
     return config
 """
 
@@ -89,6 +93,10 @@ def create_config_file_path(
         '<dynamic_batch>', str(dynamic_batch))
     config = config.replace(
         '<batch_size>', str(setting['batch_size']))
+    config = config.replace(
+        '<static_round_to_multiple>',
+        str(setting['static_round_to_multiple'])
+    )
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"
         label_str = "\'enthalpy_formation_atom\'"
@@ -115,7 +123,8 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']))    
+        setting['batching_method'] + '_' + str(setting['batch_size']) + \
+        + 'round_to_multiple' + '_' + str(setting['static_round_to_multiple']))    
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
@@ -147,6 +156,7 @@ def create_folder_for_setting(base_dir, setting):
         setting['network_type'] + '/' +
         setting['dataset'] + '/' +
         setting['batching_method'] + '/' +
+        str(setting['static_round_to_multiple']) + '/' +
         str(setting['batch_size']) + '/' +
         setting['computing_type'].replace(':', '_') + '/' +
         'iteration_' + str(setting['iteration']))
@@ -159,7 +169,7 @@ def create_folder_for_setting(base_dir, setting):
 
 def get_settings_list(
         network_type_list, dataset_list,
-        batch_size_list, batching_method_list,
+        batch_size_list, batching_method_list, static_round_to_multiple_list,
         computing_type_list):
     """Get a list of n-tuples of settings to use in profiling experiments.
 
@@ -172,17 +182,19 @@ def get_settings_list(
         for dataset in dataset_list:
             for batch_size in batch_size_list:
                 for batching_method in batching_method_list:
-                    for computing_type in computing_type_list:
-                        for iteration in range(10):
-                            settings_dict = {
-                                'network_type': network_type,
-                                'dataset': dataset,
-                                'batch_size': batch_size,
-                                'batching_method': batching_method,
-                                'computing_type': computing_type,
-                                'iteration': iteration}
-                                
-                            settings_list.append(settings_dict)
+                    for static_round_to_multiple in static_round_to_multiple_list:
+                        for computing_type in computing_type_list:
+                            for iteration in range(10):
+                                settings_dict = {
+                                    'network_type': network_type,
+                                    'dataset': dataset,
+                                    'batch_size': batch_size,
+                                    'batching_method': batching_method,
+                                    'static_round_to_multiple': static_round_to_multiple,
+                                    'computing_type': computing_type,
+                                    'iteration': iteration}
+                                    
+                                settings_list.append(settings_dict)
     return settings_list
 
 
@@ -207,6 +219,7 @@ def create_folder_and_files_for_setting(
 def main(argv):
     network_type_list = FLAGS.network_type
     dataset_list = FLAGS.dataset
+    static_round_to_multiple_list = FLAGS.static_round_to_multiple
     batch_size_list = FLAGS.batch_size
     batching_method_list = FLAGS.batching_method
     computing_type_list = FLAGS.computing_type
@@ -214,6 +227,7 @@ def main(argv):
     settings_list = get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
+        static_round_to_multiple_list,
         computing_type_list)
     
     experiment_dir = FLAGS.experiment_dir

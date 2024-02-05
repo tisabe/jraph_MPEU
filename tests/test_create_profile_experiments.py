@@ -10,13 +10,15 @@ def test_get_settings_list(
         dataset_list=['aflow'],
         batch_size_list=[16, 32],
         batching_method_list=['static', 'dynamic'],
+        static_round_to_multiple_list=[True, False],
         computing_type_list=['cpu']):
     settings_list = cpe.get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
+        static_round_to_multiple_list,
         computing_type_list
     )
-    assert len(settings_list) == 40
+    assert len(settings_list) == 80
 
 
 def test_create_folder_for_setting(tmp_path):
@@ -27,11 +29,12 @@ def test_create_folder_for_setting(tmp_path):
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
+        'static_round_to_multiple': True,
         'computing_type': 'cpu',
         'iteration': 1,
     }
     folder_name = cpe.create_folder_for_setting(folder_base_path, setting)
-    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/32/cpu/iteration_1'
+    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/True/32/cpu/iteration_1'
     assert folder_name == str(expected_path)
     assert os.path.isdir(expected_path)
 
@@ -44,6 +47,7 @@ def test_create_config_file_path(tmp_path):
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
+        'static_round_to_multiple': False,
         'computing_type': 'gpu:a100',
         'iteration': 1,
     }
@@ -55,6 +59,7 @@ def test_create_config_file_path(tmp_path):
         print(config)
         assert '    config.batch_size = 32\n' in config
         assert '    config.dynamic_batch = False\n' in config
+        assert '    config.static_round_to_multiple = False\n' in config
         assert '    config.data_file = aflow/graphs_knn_fix.db\n' in config
         assert '    config.label_str = enthalpy_formation_atom\n'
 
@@ -67,6 +72,7 @@ def test_create_job_script(tmp_path):
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
+        'static_round_to_multiple': True,
         'computing_type': 'gpu:a100',
         'iteration': 1,
     }
@@ -99,12 +105,14 @@ def test_create_folder_and_files_for_setting(tmp_path):
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
+        'static_round_to_multiple': True,
         'computing_type': 'gpu:a100',
         'iteration': 1},
         {'network_type': 'mpnn',
         'dataset': 'aflow',
         'batch_size': 64,
         'batching_method': 'static',
+        'static_round_to_multiple': False,
         'computing_type': 'gpu:a100',
         'iteration': 2}]
 
@@ -117,16 +125,16 @@ def test_create_folder_and_files_for_setting(tmp_path):
         assert len(job_files) == 2
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
+            'static/True/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
+            'static/False/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
     # Open one of the job paths and check the job script is good.
     print(str(folder_base_path))
     with open(
         str(folder_base_path) + \
         '/profiling_experiments/mpnn/aflow/' + \
-        'static/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
+        'static/True/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
         job_script = fd.readlines()
         print(job_script)
         assert '#SBATCH --gres=gpu:a100:4\n' in job_script
