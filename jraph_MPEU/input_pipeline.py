@@ -387,48 +387,22 @@ class DataReader:
                 self.batch_size
             )
 
-    # def static_batch(self):
     def static_batch(
             self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
-            batch_size: int, round_to_multiple: bool = True,
-            ) -> Generator[gn_graph.GraphsTuple, None, None]:
+            batch_size: int) -> Generator[gn_graph.GraphsTuple, None, None]:
         # logging.info('STATIC batch: grab another graph')
         for graph in graphs_tuple_iterator:
             graphs = []
             # We want only one less than thebatch size since
             # we will pad the batch to the nearest power of two.
             for _ in range(batch_size-1):
-                # try:
                 graph = next(self._generator)
                 graphs.append(graph)
-                #     print(i+1)
-                # except StopIteration:
-                #     break
-            # print('test print')
-            # print(f'len of graphs {len(graphs)}')
-            # logging.info('type of graphs')
-            # logging.info(type(graphs))
-            # logging.info('graphs[0]')
-            # logging.info(graphs[0])
-            # logging.info(type(graphs[0]))
-            # logging.info('graphs[-1]')
-            # logging.info(graphs[-1])
-            # logging.info(type(graphs[-1]))
-            # logging.info('STATIC batch: yield graphs')
-            # Here the StopIteration is happening
-            # try:
             graphs = jraph.batch(graphs)
-                # print('here')
-            # except StopIteration:
-            #     # print('there')
-            #     pass
-            # print('padded batch')
-            # print(batch)
             if self.static_round_to_multiple:
                 yield pad_graph_to_nearest_multiple_of_64(graphs)
             else:
                 yield pad_graph_to_nearest_power_of_two(graphs)
-        # yield pad_graph_to_nearest_power_of_two(graphs)
 
     def __iter__(self):
         return self
