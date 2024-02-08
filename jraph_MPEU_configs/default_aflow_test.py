@@ -17,5 +17,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.selection = None
     config.label_str = 'enthalpy_formation_atom'
     config.num_edges_max = None
+    config.use_layer_norm = True
 
     return config

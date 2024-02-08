@@ -29,11 +29,12 @@ import functools
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
-    normalize_targets_dict,
-    add_labels_to_graphs,
     load_config,
     pad_graph_to_nearest_power_of_two,
     pad_graph_to_nearest_multiple_of_64,
+    get_normalization_metrics,
+    normalize_graphs,
+    load_config
 )
 
 
@@ -113,8 +114,12 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
     for i in range(len(atoms)):
         nodes.append(atom_numbers[i])
 
+    # Loop over the atoms in the unit cell.
     for i in range(len(atoms)):
+        # Get the neighbourhoods of atom i
         neighbor_indices, offset = neighborhood.get_neighbors(i)
+        # Loop over the neighbours of atom i. Offset helps us calculate the
+        # distance to atoms in neighbouring unit cells.
         for j, offs in zip(neighbor_indices, offset):
             i_pos = atom_positions[i]
             j_pos = atom_positions[j] + np.dot(offs, unitcell)
@@ -372,7 +377,7 @@ class DataReader:
             self.data, batch_size,
             num_estimation_graphs=1000)
 
-        # This makes this thing complicated. From outside of DataReader
+        # From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
         if dynamic_batch is True:
@@ -390,7 +395,6 @@ class DataReader:
     def static_batch(
             self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
             batch_size: int) -> Generator[gn_graph.GraphsTuple, None, None]:
-        # logging.info('STATIC batch: grab another graph')
         for graph in graphs_tuple_iterator:
             graphs = []
             # We want only one less than thebatch size since
@@ -409,20 +413,6 @@ class DataReader:
 
     # @functools.partial(jax.jit, static_argnums=0)
     def __next__(self):
-        # logging.info('STATIC batch: grab another graph')
-        # graphs = []
-        # for _ in range(self.batch_size):
-        #     graph = next(self._generator)
-        #     graphs.append(graph)
-        # graphs = jraph.batch(graphs)
-        # yield pad_graph_to_nearest_power_of_two(graphs)
-        # logging.info('STATIC batch: grab another graph')
-        # graphs = []
-        # for _ in range(self.batch_size):
-        #     graph = next(self._generator)
-        #     graphs.append(graph)
-        # graphs = jraph.batch(graphs)
-        # return pad_graph_to_nearest_power_of_two(graphs)
         return next(self.batch_generator)
 
 
@@ -464,14 +454,16 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=seed-42)  # seed-42 as seed is 42 by default, but default random state should be 0
+            random_state=seed-42)
+    # seed-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
         test_set) = sklearn.model_selection.train_test_split(
             val_and_test_set,
             test_size=test_frac/(test_frac+val_frac),
-            random_state=1)   # seed-41 as seed is 42 by default, but default random state should be 1
+            random_state=1)
+    # seed-41 as seed is 42 by default, but default random state should be 1
     split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
     return split_dict
 
@@ -543,7 +535,7 @@ def get_datasets(config, workdir):
     # ids in the split file
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
-        logging.debug(f'Did not find split file at {split_path}. Pulling data.')
+        logging.info(f'Did not find split file at {split_path}. Pulling data.')
         graphs_list, labels_list, ids = asedb_to_graphslist(
             config.data_file,
             label_str=config.label_str,
@@ -558,7 +550,7 @@ def get_datasets(config, workdir):
             labels_dict[id_single] = label
 
     else:
-        logging.debug(f'Found split file. Connecting to ase.db at {config.data_file}')
+        logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
         graphs_dict = {}
         labels_dict = {}
         split_dict = load_split_dict(workdir)
@@ -589,17 +581,6 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    # convert labels depending on which type is set in config
-    if config.label_type == 'scalar':
-        labels_dict, mean, std = normalize_targets_dict(
-            graphs_dict, labels_dict, config.aggregation_readout_type)
-        logging.info(f'Mean: {mean}, Std: {std}')
-    elif config.label_type == 'class':
-        labels_dict = {key: cut_egap(value, config.egap_cutoff) \
-            for key, value in labels_dict.items()}
-        mean = None
-        std = None
-
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
         graphs_dict[id_single] = graph._replace(globals=np.array([label]))
 
@@ -622,4 +603,22 @@ def get_datasets(config, workdir):
             # append graph from graph_list using the id in split_dict
             graphs_split[key].append(graphs_dict[id_single])
 
+    # get normalization metrics from train data
+    if config.label_type == 'scalar':
+        mean, std = get_normalization_metrics(
+            graphs_split['train'], config.aggregation_readout_type)
+        logging.info(f'Mean: {mean}, Std: {std}')
+    elif config.label_type == 'class':
+        mean, std = None, None
+    else:
+        raise ValueError(f'{config.label_type} not recognized as label type.')
+
+    for split, graphs_list in graphs_split.items():
+        if config.label_type == 'scalar':
+            graphs_split[split] = normalize_graphs(
+                graphs_list, mean, std, config.aggregation_readout_type)
+        elif config.label_type == 'class':
+            for i, graph in enumerate(graphs_list):
+                label = cut_egap(graph.globals[0], config.egap_cutoff)
+                graphs_list[i] = graph._replace(globals=np.array([label]))
     return graphs_split, mean, std

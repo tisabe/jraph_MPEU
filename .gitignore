@@ -21,3 +21,11 @@ scripts/figs*
 core.*
 *.lprof
 *.nsys-rep
+*envs/
+job.err*
+job.out*
+core.*
+*.nsys-rep
+*.lprof
+jax*
+activate_venv.sh

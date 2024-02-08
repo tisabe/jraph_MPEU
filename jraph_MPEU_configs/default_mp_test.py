@@ -17,7 +17,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.label_str = 'band_gap' # string to determine which label is used from the dataset
 
     # data selection parameters
-    config.selection = 'fold=1,band_gap>0'
+    config.selection = 'fold>=0,band_gap>0'
     config.limit_data = 2000
 
     # MPNN hyperparameters

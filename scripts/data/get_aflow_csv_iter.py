@@ -10,10 +10,11 @@ import pandas
 SERVER = "http://aflow.org"
 API = "/API/aflux/v1.0/?"
 MATCHBOOK = (
-    #'enthalpy_formation_atom(*),'#Egap(*),Egap_type(*),'
-    'dft_type(*),ldau_type(*),species_pp_ZVAL(*),energy_cutoff(*),'
+    #'enthalpy_formation_atom(*),'
+    #'Egap(*),Egap_type(*),'
+    'dft_type(*),ldau_type(*),energy_cutoff(*),'
     'energy_atom(*),density(*),PV_atom(*),'
-    'geometry,positions_fractional,compound' # geometry parameters needed for unit cell
+    'geometry,geometry_orig,positions_fractional,compound' # geometry parameters needed for unit cell
     )
 print("URL:", SERVER+API+MATCHBOOK)
 DIRECTIVES = '$paging(0)'
@@ -55,13 +56,13 @@ while i < max_iter:
             # increase window size
             delta = delta * 2
         elif last_n_rows > n_rows:
-            df_all = df_all.append(df, ignore_index=True)
+            df_all = pandas.concat([df_all, df], ignore_index=True)
             # increase lower bound by delta
             lower = lower + delta
             # increase window size
             delta = delta * 2
         else:
-            df_all = df_all.append(df, ignore_index=True)
+            df_all = pandas.concat([df_all, df], ignore_index=True)
             # increase lower bound by delta
             lower = lower + delta
         last_n_rows = n_rows

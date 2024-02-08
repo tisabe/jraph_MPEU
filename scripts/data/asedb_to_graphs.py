@@ -1,9 +1,6 @@
-import numpy as np
-import pandas
-import ase.db
-
-import sys
 import argparse
+
+import ase.db
 
 from jraph_MPEU.input_pipeline import (
     get_graph_cutoff,
@@ -42,7 +39,7 @@ def main(args):
 
             # save in new database
             db_out.write(atoms, key_value_pairs=prop_dict, data=data)
-            
+
             if i<3:
                 print(prop_dict)
             if i%1000 == 0:
@@ -56,7 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', type=str, dest='file_out', required=True,
                         help='output file name')
     parser.add_argument('-cutoff_type', type=str, dest='cutoff_type', required=True,
-                        help='choose the cutoff type, knearest or const')            
+                        help='choose the cutoff type, knearest or const')
     parser.add_argument('-cutoff', type=float, dest='cutoff', default=4.0,
                         help='cutoff distance or number of nearest neighbors')
     args = parser.parse_args()
