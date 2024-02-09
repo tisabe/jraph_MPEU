@@ -22,8 +22,7 @@ flags.DEFINE_integer('drop_n', 0,
     'Number of worst values to drop, for clearer visualization')
 flags.DEFINE_integer('n_plots', 5,
     'Number of subplots in a single box plot frame.')
-flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_integer('fontsize', 18, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "eV/atom" or "eV"')
 
@@ -144,7 +143,7 @@ def main(args):
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
     id_list_best = []
-    n_ids = 10
+    n_ids = 50
     for i in range(n_ids):
         #print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
         id_list_best.append(df_copy.iloc[i]['directory'])
