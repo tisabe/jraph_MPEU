@@ -24,8 +24,8 @@ flags.DEFINE_list(
 flags.DEFINE_list(
     'batch_size', 'None',
     'Batch sizes as ints to use for training.')
-flags.DEFINE_list(
-    'static_round_to_multiple', 'None',
+flags.DEFINE_bool(
+    'static_round_to_multiple', 'False',
     'Round static batching to multiple or power.')
 flags.DEFINE_list(
     'batching_method', 'None',
@@ -79,7 +79,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.batch_size = <batch_size>
-    config.static_round_to_multiple = <static_round_to_multiple>
+    config.static_round_to_multiple = False
 
     # MPNN hyperparameters
     config.model_str = 'SchNet'
