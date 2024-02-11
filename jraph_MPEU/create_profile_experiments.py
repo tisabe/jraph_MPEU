@@ -24,7 +24,7 @@ flags.DEFINE_list(
 flags.DEFINE_list(
     'batch_size', 'None',
     'Batch sizes as ints to use for training.')
-flags.DEFINE_bool(
+flags.DEFINE_list(
     'static_round_to_multiple', 'False',
     'Round static batching to multiple or power.')
 flags.DEFINE_list(
@@ -211,7 +211,7 @@ def get_settings_list(
                                     'dataset': dataset,
                                     'batch_size': batch_size,
                                     'batching_method': batching_method,
-                                    'static_round_to_multiple': static_round_to_multiple,
+                                    'static_round_to_multiple': bool(static_round_to_multiple),
                                     'computing_type': computing_type,
                                     'iteration': iteration}
                                     
