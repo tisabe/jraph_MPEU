@@ -144,8 +144,11 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']) + \
-        + 'round_to_multiple' + '_' + str(setting['static_round_to_multiple']))    
+        setting['batching_method'] + '_' + str(setting['batch_size']))
+        #
+        #+ 'round_to_multiple' + '_' 
+        
+        # + str(bool(setting['static_round_to_multiple'])))    
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
