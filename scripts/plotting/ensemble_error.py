@@ -188,8 +188,8 @@ def main(_):
             mae_list_best.append(df_copy.iloc[i]['mae'])
         print(f'Top {n_ids} models (id, rmse, mae): ')
         print(id_list_best)
-        print(rmse_list_best)
-        print(mae_list_best)
+        """print(rmse_list_best)
+        print(mae_list_best)"""
 
         df_ensemble = pd.DataFrame({}) # used to calculate ensemble predictions
         df_single = pd.DataFrame({}) # save single result df in here
