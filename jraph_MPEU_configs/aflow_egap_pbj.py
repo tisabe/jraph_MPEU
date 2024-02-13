@@ -8,7 +8,9 @@ def get_config() -> ml_collections.ConfigDict():
     config = ml_collections.ConfigDict()
 
     # rng init
-    config.seed = 42
+    config.seed_splits = 42
+    config.seed_datareader = 42
+    config.seed_weights = 42
 
     # Optimizer
     config.optimizer = 'adam'
