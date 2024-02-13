@@ -123,7 +123,11 @@ def create_config_file_path(
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
-
+    elif setting['dataset'] == 'qm9':
+        data_file = "\'qm9/qm9_graphs_fc.db\'"
+        label_str = "\'U0\'"
+        config = config.replace('<data_file>', data_file)
+        config = config.replace('<label_str>', label_str)
     folder_name = Path(folder_name)
     config_sub_string = (
         'config_' + setting['dataset'] + '_' + \
