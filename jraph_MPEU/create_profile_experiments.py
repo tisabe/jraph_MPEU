@@ -68,10 +68,10 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
-    config.eval_every_steps = 200_000
-    config.num_train_steps_max = 2_000_000
-    config.log_every_steps = 200_000
-    config.checkpoint_every_steps = 200_000
+    config.eval_every_steps = 10_000
+    config.num_train_steps_max = 10_000
+    config.log_every_steps = 10_000
+    config.checkpoint_every_steps = 10_000
     config.limit_data = None
     config.selection = None
     config.data_file = <data_file>
