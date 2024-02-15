@@ -258,12 +258,16 @@ class Evaluater:
             self,
             state: dict,
             graphs: Sequence[jraph.GraphsTuple],
-            batch_size: int) -> float:
+            batch_size: int,
+            config: ml_collections.ConfigDict) -> float:
         """Return mean loss for all graphs in graphs. First return value is
         RMSE, second value is MAE, both scaled back using std of dataset."""
 
         reader = DataReader(
-            data=graphs, batch_size=batch_size, repeat=False)
+            data=graphs, batch_size=batch_size, repeat=False,
+            seed=config.seed,
+            dynamic_batch=config.dynamic_batch,
+            static_round_to_multiple=config.static_round_to_multiple)
 
         loss_list = []
         weights_list = []
@@ -278,7 +282,8 @@ class Evaluater:
             self,
             state: Dict,
             datasets: Dict[str, Iterable[jraph.GraphsTuple]],
-            splits: Iterable[str]) -> Dict[str, float]:
+            splits: Iterable[str],
+            config: ml_collections.ConfigDict) -> Dict[str, float]:
         """Return mean loss for every split in splits.
 
         Also save a checkpoint of the best state, so it is not lost if loss
@@ -286,7 +291,7 @@ class Evaluater:
         loss_dict = {}
         for split in splits:
             loss_dict[split] = self.evaluate_split(
-                state, datasets[split], self._batch_size)
+                state, datasets[split], self._batch_size, config)
             if split == 'validation':
                 if self.best_state is None or loss_dict[split][0] < self.lowest_val_loss:
                     self.best_state = state.copy()
@@ -341,7 +346,7 @@ class Evaluater:
         with open(path, 'wb') as metrics_file:
             pickle.dump(metrics_dict, metrics_file)
 
-    def update(self, state, datasets, eval_splits):
+    def update(self, state, datasets, eval_splits, config: ml_collections.ConfigDict)):
         """Does evaluation, checkpointing and checks for early stopping.
 
         Calculate and save loss metrics, checkpoint model and check for early
@@ -349,7 +354,7 @@ class Evaluater:
         """
         step = state['step']
         if step % self._eval_every_n == 0:
-            eval_loss = self.evaluate_model(state, datasets, eval_splits)
+            eval_loss = self.evaluate_model(state, datasets, eval_splits, config)
             for split in eval_splits:
                 logging.info(f'{self._metric_names} {split}: {eval_loss[split]}')
             self.save_losses(eval_loss, eval_splits, step)
@@ -616,7 +621,7 @@ def train_and_evaluate(
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits)
+        early_stop = evaluater.update(state, datasets, eval_splits, config)
 
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')
