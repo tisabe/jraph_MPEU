@@ -346,7 +346,7 @@ class Evaluater:
         with open(path, 'wb') as metrics_file:
             pickle.dump(metrics_dict, metrics_file)
 
-    def update(self, state, datasets, eval_splits, config: ml_collections.ConfigDict)):
+    def update(self, state, datasets, eval_splits, config: ml_collections.ConfigDict):
         """Does evaluation, checkpointing and checks for early stopping.
 
         Calculate and save loss metrics, checkpoint model and check for early

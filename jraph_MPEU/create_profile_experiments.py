@@ -9,6 +9,7 @@ profiling_experiments/network_type/dataset/batch_size/batching_method/compute_ty
 """
 from absl import flags
 from absl import app
+import ast
 import os
 from pathlib import Path
 
@@ -218,7 +219,7 @@ def get_settings_list(
                                     'dataset': dataset,
                                     'batch_size': batch_size,
                                     'batching_method': batching_method,
-                                    'static_round_to_multiple': bool(static_round_to_multiple),
+                                    'static_round_to_multiple': ast.literal_eval(static_round_to_multiple),
                                     'computing_type': computing_type,
                                     'iteration': iteration}
                                     
