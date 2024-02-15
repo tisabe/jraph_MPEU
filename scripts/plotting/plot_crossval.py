@@ -15,7 +15,6 @@ import haiku as hk
 FLAGS = flags.FLAGS
 flags.DEFINE_string('directory', 'results/aflow/crossval_grid',
     'input directory name')
-flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('max_step', 100000000,
     'maximum number of steps to take the mse/mae minimum from')
 flags.DEFINE_integer('drop_n', 0,
@@ -25,13 +24,12 @@ flags.DEFINE_integer('n_plots', 5,
 flags.DEFINE_integer('fontsize', 18, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "eV/atom" or "eV"')
-
-def min_of_previous(array):
-    return [min(array[:i]) for i in range(len(array))]
+flags.DEFINE_boolean('plot_num_params', False, 'If number of params vs. error \
+    should be plotted')
 
 
 def split_list(list_a, chunk_size):
-    # split list_a into even chunks of chunk_size elements
+    """Split list_a into even chunks of chunk_size elements"""
     if isinstance(chunk_size, int):
         for i in range(0, len(list_a), chunk_size):
             yield list_a[i:i + chunk_size]
@@ -41,14 +39,48 @@ def split_list(list_a, chunk_size):
 
 
 def id_list_to_int_list(ids_list):
+    """Convert id list to int"""
     return [int(ids.removeprefix('id')) for ids in ids_list]
 
 
-def main(args):
+def get_loss_from_metrics(metrics):
+    """From the saved loss curve in metrics, get minimum loss values."""
+    loss_rmse = [row[1][0] for row in metrics if int(row[0]) < FLAGS.max_step]
+    loss_mae = [row[1][1] for row in metrics if int(row[0]) < FLAGS.max_step]
+
+    step = [int(row[0]) for row in metrics if int(row[0]) < FLAGS.max_step]
+    min_step_rmse = step[np.argmin(loss_rmse)]
+    min_step_mae = step[np.argmin(loss_mae)]
+    min_rmse = min(loss_rmse)
+    min_mae = min(loss_mae)
+
+    result = {}
+
+    if min_rmse > 1e4 or min_mae > 1e4:
+        result['rmse'] = None
+        result['mae'] = None
+    else:
+        result['rmse'] = min_rmse
+        result['mae'] = min_mae
+
+    result['min_step_rmse'] = min_step_rmse
+    result['min_step_mae'] = min_step_mae
+
+    return result
+
+
+def append_key(dict_in, key_append):
+    """Append a string key_append to the end of the keys of dict_in"""
+    dict_out = {}
+    for key, value in dict_in.items():
+        dict_out[key+'_'+key_append] = value
+    return dict_out
+
+
+def main(_):
+    """Main body where files are opened and plots plotted."""
     # plot learning curves
     df = pd.DataFrame({})
-    dict_minima = {}
-    print(FLAGS.max_step)
     # make a dict to list ids depending on how the model training was stopped
     finish_condition = {
         "stopped_early": [], "aborted_early": [], "time_elapsed": [],
@@ -62,7 +94,7 @@ def main(args):
                 metrics_dict = pickle.load(metrics_file)
 
             config_path = FLAGS.directory + '/' + dirname + '/config.json'
-            with open(config_path, 'r') as config_file:
+            with open(config_path, 'r', encoding='utf-8') as config_file:
                 config_dict = json.load(config_file)
 
             if os.path.exists(workdir + '/STOPPED_EARLY'):
@@ -74,25 +106,10 @@ def main(args):
             else:
                 finish_condition["time_elapsed"].append(dirname)
 
-            split = 'validation'
-            metrics = metrics_dict[split]
-            # get arrays with mae and rmse for this run
-            loss_rmse = [row[1][0] for row in metrics if int(row[0]) < FLAGS.max_step]
-            loss_mae = [row[1][1] for row in metrics if int(row[0]) < FLAGS.max_step]
-            n_mean = 1 # number of points for running mean
-            #  compute running mean using convolution
-            loss_rmse = np.convolve(loss_rmse, np.ones(n_mean)/n_mean, mode='valid')
-            loss_mae = np.convolve(loss_mae, np.ones(n_mean)/n_mean, mode='valid')
-            min_mae = min(loss_mae)
-            min_rmse = min(loss_rmse)
-            if min_mae > 1e4 or min_rmse > 1e4:
-                print(f'mae or rmse too high for path {dirname}')
-                continue
+            #split = 'validation'
+            #metrics = metrics_dict[split]
+            #loss_dict = get_loss_from_metrics(metrics)
 
-            dict_minima[dirname] = list(loss_mae)
-            step = [int(row[0]) for row in metrics if int(row[0]) < FLAGS.max_step]
-            min_step_rmse = step[np.argmin(loss_rmse)]
-            min_step_mae = step[np.argmin(loss_mae)]
             activation_name_convert = {
                 'shifted_softplus': 'SSP', 'relu': 'relu', 'swish': 'swish'}
             row_dict = {
@@ -106,22 +123,28 @@ def main(args):
                 'mlp_depth': int(config_dict['mlp_depth']),
                 'activation_fn': activation_name_convert[
                     config_dict['activation_name']],
-                'seed': config_dict['seed'],
+                'seed': config_dict['seed_weights'],
                 'layer_norm': config_dict['use_layer_norm'],
-                'mae': min_mae,
-                'rmse': min_rmse,
-                'min_step_mae': min_step_mae,
-                'min_step_rmse': min_step_rmse,
+                #'mae': loss_dict['min_mae'],
+                #'rmse': loss_dict['min_rmse'],
+                #'min_step_mae': loss_dict['min_step_mae'],
+                #'min_step_rmse': loss_dict['min_step_rmse'],
                 'directory': dirname
             }
+            for split in ['validation', 'test']:
+                metrics = metrics_dict[split]
+                loss_dict = get_loss_from_metrics(metrics)
+                for key, value in loss_dict.items():
+                    row_dict[key+"_"+split] = value
+
             state_dir = workdir+'/checkpoints/best_state.pkl'
-            """
-            with open(state_dir, 'rb') as state_file:
-                best_state = pickle.load(state_file)
-            params = best_state['state']['params']
-            num_params = hk.data_structures.tree_size(params)
-            row_dict['num_params'] = num_params
-            """
+            if FLAGS.plot_num_params:
+                with open(state_dir, 'rb') as state_file:
+                    best_state = pickle.load(state_file)
+                params = best_state['state']['params']
+                num_params = hk.data_structures.tree_size(params)
+                row_dict['num_params'] = num_params
+
             df = pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
 
         except OSError:
@@ -138,10 +161,25 @@ def main(args):
     print(f"Time elapsed: {finish_condition['time_elapsed']}")
     print(f"Unkown: {finish_condition['unknown']}")
 
+    fig, ax = plt.subplots()
+    sns.scatterplot(df, x='rmse_validation', y='rmse_test', ax=ax)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.show()
+    fig.savefig(
+        FLAGS.directory + '/val_test_rmse.png', bbox_inches='tight', dpi=600)
+    fig, ax = plt.subplots()
+    sns.scatterplot(df, x='mae_validation', y='mae_test', ax=ax)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.show()
+    fig.savefig(
+        FLAGS.directory + '/val_test_mae.png', bbox_inches='tight', dpi=600)
+    exit()
 
     # print list of best 10 configs
     df_copy = df.copy()
-    df_copy = df_copy.sort_values(by='rmse', axis='index')
+    df_copy = df_copy.sort_values(by='rmse_validation', axis='index')
     id_list_best = []
     n_ids = 50
     for i in range(n_ids):
@@ -153,7 +191,7 @@ def main(args):
 
     # drop the worst n configs
     for i in range(FLAGS.drop_n):
-        i_max = df['rmse'].idxmax()
+        i_max = df['rmse_validation'].idxmax()
         df = df.drop([i_max])
 
     # plot rmse for main hyperparameters with logscale
@@ -161,8 +199,8 @@ def main(args):
     #box_xnames = ['seed', 'dropout_rate']
     n_unique = df.nunique()
     n_dropped = n_unique.drop(n_unique[n_unique < 2].index)
-    n_dropped = n_dropped.drop(
-        labels=['mae', 'rmse', 'min_step_mae', 'min_step_rmse', 'directory'])
+    #n_dropped = n_dropped.drop(
+    #    labels=['mae_validation', 'rmse_validation', 'min_step_mae', 'min_step_rmse', 'directory'])
     print(n_dropped)
     box_xnames = list(n_dropped.keys())
     col_to_label = {
@@ -217,17 +255,18 @@ def main(args):
     plt.show()
     fig.savefig(
         FLAGS.directory + '/rmse_mae.png', bbox_inches='tight', dpi=600)
-    """
-    fig, ax = plt.subplots()
-    sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
-    ax.set_xlabel('# of parameters', fontsize=FLAGS.fontsize)
-    ax.set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
-    plt.rc('font', size=16)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(
-        FLAGS.directory + '/params_mae.png', bbox_inches='tight', dpi=600)
-    """
+
+    if FLAGS.plot_num_params:
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=df, x='num_params', y='mae', ax=ax)
+        ax.set_xlabel('# of parameters', fontsize=FLAGS.fontsize)
+        ax.set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
+        plt.rc('font', size=16)
+        plt.tight_layout()
+        plt.show()
+        fig.savefig(
+            FLAGS.directory + '/params_mae.png', bbox_inches='tight', dpi=600)
+
     return 0
 
 
