@@ -123,7 +123,7 @@ def main(_):
                 'mlp_depth': int(config_dict['mlp_depth']),
                 'activation_fn': activation_name_convert[
                     config_dict['activation_name']],
-                'seed': config_dict['seed_weights'],
+                #'seed': config_dict['seed_weights'],
                 'layer_norm': config_dict['use_layer_norm'],
                 #'mae': loss_dict['min_mae'],
                 #'rmse': loss_dict['min_rmse'],
@@ -206,7 +206,7 @@ def main(_):
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
         'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate',
-        'dropout_rate': 'Dropout rate', 'seed': 'Split seed',
+        'dropout_rate': 'Dropout rate',
         'batch_size': 'Batch size', 'layer_norm': 'Layer norm',
         'global_readout_mlp_layers': 'Readout layers',
         'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
@@ -216,7 +216,7 @@ def main(_):
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'layer_norm': 'bool'})
-    df = df.astype({'seed': 'int32'})
+    #df = df.astype({'seed': 'int32'})
     #n_subplots_max = FLAGS.n_plots  # maximum number of subplots in a single large plot
     n_subplots_max = [[0,1,2,3],[4,5,6],[7,8,9]]
     count = 0  # count up plots for saving them in different files

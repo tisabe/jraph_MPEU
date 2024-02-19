@@ -485,6 +485,15 @@ def cut_egap(egap: float, threshold: float = 0.0):
         return 0
 
 
+def shuffle_train_val_data(train_data: list, val_data: list, seed):
+    """Shuffle elements between the two lists, retaining number of datapoints."""
+    n_val_data = len(val_data)
+    data = train_data + val_data
+    train_data, val_data = sklearn.model_selection.train_test_split(
+        data, test_size=n_val_data, random_state=seed)
+    return train_data, val_data
+
+
 def get_datasets(config, workdir):
     """New version of dataset getter."""
     # TODO: put in real docstring.

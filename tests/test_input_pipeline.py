@@ -22,7 +22,8 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     get_atom_num_list,
     label_list_to_class_dict,
-    label_list_to_int_class_list
+    label_list_to_int_class_list,
+    shuffle_train_val_data
 )
 from jraph_MPEU.utils import add_labels_to_graphs
 
@@ -40,6 +41,15 @@ class TestPipelineFunctions(unittest.TestCase):
         self.test_db = 'QM9/qm9_graphs.db'
         # aflow database to test Egap classification inputs
         self.aflow_db = 'aflow/graphs_all_12knn.db'
+
+    def test_shuffle_train_val_data(self):
+        """Test shuffle function. Same seed should produce the same result."""
+        train_data = [1, 2, 3, 4, 5]
+        val_data = [6, 7, 8]
+        seed = 42
+        train_new, val_new = shuffle_train_val_data(train_data, val_data, seed)
+        self.assertListEqual(train_new, [8, 3, 5, 4, 7])
+        self.assertListEqual(val_new, [2, 6, 1])
 
     def test_dbs_not_empty(self):
         for db_name in self.graphs_dbs + self.raw_dbs:
@@ -72,7 +82,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.selection = None
         config.limit_data = None
         config.num_edges_max = None
-        config.seed = 42
+        config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'scalar'
         num_rows = 10  # number of rows to write
@@ -164,7 +174,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.selection = None
         config.limit_data = 10000
         config.num_edges_max = None
-        config.seed = 42
+        config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'class'
         config.data_file = self.aflow_db
