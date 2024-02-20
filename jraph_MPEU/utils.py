@@ -17,6 +17,40 @@ from sklearn.model_selection import ParameterGrid
 from jraph_MPEU_configs.default import get_config
 
 
+def get_line_graph(graph: jraph.GraphsTuple):
+    """Return the line graph of graph."""
+    receivers, senders = graph.receivers, graph.senders
+    nodes, edges = graph.nodes, graph.edges
+    n_node, n_edge = graph.n_node, graph.n_edge
+
+    receivers_l = []
+    senders_l = []
+    edges_l = []
+    nodes_l = []
+    n_node_l = n_edge
+    n_edge_l = jnp.zeros(len(n_edge))
+    graph_ids = jnp.repeat(jnp.arange(len(n_node)), n_edge)
+    # attributes of the line graph have subscript _l
+    for receiver_l, graph_id in zip(range(sum(n_edge)), graph_ids):
+        for sender_l in range(sum(n_edge)):
+            if receiver_l != sender_l:
+                if receivers[receiver_l] == receivers[sender_l]:
+                    # true if they are incident on the same node
+                    receivers_l.append(receiver_l)
+                    senders_l.append(sender_l)
+                    edges_l.append([None])
+                    n_edge_l[graph_id] += 1
+
+    return jraph.GraphsTuple(
+        nodes=nodes_l,
+        edges=edges_l,
+        receivers=receivers_l,
+        senders=senders_l,
+        n_node=n_node_l,
+        n_edge=n_edge_l,
+        globals=graph.globals)
+
+
 def get_num_pairs(numbers):
     """Return unique pairs of numbers from list numbers."""
     unique = set(list(numbers))
