@@ -42,6 +42,75 @@ class TestPipelineFunctions(unittest.TestCase):
         # aflow database to test Egap classification inputs
         self.aflow_db = 'aflow/graphs_all_12knn.db'
 
+    def test_get_datasets_split(self):
+        """Test that the same reproducible splits are returned by get_datasets."""
+        config = ml_collections.ConfigDict()
+        config.train_frac = 0.5
+        config.val_frac = 0.3
+        config.test_frac = 0.2
+        config.label_str = 'test_label'
+        config.selection = None
+        config.limit_data = None
+        config.num_edges_max = None
+        config.seed_splits = 42
+        config.aggregation_readout_type = 'mean'
+        config.label_type = 'scalar'
+        config.shuffle_val_seed = None
+        num_rows = 10  # number of rows to write
+        label_values = np.arange(num_rows)*1.0
+        compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
+
+        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
+            config.data_file = test_dir + 'test.db'
+            path_split = os.path.join(test_dir, 'splits.json')
+            path_num = os.path.join(test_dir, 'atomic_num_list.json')
+            # check that there is no file with splits or atomic numbers yet
+            self.assertFalse(os.path.exists(path_split))
+            self.assertFalse(os.path.exists(path_num))
+            # create and connect to temporary database
+            database = ase.db.connect(config.data_file)
+            for label_value in label_values:
+                # example structure
+                h2_atom = Atoms(
+                    random.choice(compound_list))
+                key_value_pairs = {config.label_str: label_value}
+                data = {
+                    'senders': [0],
+                    'receivers': [0],
+                    'edges': [5.0]
+                }
+                database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
+            graphs_split, mean, std = get_datasets(
+                config, test_dir
+            )
+            train_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['train']]
+            val_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['validation']]
+            test_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['test']]
+            self.assertListEqual(train_labels, [6., 7., 3., 0., 5.])
+            self.assertListEqual(val_labels, [1., 2., 9.])
+            self.assertListEqual(test_labels, [4., 8.])
+
+            # now with shuffled val and train set
+            # split dict will be loaded, test stays the same but val and train
+            # are shuffled
+            config.shuffle_val_seed = 1
+
+            graphs_split, mean, std = get_datasets(
+                config, test_dir
+            )
+            train_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['train']]
+            val_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['validation']]
+            test_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['test']]
+            self.assertListEqual(train_labels, [2., 6., 5., 0., 1.])
+            self.assertListEqual(val_labels, [9., 3., 7.])
+            self.assertListEqual(test_labels, [4., 8.])
+
     def test_shuffle_train_val_data(self):
         """Test shuffle function. Same seed should produce the same result."""
         train_data = [1, 2, 3, 4, 5]

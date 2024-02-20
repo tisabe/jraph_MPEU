@@ -8,7 +8,15 @@ def get_config() -> ml_collections.ConfigDict():
     config = ml_collections.ConfigDict()
 
     # rng init
-    config.seed = 42
+    # The seed defaults contain legacy names, since some older calculations
+    # might have legacy keys. If such a legacy key is loaded from an old
+    # config, the input_pipeline behaves in such a way that the splits are
+    # reproducible.
+    config.seed = None
+    config.seed_weights = 42
+    config.seed_datareader = 42
+    config.seed_splits = 42
+    config.shuffle_val_seed = None
 
     # Optimizer
     config.optimizer = 'adam'

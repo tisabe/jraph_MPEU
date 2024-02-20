@@ -266,7 +266,7 @@ def asedb_to_graphslist(
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
-        n_edge = int(graph.n_edge)
+        n_edge = graph.n_edge[0]
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
                 # TODO: test this
@@ -404,7 +404,7 @@ class DataReader:
 
 
 def get_train_val_test_split_dict(
-        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=42):
+        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed_test=42):
     """Return the id_list split into train, validation and test indices."""
     if abs(train_frac + val_frac + test_frac - 1.0) > 1e-5:
         raise ValueError('Train, val and test fractions do not add up to one.')
@@ -413,8 +413,8 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=seed-42)
-    # seed-42 as seed is 42 by default, but default random state should be 0
+            random_state=seed_test-42)
+    # seed_test-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
@@ -557,12 +557,19 @@ def get_datasets(config, workdir):
         # If split file did not exist before, generate and save it
         split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
-            config.test_frac, seed=config.seed_splits
+            config.test_frac, seed_test=config.seed_splits
         )
         save_split_dict(split_lists, workdir)
     else:
         # If it did exist, convert split_dict to split_lists
         split_lists = split_dict_to_lists(split_dict)
+
+    if "shuffle_val_seed" in config:
+        if config.shuffle_val_seed is not None:
+            split_lists['train'], split_lists['validation'] = shuffle_train_val_data(
+                split_lists['train'], split_lists['validation'], config.shuffle_val_seed)
+            # overwrite split.json with new split ids
+            save_split_dict(split_lists, workdir)
 
     graphs_split = {}  # dict with the graphs list divided into splits
     for key, id_list in split_lists.items():
