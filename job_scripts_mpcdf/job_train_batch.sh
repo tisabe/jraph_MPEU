@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=1-50        # indices are inclusive
+#SBATCH --array=1-10        # indices are inclusive
 # Standard output and error:
 #SBATCH -o ./output_slurm/train_batch_%A_%a.out
 #SBATCH -e ./output_slurm/train_batch_%A_%a.err 
@@ -26,7 +26,8 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/egap_pbj_ensemble/id${SLURM_ARRAY_TASK_ID} \
+--workdir=./results/aflow/egap_pbj_val_ensemble/id${SLURM_ARRAY_TASK_ID} \
 --config=jraph_MPEU_configs/aflow_egap_pbj.py \
 --config.seed_weights=${SLURM_ARRAY_TASK_ID} \
---split_file=./results/aflow/egap_pbj_ensemble/splits.json
+--config.shuffle_val_seed=${SLURM_ARRAY_TASK_ID} \
+--split_file=./results/aflow/egap_pbj_val_ensemble/splits.json

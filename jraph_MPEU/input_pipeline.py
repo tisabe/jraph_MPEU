@@ -565,7 +565,7 @@ def get_datasets(config, workdir):
         split_lists = split_dict_to_lists(split_dict)
 
     if "shuffle_val_seed" in config:
-        if config.shuffle_val_seed is not None:
+        if config.shuffle_val_seed != -1:
             split_lists['train'], split_lists['validation'] = shuffle_train_val_data(
                 split_lists['train'], split_lists['validation'], config.shuffle_val_seed)
             # overwrite split.json with new split ids

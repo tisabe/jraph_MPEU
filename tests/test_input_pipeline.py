@@ -55,7 +55,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'scalar'
-        config.shuffle_val_seed = None
+        config.shuffle_val_seed = -1
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']

@@ -188,8 +188,6 @@ def main(_):
             mae_list_best.append(df_copy.iloc[i]['mae'])
         print(f'Top {n_ids} models (id, rmse, mae): ')
         print(id_list_best)
-        """print(rmse_list_best)
-        print(mae_list_best)"""
 
         df_ensemble = pd.DataFrame({}) # used to calculate ensemble predictions
         df_single = pd.DataFrame({}) # save single result df in here
@@ -197,7 +195,7 @@ def main(_):
         # loop over the best models and get their result dataframes
         for i, model_id in enumerate(id_list_best):
             workdir = FLAGS.directory + model_id
-            df_single = pd.read_csv(workdir + '/result.csv')
+            df_single = pd.read_csv(workdir + '/result.csv', index_col='auid')
             if i == 0:
                 # save information about all structures from the first result.csv
                 # in df_ensemble
@@ -205,15 +203,8 @@ def main(_):
                 # drop columns that might be confused with the ensemble prediction
                 df_result = df_result.drop(errors='ignore',
                     columns=['prediction', 'prediction_mean', 'prediction_std'])
-            else:
-                # check that rows are in the same order
-                if not np.all(df_result['auid'] == df_single['auid']):
-                    print(f'auids in {model_id} not same order as in \
-                        {id_list_best[0]}')
             if not 'prediction' in df_single.columns:
                 df_single['prediction'] = df_single['prediction_mean']
-            df_result_list.append(df_single)
-            #print(df_single['prediction'])
             df_ensemble[model_id] = df_single['prediction']
 
         df_copy = df_ensemble.copy()
@@ -228,7 +219,7 @@ def main(_):
         df_result['prediction_std'] = df_copy['ensemble_std']
         df_result.to_csv(df_path, index=False)
 
-         # write config with only label string for error_analysis.py
+        # write config with only label string for error_analysis.py
         with open(os.path.join(FLAGS.directory, 'config.json'), 'w') as config_file:
             json.dump({'label_str': label_str},
                 config_file, indent=4, separators=(',', ': '))

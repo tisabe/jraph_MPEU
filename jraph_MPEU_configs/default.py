@@ -16,7 +16,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.seed_weights = 42
     config.seed_datareader = 42
     config.seed_splits = 42
-    config.shuffle_val_seed = None
+    config.shuffle_val_seed = -1
 
     # Optimizer
     config.optimizer = 'adam'
