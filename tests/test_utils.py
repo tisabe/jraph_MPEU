@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import jax
+import jax.numpy as jnp
 import jraph
 import numpy as np
 import ml_collections
@@ -19,7 +20,8 @@ from jraph_MPEU.utils import (
     add_labels_to_graphs,
     update_config_fields,
     get_num_pairs,
-    str_to_list
+    str_to_list,
+    get_line_graph
 )
 
 
@@ -36,8 +38,76 @@ def get_random_graph(key) -> jraph.GraphsTuple:
     return graph
 
 
+def assert_graph_equal(graph, graph_expected):
+    """Check that two graphs are similar."""
+    np.testing.assert_array_equal(graph.nodes, graph_expected.nodes)
+    np.testing.assert_array_equal(graph.edges, graph_expected.edges)
+    np.testing.assert_array_equal(graph.n_node, graph_expected.n_node)
+    np.testing.assert_array_equal(graph.globals, graph_expected.globals)
+    np.testing.assert_array_equal(graph.senders, graph_expected.senders)
+    np.testing.assert_array_equal(graph.receivers, graph_expected.receivers)
+
+
+def _make_nest(array):
+  """Returns a nest given an array."""
+  return {'a': array,
+          'b': [jnp.ones_like(array), {'c': jnp.zeros_like(array)}]}
+
+
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def test_get_line_graph(self):
+        """Test the line graph function on different test graphs."""
+        methane = jraph.GraphsTuple(
+            nodes=np.asarray([[6], [1], [1], [1], [1]]),
+            edges=np.asarray([[1]]*8),
+            receivers=np.array([0, 0, 0, 0, 1, 2, 3, 4]),
+            senders=np.array([1, 2, 3, 4, 0, 0, 0, 0]),
+            globals=None,
+            n_node=np.asarray([5]),
+            n_edge=np.asarray([8])
+        )
+        line_graph_methane = get_line_graph(methane)
+        line_graph_methane_expected = jraph.GraphsTuple(
+            nodes=np.asarray([[1]]*8),
+            edges=np.asarray([[6]]*12),
+            receivers=np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]),
+            senders=np.array([1, 2, 3, 0, 2, 3, 0, 1, 3, 0, 1, 2]),
+            n_node=np.asarray([8]),
+            n_edge=np.asarray([12]),
+            globals=None
+        )
+        assert_graph_equal(line_graph_methane, line_graph_methane_expected)
+
+        chain = jraph.GraphsTuple(
+            nodes=np.asarray([[6]]),
+            edges=np.asarray([[2]]*2),
+            receivers=np.array([0, 0]),
+            senders=np.array([0, 0]),
+            globals=None,
+            n_node=np.asarray([1]),
+            n_edge=np.asarray([2])
+        )
+        line_graph_chain = get_line_graph(chain)
+        line_graph_chain_expected = jraph.GraphsTuple(
+            nodes=np.asarray([[2]]*2),
+            edges=np.asarray([[6]]*2),
+            receivers=np.array([0, 1]),
+            senders=np.array([1, 0]),
+            n_node=np.asarray([2]),
+            n_edge=np.asarray([2]),
+            globals=None
+        )
+        assert_graph_equal(line_graph_chain, line_graph_chain_expected)
+
+        # test batching and unbatching the line graphs
+        batch = jraph.batch([methane, chain])
+        line_batch = get_line_graph(batch)
+        line_g1, line_g2 = jraph.unbatch(line_batch)
+        assert_graph_equal(line_graph_methane, line_g1)
+        assert_graph_equal(line_graph_chain, line_g2)
+
+
     def test_estimate_padding_budget(self):
         """Test estimator by generating graph lists with different
         distributions of n_node and n_edge."""

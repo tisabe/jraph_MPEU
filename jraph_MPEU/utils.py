@@ -18,18 +18,28 @@ from jraph_MPEU_configs.default import get_config
 
 
 def get_line_graph(graph: jraph.GraphsTuple):
-    """Return the line graph of graph."""
-    receivers, senders = graph.receivers, graph.senders
+    """Return the line graph L(G) of graph G.
+
+    Definition of the line graph:
+    - each vertex of L(G) represents an edge of G
+    - two vertices of L(G) are adjacent if and only if their corresponding
+    edges share a common endpoint ("are incident") in G (source: Wikipedia)
+
+    Extension with node, edge and global features:
+    - node features of L(G) are edge features of G
+    - edge features of L(G) are the node feature of the common endpoint in G
+    - global features of G are transferred to L(G)
+    """
+    receivers = graph.receivers
     nodes, edges = graph.nodes, graph.edges
     n_node, n_edge = graph.n_node, graph.n_edge
 
     receivers_l = []
     senders_l = []
     edges_l = []
-    nodes_l = []
     n_node_l = n_edge
-    n_edge_l = jnp.zeros(len(n_edge))
-    graph_ids = jnp.repeat(jnp.arange(len(n_node)), n_edge)
+    n_edge_l = [0]*len(n_edge)
+    graph_ids = jnp.repeat(jnp.arange(len(n_node)), jnp.array(n_edge))
     # attributes of the line graph have subscript _l
     for receiver_l, graph_id in zip(range(sum(n_edge)), graph_ids):
         for sender_l in range(sum(n_edge)):
@@ -38,16 +48,17 @@ def get_line_graph(graph: jraph.GraphsTuple):
                     # true if they are incident on the same node
                     receivers_l.append(receiver_l)
                     senders_l.append(sender_l)
-                    edges_l.append([None])
+                    feature = nodes[receivers[receiver_l]]
+                    edges_l.append(feature)
                     n_edge_l[graph_id] += 1
 
     return jraph.GraphsTuple(
-        nodes=nodes_l,
-        edges=edges_l,
-        receivers=receivers_l,
-        senders=senders_l,
-        n_node=n_node_l,
-        n_edge=n_edge_l,
+        nodes=edges,
+        edges=jnp.array(edges_l),
+        receivers=jnp.array(receivers_l),
+        senders=jnp.array(senders_l),
+        n_node=jnp.array(n_node_l),
+        n_edge=jnp.array(n_edge_l),
         globals=graph.globals)
 
 
