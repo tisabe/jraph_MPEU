@@ -395,18 +395,33 @@ class DataReader:
     def static_batch(
             self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
             batch_size: int) -> Generator[gn_graph.GraphsTuple, None, None]:
+
+                # We want only one less than thebatch size since
+                # we will pad the batch to the nearest power of two.
+                # for _ in range(batch_size-1):
+                #     graph = next(self._generator)
+                #     graphs.append(graph)
+                # graphs = jraph.batch(graphs)
+
+        batch_size_minus_one = batch_size-1
+        accumulated_graphs = [] # [None]*batch_size_minus_one
+
         for graph in graphs_tuple_iterator:
-            graphs = []
-            # We want only one less than thebatch size since
-            # we will pad the batch to the nearest power of two.
-            for _ in range(batch_size-1):
-                graph = next(self._generator)
-                graphs.append(graph)
-            graphs = jraph.batch(graphs)
-            if self.static_round_to_multiple:
-                yield pad_graph_to_nearest_multiple_of_64(graphs)
+            
+            if len(accumulated_graphs) == batch_size_minus_one:
+
+                accumulated_graphs = jraph.batch(accumulated_graphs)
+                if self.static_round_to_multiple:
+                    yield pad_graph_to_nearest_multiple_of_64(
+                        accumulated_graphs)
+                    accumulated_graphs = []
+                else:
+                    yield pad_graph_to_nearest_power_of_two(
+                        accumulated_graphs)
+                    accumulated_graphs = []
+
             else:
-                yield pad_graph_to_nearest_power_of_two(graphs)
+                accumulated_graphs.append(graph)
 
     def __iter__(self):
         return self

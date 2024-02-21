@@ -307,9 +307,8 @@ class TestPipelineFunctions(unittest.TestCase):
         for batch, expected_batch in zip(reader, expected_batches):
             np.testing.assert_array_equal(batch.globals, expected_batch)
 
-    def test_DataReader_repeat(self):
+    def test_DataReader_repeat_dynamic_batch(self):
         """Test the DataReader repeating and shuffling."""
-
         num_graphs = 20 # number of graphs
         graph = jraph.GraphsTuple(
             nodes=np.asarray([0, 1, 2, 3, 4]),
@@ -324,7 +323,9 @@ class TestPipelineFunctions(unittest.TestCase):
         graphs = add_labels_to_graphs(graphs, labels)
         batch_size = 10
         num_batches = 3  # Number of batches to query and test
-        reader = DataReader(graphs, batch_size, True, 42)
+        reader = DataReader(
+            data=graphs, batch_size=batch_size, repeat=True,
+            seed=42, dynamic_batch=True)
         labels_repeat_sum = 0
 
         for _ in range(num_batches):
@@ -336,14 +337,23 @@ class TestPipelineFunctions(unittest.TestCase):
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
         self.assertEqual(len(graphs.n_node), batch_size)
+
+        print(graphs)
+
         for i, n_node in enumerate(reversed(graphs.n_node)):
+            print(f'{i}, {n_node} are the features here')
             if i == 0:
-                self.assertTrue(n_node) == 15
+                # last graph in the batch is for padding. We have 5 nodes
+                # times 10-1 graphs in a batch is 9*5 = 45 nodes in total. So
+                # the last graph should have 14 nodes to batch us to a multiple
+                # of 64.
+                print('here')
+                self.assertTrue(n_node == 19)
             else:
-                self.assertTrue(n_node) == 5
+                self.assertTrue(n_node == 5)  # Each graph has 5 nodes.
 
 
-    def test_DataReader_repeat_static(self):
+    def test_DataReader_repeat_static_batch(self):
         """Test the DataReader repeating and shuffling."""
 
         num_graphs = 20 # number of graphs
@@ -358,9 +368,11 @@ class TestPipelineFunctions(unittest.TestCase):
         graphs = [graph] * num_graphs
         labels = range(num_graphs)
         graphs = add_labels_to_graphs(graphs, labels)
-        batch_size = 10
+        batch_size = 30
         num_batches = 5  # Number of batches to query and test
-        reader = DataReader(graphs, batch_size, True, 42, False)
+        reader = DataReader(
+            data=graphs, batch_size=batch_size, repeat=True,
+            seed=42, dynamic_batch=False, static_round_to_multiple=False)
         labels_repeat_sum = 0
 
         for _ in range(num_batches):
@@ -377,9 +389,12 @@ class TestPipelineFunctions(unittest.TestCase):
         print(num_graphs)
         self.assertEqual(num_graphs, batch_size)
         print(graphs.n_node)
+
+        # Ok here we have 29 graphs and 1 padded graph in our batch size 20.
+        # 29*5 nodes = 145. 256 (power of 2) - 145 (multiple of 64). 
         for i in range(num_graphs):
             if (num_graphs - i) == 1:  # Last index of array:
-                self.assertEqual(graphs.n_node[i], 19)
+                self.assertEqual(graphs.n_node[i], 111)
             else:
                 self.assertEqual(graphs.n_node[i], 5)
                 self.assertEqual(graphs.n_edge[i], 6)
@@ -392,6 +407,62 @@ class TestPipelineFunctions(unittest.TestCase):
         print(total_nodes)
         self.assertEqual(total_nodes & (total_nodes - 1), 0)
         self.assertEqual(total_edges & (total_edges - 1), 0)
+
+
+    def test_DataReader_repeat_static_batch_round(self):
+        """Test the DataReader repeating and shuffling."""
+
+        num_graphs = 20 # number of graphs
+        graph = jraph.GraphsTuple(
+            nodes=np.asarray([0, 1, 2, 3, 4]),
+            edges=np.ones((6, 2)),
+            senders=np.array([0, 1]),
+            receivers=np.array([2, 2]),
+            n_node=np.asarray([5]),
+            n_edge=np.asarray([6]),
+            globals=None)
+        graphs = [graph] * num_graphs
+        labels = range(num_graphs)
+        graphs = add_labels_to_graphs(graphs, labels)
+        batch_size = 30
+        num_batches = 5  # Number of batches to query and test
+        reader = DataReader(
+            data=graphs, batch_size=batch_size, repeat=True,
+            seed=42, dynamic_batch=False, static_round_to_multiple=True)
+        labels_repeat_sum = 0
+
+        for _ in range(num_batches):
+            graphs = next(reader)
+            labels_batch = graphs.globals
+            labels_repeat_sum += np.sum(labels_batch)
+
+        # Check that the accumulated sum of labels is larger than the sum of
+        # original labels. This can only be true if the reader is looping.
+        self.assertTrue(labels_repeat_sum > np.sum(labels))
+        total_nodes = 0
+        total_edges = 0
+        num_graphs = len(graphs.n_node)
+        print(num_graphs)
+        self.assertEqual(num_graphs, batch_size)
+        print(graphs.n_node)
+
+        # Ok here we have 29 graphs and 1 padded graph in our batch size 20.
+        # 29*5 nodes = 145.  192 (multiple of 64) - 145 (multiple of 64). 
+        for i in range(num_graphs):
+            if (num_graphs - i) == 1:  # Last index of array:
+                self.assertEqual(graphs.n_node[i], 47)
+            else:
+                self.assertEqual(graphs.n_node[i], 5)
+                self.assertEqual(graphs.n_edge[i], 6)
+
+            total_nodes += graphs.n_node[i]
+            total_edges += graphs.n_edge[i]
+        # Check that the sum of the n_nodes is a power of 2.
+        # We perform a bitwise AND on the integer and the integer -1
+        # to check if in binary. Ex. 4 is 100 and 3 is 011 so 4 & 3 is 111.
+        print(total_nodes)
+        self.assertFalse(total_nodes & (total_nodes - 1) == 0)
+        self.assertFalse(total_edges & (total_edges - 1) == 0)
 
 
     def test_ase_row_to_jraph(self):
