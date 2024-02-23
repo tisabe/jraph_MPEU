@@ -49,7 +49,6 @@ class TestGraphsFunctions(unittest.TestCase):
         dimensions = 3
         np.random.seed(42)
         position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
-        distances = dist_matrix(position_matrix)
         atoms.set_positions(position_matrix)
 
         nodes, pos, edges, senders, receivers = get_graph_fc(atoms)
@@ -61,7 +60,8 @@ class TestGraphsFunctions(unittest.TestCase):
         for receiver in range(num_nodes):
             for sender in range(num_nodes):
                 if sender != receiver:
-                    expected_edges.append(distances[sender, receiver])
+                    expected_edges.append(
+                        position_matrix[receiver] - position_matrix[sender])
                     expected_senders.append(sender)
                     expected_receivers.append(receiver)
 

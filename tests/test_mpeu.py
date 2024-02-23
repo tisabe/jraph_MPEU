@@ -10,7 +10,6 @@ import unittest
 import numpy as np
 import jax
 import jax.numpy as jnp
-from jax.nn import relu, swish
 import jraph
 import haiku as hk
 import ml_collections
@@ -89,7 +88,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 3)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -101,7 +100,7 @@ class TestModelFunctions(unittest.TestCase):
         # graph with zeros as node features and a self edge for every node
         graph_zero = jraph.GraphsTuple(
             nodes=jnp.zeros((n_node)),
-            edges=jnp.ones((n_node)),
+            edges=jnp.ones((n_node, 3)),
             senders=jnp.arange(0, n_node),
             receivers=jnp.arange(0, n_node),
             n_node=jnp.array([n_node]),
@@ -161,7 +160,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 3)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -172,7 +171,8 @@ class TestModelFunctions(unittest.TestCase):
         n_node = jnp.array([3])
         n_edge = jnp.array([4])
         node_features = jnp.array([0, 1, 2])
-        edge_features = jnp.array([1, 2, 3, 4])
+        edge_features = jnp.array([[0, 1], [2, 0], [3, 0], [0, 4]])
+        edge_dists = jnp.sqrt(jnp.sum(edge_features**2, axis=1))
         senders = jnp.array([0, 1, 2, 0])
         receivers = jnp.array([1, 0, 1, 2])
 
@@ -206,13 +206,13 @@ class TestModelFunctions(unittest.TestCase):
             prediction = graph_pred.globals
 
             # Here, we calculate the expected result, starting with the embeddings.
-            nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
+            nodes_embedded = jnp.ones((n_node[0], latent_size))/latent_size
             edge_embedding_fn = _get_edge_embedding_fn(
                 latent_size,
                 self.config.k_max,
                 self.config.delta,
                 self.config.mu_min)
-            edges_embedded = edge_embedding_fn(edge_features)['edges']
+            edges_embedded = edge_embedding_fn(edge_dists)['edges']
             edges_embedded = np.array(edges_embedded)
 
             # The updated edges.
@@ -220,8 +220,8 @@ class TestModelFunctions(unittest.TestCase):
             edge_factor = activation_fn(edge_factor)*2
             edge_factor = np.array(edge_factor)
 
-            edge_updated = jnp.ones((int(n_edge), latent_size))
-            for i in range(int(n_edge)):
+            edge_updated = jnp.ones((n_edge[0], latent_size))
+            for i in range(n_edge[0]):
                 edge_updated = edge_updated.at[i].set(
                     edge_updated[i] * float(edge_factor[i]))
 
@@ -230,7 +230,7 @@ class TestModelFunctions(unittest.TestCase):
             messages = activation_fn(messages)/latent_size
 
             # Node-wise message
-            message_node = jnp.zeros((int(n_node), latent_size))
+            message_node = jnp.zeros((n_node[0], latent_size))
             message_node = message_node.at[0].set(messages[1])
             message_node = message_node.at[1].set(messages[0] + messages[2])
             message_node = message_node.at[2].set(messages[3])
@@ -255,7 +255,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 4)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -266,7 +266,7 @@ class TestModelFunctions(unittest.TestCase):
         n_node = jnp.array([3])
         n_edge = jnp.array([4])
         node_features = jnp.array([0, 1, 2])
-        edge_features = jnp.array([1, 2, 3, 4])
+        edge_features = jnp.array([[0, 1], [2, 0], [3, 0], [0, 4]])
         senders = jnp.array([0, 1, 2, 0])
         receivers = jnp.array([1, 0, 1, 2])
 

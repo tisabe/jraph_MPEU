@@ -62,11 +62,11 @@ def get_graph_fc(atoms: Atoms):
                 i_pos = atom_positions[i]
                 j_pos = atom_positions[j]
                 dist_vec = i_pos - j_pos
-                dist = np.sqrt(np.dot(dist_vec, dist_vec))
+                #dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
                 senders.append(j)
                 receivers.append(i)
-                edges.append(dist)
+                edges.append(dist_vec)
 
     return (
         np.array(nodes),
@@ -115,11 +115,11 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
             i_pos = atom_positions[i]
             j_pos = atom_positions[j] + np.dot(offs, unitcell)
             dist_vec = i_pos - j_pos
-            dist = np.sqrt(np.dot(dist_vec, dist_vec))
+            #dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
             senders.append(j)
             receivers.append(i)
-            edges.append(dist)
+            edges.append(dist_vec)
 
     if len(edges) == 0:
         warnings.warn("Generated graph has zero edges")
@@ -157,6 +157,7 @@ def get_graph_knearest(
         neighborhood.update(atoms)
 
         nodes = []
+        dists = []
         edges = []
         senders = []
         receivers = []
@@ -164,6 +165,7 @@ def get_graph_knearest(
             atom_positions = atoms.get_positions(wrap=True)
         else:
             atom_positions = atoms.get_positions(wrap=False)
+        keep_dists = []
         keep_edges = []
         keep_senders = []
         keep_receivers = []
@@ -173,6 +175,7 @@ def get_graph_knearest(
 
         early_exit = False
         for i in range(len(atoms)):
+            this_dists = []
             this_edges = []
             this_senders = []
             this_receivers = []
@@ -187,18 +190,20 @@ def get_graph_knearest(
                 dist_vec = i_pos - j_pos
                 dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
-                this_edges.append([dist])
+                this_dists.append([dist])
+                this_edges.append(dist_vec)
                 this_senders.append(j)
                 this_receivers.append(i)
+            dists.append(np.array(this_dists))
             edges.append(np.array(this_edges))
             senders.append(np.array(this_senders))
             receivers.append(np.array(this_receivers))
         if early_exit:
             continue
         else:
-            for e_ind, s_ind, r_ind in zip(edges, senders, receivers):
+            for d_ind, e_ind, s_ind, r_ind in zip(dists, edges, senders, receivers):
                 # Keep only num_neighbors closest indices
-                keep_ind = np.argsort(e_ind[:, 0])[0:num_neighbors]
+                keep_ind = np.argsort(d_ind[:, 0])[0:num_neighbors]
                 keep_edges.append(e_ind[keep_ind])
                 keep_senders.append(s_ind[keep_ind])
                 keep_receivers.append(r_ind[keep_ind])
@@ -206,7 +211,7 @@ def get_graph_knearest(
     return (
         np.array(nodes),
         atom_positions,
-        np.concatenate(keep_edges).flatten(),
+        np.concatenate(keep_edges).reshape(-1, 3),
         np.concatenate(keep_senders),
         np.concatenate(keep_receivers),
     )

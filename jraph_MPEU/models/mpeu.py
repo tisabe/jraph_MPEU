@@ -449,6 +449,10 @@ class MPEU:
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
+        # convert vector edges e_ij=r_i-r_j (displacement vectors) to distances
+        norm_ij = jnp.sqrt(jnp.sum(graphs.edges**2, axis=1))
+        graphs = graphs._replace(edges=norm_ij)
+
         embedder = _get_embedder(
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
