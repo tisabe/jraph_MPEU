@@ -660,11 +660,11 @@ def train_and_evaluate(
     logging.info(f'Mean update time: {mean_updating_time}')
 
     # Temp test. let's just try logging the whole list:
-    logging.info(f'Node distrubution before batching: {
-        train_reader._num_nodes_per_batch_after_batching}')
+    logging.info(f'Node distrubution before batching: '
+                 f'{train_reader._num_nodes_per_batch_after_batching}')
 
-    logging.info(f'Edge distrubution before batching: {
-        train_reader._num_nodes_per_batch_after_batching}')
+    logging.info(f'Edge distrubution before batching: '
+                 f'{train_reader._num_edges_per_batch_after_batching}')
 
     # Let's save the node distribution/edge distrubtion after batching to file.
     # df = pd.DataFrame({
