@@ -29,6 +29,7 @@ import functools
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
+    get_node_edge_distribution_for_batch,
     load_config,
     pad_graph_to_nearest_power_of_two,
     pad_graph_to_nearest_multiple_of_64,
@@ -371,6 +372,12 @@ class DataReader:
         self._generator = self._make_generator()
         self._timing_measurements_batching = []
         self._update_measurements = []
+
+        self._num_nodes_per_batch = []
+        self._num_edges_per_batch = []
+        self._num_nodes_per_batch_after_batching = []
+        self._num_edges_per_batch_after_batching = []
+
         self.static_round_to_multiple = static_round_to_multiple
 
         self.budget = estimate_padding_budget_for_batch_size(
@@ -396,21 +403,21 @@ class DataReader:
             self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
             batch_size: int) -> Generator[gn_graph.GraphsTuple, None, None]:
 
-                # We want only one less than thebatch size since
-                # we will pad the batch to the nearest power of two.
-                # for _ in range(batch_size-1):
-                #     graph = next(self._generator)
-                #     graphs.append(graph)
-                # graphs = jraph.batch(graphs)
-
         batch_size_minus_one = batch_size-1
         accumulated_graphs = [] # [None]*batch_size_minus_one
 
         for graph in graphs_tuple_iterator:
             
             if len(accumulated_graphs) == batch_size_minus_one:
+                # Call get number of nodes/edges in the list.
+                # Append to the list. self._num_nodes_per_batch
+
 
                 accumulated_graphs = jraph.batch(accumulated_graphs)
+                # Call get number of nodes/edges in the new list.
+                # Append to the list self._num_nodes_per_batch_after_batching.
+
+                # How do i get the data out?
                 if self.static_round_to_multiple:
                     yield pad_graph_to_nearest_multiple_of_64(
                         accumulated_graphs)

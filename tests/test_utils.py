@@ -18,8 +18,9 @@ from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     add_labels_to_graphs,
     update_config_fields,
+    get_node_edge_distribution_for_batch,
     get_num_pairs,
-    str_to_list
+    str_to_list,
 )
 
 
@@ -60,8 +61,8 @@ class TestUtilsFunctions(unittest.TestCase):
         num_estimation_graphs = 100
         estimate = estimate_padding_budget_for_batch_size(
             dataset, batch_size, num_estimation_graphs)
-        self.assertEqual(estimate.n_node, 100)
-        self.assertEqual(estimate.n_edge, 100)
+        self.assertEqual(estimate.n_node, 128)
+        self.assertEqual(estimate.n_edge, 128)
         self.assertEqual(estimate.n_graph, batch_size)
 
         # second example has graphs of all same sizes
@@ -84,6 +85,30 @@ class TestUtilsFunctions(unittest.TestCase):
         self.assertEqual(estimate.n_node, 128)
         self.assertEqual(estimate.n_edge, 128)
         self.assertEqual(estimate.n_graph, batch_size)
+
+    def test_get_node_edge_distribution_for_batch(self):
+        single_graph_10 = jraph.GraphsTuple(
+            n_node=np.asarray([10]), n_edge=np.asarray([10]),
+            nodes=np.ones((10, 4)), edges=np.ones((10, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((10)), receivers=np.zeros((10))
+        )
+        single_graph_100 = jraph.GraphsTuple(
+            n_node=np.asarray([100]), n_edge=np.asarray([100]),
+            nodes=np.ones((100, 4)), edges=np.ones((100, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((100)), receivers=np.zeros((100))
+        )
+        graphs_list = [single_graph_10]*10
+        graphs_list.append(single_graph_100)
+
+        sum_of_nodes_in_list, sum_of_edges_in_list = get_node_edge_distribution_for_batch(
+            graphs_list)
+        expected_nodes_in_list = 200
+        expected_edges_in_list = 200
+        self.assertEqual(sum_of_nodes_in_list, expected_nodes_in_list)
+        self.assertEqual(sum_of_edges_in_list, expected_edges_in_list)
+
 
     def test_str_to_list(self):
         text = '[1  2 3 4]'

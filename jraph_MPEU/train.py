@@ -29,7 +29,8 @@ from jraph_MPEU.utils import (
     #Time_logger,
     replace_globals,
     get_valid_mask,
-    save_config
+    save_config,
+    get_node_edge_distribution_for_batch,
 )
 from jraph_MPEU.input_pipeline import (
     get_datasets,
@@ -601,7 +602,16 @@ def train_and_evaluate(
         train_reader._timing_measurements_batching.append(
             after_getting_graphs-start_loop_time)
         train_reader._update_measurements.append(
-            after_running_update-start_loop_time)        
+            after_running_update-start_loop_time)
+
+        sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+            graphs)
+
+        train_reader._num_nodes_per_batch_after_batching.append(
+            sum_of_nodes_in_batch)
+        train_reader._num_edges_per_batch_after_batching.append(
+            sum_of_edges_in_batch)
+
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
@@ -648,6 +658,21 @@ def train_and_evaluate(
 
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
+
+    # Temp test. let's just try logging the whole list:
+    logging.info(f'Node distrubution before batching: {
+        train_reader._num_nodes_per_batch_after_batching}')
+
+    logging.info(f'Edge distrubution before batching: {
+        train_reader._num_nodes_per_batch_after_batching}')
+
+    # Let's save the node distribution/edge distrubtion after batching to file.
+    # df = pd.DataFrame({
+    #         'node_before_batching': train_reader._num_nodes_per_batch_after_batching
+    #         'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
+    # })
+    # graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
+
 
     # after training is finished, evaluate model and save predictions in
     # dataframe

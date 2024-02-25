@@ -271,19 +271,19 @@ def pad_graph_to_nearest_multiple_of_64(
 def pad_graph_to_nearest_power_of_two(
         graphs_tuple: jraph.GraphsTuple) -> jraph.GraphsTuple:
     """Pads a batched `GraphsTuple` to the nearest power of two.
-  For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
-  would pad the `GraphsTuple` nodes and edges:
-    7 nodes --> 8 nodes (2^3)
-    5 edges --> 8 edges (2^3)
-  And since padding is accomplished using `jraph.pad_with_graphs`, an extra
-  graph and node is added:
-    8 nodes --> 9 nodes
-    3 graphs --> 4 graphs
-  Args:
-    graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
-  Returns:
-    A graphs_tuple batched to the nearest power of two.
-  """
+    For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
+    would pad the `GraphsTuple` nodes and edges:
+        7 nodes --> 8 nodes (2^3)
+        5 edges --> 8 edges (2^3)
+    And since padding is accomplished using `jraph.pad_with_graphs`, an extra
+    graph and node is added:
+        8 nodes --> 9 nodes
+        3 graphs --> 4 graphs
+    Args:
+        graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
+    Returns:
+        A graphs_tuple batched to the nearest power of two.
+    """
     # Add 1 since we need at least one padding node for pad_with_graphs.
     # Note, the plus one should be insid ethe operator since we want a power of
     # two returned.
@@ -309,6 +309,29 @@ def get_graphs_tuple_size(graph: jraph.GraphsTuple):
         n_node=np.sum(graph.n_node),
         n_edge=np.sum(graph.n_edge),
         n_graph=np.shape(graph.n_node)[0])
+
+
+def get_node_edge_distribution_for_batch(batch_of_graphs: jraph.GraphsTuple):
+    """Save number of nodes/edges in a batch.
+
+    For a given batch, we want to save the # of nodes/edges in the batch
+    before padding and after padding. This will help us understand why
+    the static batching performs worse than the dynamic batching.
+    """
+    if len(batch_of_graphs) == 0:
+        logging.error(
+            f'Cannot get a node/edge distribution on a length '
+            f'zero list of graphs.')
+        return
+
+    sum_of_nodes_in_batch = 0
+    sum_of_edges_in_batch = 0
+
+    for i in range(len(batch_of_graphs)):
+        sum_of_nodes_in_batch += jnp.sum(batch_of_graphs[i].n_node)
+        sum_of_edges_in_batch += jnp.sum(batch_of_graphs[i].n_edge)
+
+    return sum_of_nodes_in_batch, sum_of_edges_in_batch
 
 
 def estimate_padding_budget_for_batch_size(
@@ -353,12 +376,10 @@ def estimate_padding_budget_for_batch_size(
     num_nodes_per_graph_estimate = total_num_nodes / num_estimation_graphs
     num_edges_per_graph_estimate = total_num_edges / num_estimation_graphs
 
-    n_node = max(
-        (next_multiple_of_64(num_nodes_per_graph_estimate * batch_size), max_nodes)
-    )
-    n_edge = max(
-        (next_multiple_of_64(num_edges_per_graph_estimate * batch_size), max_edges)
-    )
+    n_node = next_multiple_of_64(max(
+        (num_nodes_per_graph_estimate * batch_size), max_nodes))
+    n_edge = next_multiple_of_64(max(
+        (num_edges_per_graph_estimate * batch_size), max_edges))
 
     padding_budget = GraphsTupleSize(
         n_node=n_node,
