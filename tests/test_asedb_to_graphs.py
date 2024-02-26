@@ -71,7 +71,6 @@ class TestGraphsFunctions(unittest.TestCase):
         np.testing.assert_array_equal(np.array(expected_senders), senders)
         np.testing.assert_array_equal(np.array(expected_receivers), receivers)
 
-
     def test_catch_fc_with_pbc(self):
         """Test that trying to make a fully connected graph from atoms with
         periodic boundary conditions raises an exception."""
@@ -84,7 +83,6 @@ class TestGraphsFunctions(unittest.TestCase):
 
         with self.assertRaises(Exception, msg='PBC not allowed for fully connected graph.'):
             get_graph_fc(atoms)
-
 
     def test_k_nn_random(self):
         """Test generating a k-nearest neighbor graph rom random atomic
@@ -99,7 +97,6 @@ class TestGraphsFunctions(unittest.TestCase):
         atoms.set_positions(position_matrix)
         nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
 
-        expected_edges = []
         expected_senders = []
         expected_receivers = []
 
@@ -123,8 +120,7 @@ class TestGraphsFunctions(unittest.TestCase):
                 expected_senders.append(last_idx)
                 expected_receivers.append(row)
 
-        for i_s, i_r in zip(expected_senders, expected_receivers):
-            expected_edges.append(distances[i_s, i_r])
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
 
         np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
         np.testing.assert_array_equal(pos, position_matrix)
@@ -145,17 +141,17 @@ class TestGraphsFunctions(unittest.TestCase):
         atoms.set_positions(position_matrix)
         nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
 
-        expected_edges = []
         expected_senders = []
         expected_receivers = []
 
-        for sender in range(num_nodes):
-            for receiver in range(num_nodes):
+        for receiver in range(num_nodes):
+            for sender in range(num_nodes):
                 if not sender == receiver:
                     if distances[sender, receiver] < cutoff:
-                        expected_edges.append(distances[sender, receiver])
                         expected_senders.append(sender)
                         expected_receivers.append(receiver)
+
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
 
         # edges might be arranged differently
         edges = np.sort(edges)
