@@ -318,22 +318,24 @@ def get_node_edge_distribution_for_batch(batch_of_graphs: jraph.GraphsTuple):
     before padding and after padding. This will help us understand why
     the static batching performs worse than the dynamic batching.
     """
-    if len(batch_of_graphs) == 0:
-        logging.error(
-            f'Cannot get a node/edge distribution on a length '
-            f'zero list of graphs.')
-        return
+    # if len(batch_of_graphs) == 0:
+    #     logging.error(
+    #         f'Cannot get a node/edge distribution on a length '
+    #         f'zero list of graphs.')
+    #     return
 
-    sum_of_nodes_in_batch = 0
-    sum_of_edges_in_batch = 0
+    # sum_of_nodes_in_batch = 0
+    # sum_of_edges_in_batch = 0
 
-    logging.info(f'batch of graphs: {batch_of_graphs}')
+    sum_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
+    sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
+    # logging.info(f'batch of graphs: {batch_of_graphs}')
 
-    for graph in batch_of_graphs:
-        logging.info(f'type of graph: {type(graph)}')
-        logging.info(f'individual graph: {graph}')
-        sum_of_nodes_in_batch += jnp.sum(graph.n_node)
-        sum_of_edges_in_batch += jnp.sum(graph.n_edge)
+    # for graph in batch_of_graphs:
+    #     logging.info(f'type of graph: {type(graph)}')
+    #     logging.info(f'individual graph: {graph}')
+    #     sum_of_nodes_in_batch += jnp.sum(graph.n_node)
+    #     sum_of_edges_in_batch += jnp.sum(graph.n_edge)
 
     return sum_of_nodes_in_batch, sum_of_edges_in_batch
 
