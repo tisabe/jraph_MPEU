@@ -373,8 +373,8 @@ class DataReader:
         self._timing_measurements_batching = []
         self._update_measurements = []
 
-        self._num_nodes_per_batch = []
-        self._num_edges_per_batch = []
+        self._num_nodes_per_batch_before_batching = []
+        self._num_edges_per_batch_before_batching = []
         self._num_nodes_per_batch_after_batching = []
         self._num_edges_per_batch_after_batching = []
 
@@ -411,7 +411,12 @@ class DataReader:
             if len(accumulated_graphs) == batch_size_minus_one:
                 # Call get number of nodes/edges in the list.
                 # Append to the list. self._num_nodes_per_batch
+                
+                # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                #     accumulated_graphs)
 
+                # self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
+                # self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
 
                 accumulated_graphs = jraph.batch(accumulated_graphs)
                 # Call get number of nodes/edges in the new list.
