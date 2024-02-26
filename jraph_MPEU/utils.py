@@ -327,6 +327,9 @@ def get_node_edge_distribution_for_batch(batch_of_graphs: jraph.GraphsTuple):
     # sum_of_nodes_in_batch = 0
     # sum_of_edges_in_batch = 0
 
+    logging.info(f'batch of graphs: {batch_of_graphs}')
+
+
     sum_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
     sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
     # logging.info(f'batch of graphs: {batch_of_graphs}')
