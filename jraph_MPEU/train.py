@@ -604,17 +604,17 @@ def train_and_evaluate(
         train_reader._update_measurements.append(
             after_running_update-start_loop_time)
 
-        sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-            graphs)
+        # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+        #     graphs)
 
-        logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
-        logging.info(f'type: {type(sum_of_nodes_in_batch)}')
-        logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
+        # logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
+        # logging.info(f'type: {type(sum_of_nodes_in_batch)}')
+        # logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
 
-        train_reader._num_nodes_per_batch_after_batching.append(
-            sum_of_nodes_in_batch)
-        train_reader._num_edges_per_batch_after_batching.append(
-            sum_of_edges_in_batch)
+        # train_reader._num_nodes_per_batch_after_batching.append(
+        #     sum_of_nodes_in_batch)
+        # train_reader._num_edges_per_batch_after_batching.append(
+        #     sum_of_edges_in_batch)
 
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
@@ -658,8 +658,8 @@ def train_and_evaluate(
         #             pass
     logging.info('log the validation loss:')
 
-    lowest_val_loss = evaluater.lowest_val_loss
-    logging.info(f'Lowest validation loss: {lowest_val_loss}')
+    # lowest_val_loss = evaluater.lowest_val_loss
+    # logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
     mean_batching_time = np.mean(train_reader._timing_measurements_batching)
     logging.info(f'Mean batching time: {mean_batching_time}')
@@ -668,11 +668,11 @@ def train_and_evaluate(
     logging.info(f'Mean update time: {mean_updating_time}')
 
     # Temp test. let's just try logging the whole list:
-    logging.info(f'Node distrubution before batching: '
-                 f'{train_reader._num_nodes_per_batch_after_batching}')
+    # logging.info(f'Node distrubution before batching: '
+    #              f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
 
-    logging.info(f'Edge distrubution before batching: '
-                 f'{train_reader._num_edges_per_batch_after_batching}')
+    # logging.info(f'Edge distrubution before batching: '
+    #              f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
 
     # Let's save the node distribution/edge distrubtion after batching to file.
     # df = pd.DataFrame({
