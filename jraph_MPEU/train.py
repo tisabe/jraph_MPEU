@@ -607,6 +607,10 @@ def train_and_evaluate(
         sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
             graphs)
 
+        logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
+        logging.info(f'type: {type(sum_of_nodes_in_batch)}')
+        logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
+
         train_reader._num_nodes_per_batch_after_batching.append(
             sum_of_nodes_in_batch)
         train_reader._num_edges_per_batch_after_batching.append(
