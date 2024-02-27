@@ -632,30 +632,30 @@ def train_and_evaluate(
             break
 
         
-        logging.info('running evaluator')
+        # logging.info('running evaluator')
 
-        # Get evaluation on all splits of the data (train/validation/test),
-        # checkpoint if needed and
-        # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits, config)
-        logging.info('check early stop')
+        # # Get evaluation on all splits of the data (train/validation/test),
+        # # checkpoint if needed and
+        # # check if we should be stopping early.
+        # early_stop = evaluater.update(state, datasets, eval_splits, config)
+        # logging.info('check early stop')
 
-        if early_stop:
-            logging.info(f'Loss converged at step {step}, stopping early.')
-            # create a file that signals that training stopped early
-            if not os.path.exists(workdir + '/STOPPED_EARLY'):
-                with open(workdir + '/STOPPED_EARLY', 'w'):
-                    pass
-            break
-        logging.info('is last step part')
-        # No need to break if it's the last step since the loop terminates
-        # automatically when reaching the last step.
-        if is_last_step:
-            logging.info(
-                'Reached maximum number of steps without early stopping.')
-            if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
-                    pass
+        # if early_stop:
+        #     logging.info(f'Loss converged at step {step}, stopping early.')
+        #     # create a file that signals that training stopped early
+        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
+        #         with open(workdir + '/STOPPED_EARLY', 'w'):
+        #             pass
+        #     break
+        # logging.info('is last step part')
+        # # No need to break if it's the last step since the loop terminates
+        # # automatically when reaching the last step.
+        # if is_last_step:
+        #     logging.info(
+        #         'Reached maximum number of steps without early stopping.')
+        #     if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+        #         with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+        #             pass
     logging.info('log the validation loss:')
 
     lowest_val_loss = evaluater.lowest_val_loss
