@@ -631,6 +631,8 @@ def train_and_evaluate(
                     pass
             break
 
+        
+        logging.info('running evaluator')
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
