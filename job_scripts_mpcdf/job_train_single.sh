@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J ef_schnet
+#SBATCH -J qm9_default
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,5 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/ef_schnet_small_new \
---config=jraph_MPEU_configs/aflow_ef_schnet.py 
+--workdir=./results/qm9/U0 \
+--config=jraph_MPEU_configs/default.py 
