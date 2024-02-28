@@ -390,10 +390,12 @@ class DataReader:
             self.data, batch_size,
             num_estimation_graphs=1000)
 
+
+        self.dynamic_batch = dynamic_batch
         # From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
-        if dynamic_batch is True:
+        if self.dynamic_batch is True:
             # if self.compute_device is 'gpu':
             self.batch_generator = jraph.dynamically_batch(
                 self._generator,
