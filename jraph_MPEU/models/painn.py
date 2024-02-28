@@ -49,6 +49,13 @@ class NodeFeatures(NamedTuple):
     v: jnp.ndarray = None
 
 
+class GlobalFeatures(NamedTuple):
+    """Simple container for scalar and vectorial graph features."""
+
+    s: jnp.ndarray = None
+    v: jnp.ndarray = None
+
+
 ReadoutFn = Callable[[jraph.GraphsTuple], Tuple[jnp.ndarray, jnp.ndarray]]
 ReadoutBuilderFn = Callable[..., ReadoutFn]
 
@@ -311,7 +318,15 @@ def PaiNNReadout(
             name="readout_block_out",
         )(s, v)
 
-        return jnp.squeeze(s), jnp.squeeze(v)
+        s, v = jnp.squeeze(s), jnp.squeeze(v)
+
+        if task == "graph":
+            graph_globals = GlobalFeatures(s=s, v=v)
+            graph = graph._replace(globals=graph_globals)
+        else:
+            graph = graph._replace(nodes=NodeFeatures(s, v))
+
+        return graph
 
     return _readout
 
@@ -651,8 +666,9 @@ class PaiNN(hk.Module):
 
         if self.readout is not None:
             # return decoded representations
-            s, v = self.readout(graph)
+            graph = self.readout(graph)
         else:
             # return representations (last layer embedding)
             s, v = jnp.squeeze(graph.nodes.s), jnp.squeeze(graph.nodes.v)
-        return s, v
+            graph = graph._replace(nodes=NodeFeatures(s=s, v=v))
+        return graph

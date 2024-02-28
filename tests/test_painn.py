@@ -34,8 +34,8 @@ class UnitTest(unittest.TestCase):
         self.config.cutoff_radius=6.0
         self.config.aggregation_readout_type="sum"
 
-    def test_equivariance(self):
-        """Test that the model is equivariant by rotating the edges."""
+    def test_equivariance_graph_readout(self):
+        """Test that the graph readout is equivariant upon rotating the edges."""
         n_node = 4
         # dummy graph as input
         graph = jraph.GraphsTuple(
@@ -63,8 +63,7 @@ class UnitTest(unittest.TestCase):
                 radius=5.,
                 n_rbf=20,
                 out_channels=1,
-                readout_fn=PaiNNReadout,
-                #readout_fn=None
+                readout_fn=PaiNNReadout
             )(x)
 
         net = hk.without_apply_rng(hk.transform_with_state(painn))
@@ -72,7 +71,7 @@ class UnitTest(unittest.TestCase):
 
         graph_pred, state = net.apply(params, state, graph)
 
-        s, v = graph_pred
+        s, v = graph_pred.globals.s, graph_pred.globals.v
 
         rot_mat = rotation_matrix_x(1)
         v_rot = rot_mat @ np.transpose(v)
@@ -81,7 +80,59 @@ class UnitTest(unittest.TestCase):
         edges_rot = np.transpose(edges_rot)
         graph = graph._replace(edges=edges_rot)
         graph_pred, state = net.apply(params, state, graph)
-        rot_s, rot_v = graph_pred
+        rot_s, rot_v = graph_pred.globals.s, graph_pred.globals.v
+
+        np.testing.assert_allclose(rot_v, v_rot, rtol=1e-6)
+        np.testing.assert_allclose(s, rot_s, rtol=1e-6)
+
+    def test_equivariance_node_readout(self):
+        """Test that the graph readout is equivariant upon rotating the edges."""
+        n_node = 4
+        # dummy graph as input
+        graph = jraph.GraphsTuple(
+            nodes=jnp.asarray([1, 2]*int(n_node/2)),
+            edges=jnp.ones((n_node, 3)),
+            senders=jnp.arange(0, n_node),
+            receivers=jnp.arange(0, n_node),
+            n_node=jnp.array([n_node]),
+            n_edge=jnp.array([n_node]),
+            globals=None
+        )
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+
+        def painn(x):
+            return PaiNN(
+                hidden_size=8,
+                n_layers=3,
+                max_z=20,
+                node_type="discrete",
+                radial_basis_fn=gaussian_rbf,
+                cutoff_fn=cosine_cutoff,
+                task="node",
+                pool="sum",
+                radius=5.,
+                n_rbf=20,
+                out_channels=1,
+                readout_fn=PaiNNReadout
+            )(x)
+
+        net = hk.without_apply_rng(hk.transform_with_state(painn))
+        params, state = net.init(init_rng, graph) # create weights etc. for the model
+
+        graph_pred, state = net.apply(params, state, graph)
+
+        s, v = graph_pred.nodes.s, graph_pred.nodes.v
+
+        rot_mat = rotation_matrix_x(1)
+        v_rot = rot_mat @ np.transpose(v)
+        v_rot = np.transpose(v_rot)
+
+        edges_rot = rot_mat @ np.transpose(graph.edges)
+        edges_rot = np.transpose(edges_rot)
+        graph = graph._replace(edges=edges_rot)
+        graph_pred, state = net.apply(params, state, graph)
+        rot_s, rot_v = graph_pred.nodes.s, graph_pred.nodes.v
 
         np.testing.assert_allclose(rot_v, v_rot, rtol=1e-6)
         np.testing.assert_allclose(s, rot_s, rtol=1e-6)
