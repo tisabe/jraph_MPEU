@@ -363,13 +363,19 @@ class DataReader:
             self, data: Sequence[jraph.GraphsTuple],
             batch_size: int, repeat: Boolean, seed: int = None,
             dynamic_batch: bool = True,
-            static_round_to_multiple: bool = True):
+            static_round_to_multiple: bool = True,
+            # compute_device='gpu_a100'
+            ):
         self.data = data[:]  # Pass a copy of the list.
         self.batch_size = batch_size
         self.repeat = repeat
         self.total_num_graphs = len(data)
         self.seed = seed
         self._generator = self._make_generator()
+        # if 'gpu' in compute_device:
+        #     self.compute_device = 'gpu'
+        # else:
+        #     self.compute_device = 'cpu'
         self._timing_measurements_batching = []
         self._update_measurements = []
 
@@ -388,11 +394,18 @@ class DataReader:
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
         if dynamic_batch is True:
-            self.batch_generator = jraph.dynamically_batch(
+            # if self.compute_device is 'gpu':
+            self.batch_generator = jax.jit(jraph.dynamically_batch(
                 self._generator,
                 self.budget.n_node,
                 self.budget.n_edge,
-                self.budget.n_graph)
+                self.budget.n_graph), static_argnums=0)
+            # else:
+            #     self.batch_generator = jraph.dynamically_batch(
+            #         self._generator,
+            #         self.budget.n_node,
+            #         self.budget.n_edge,
+            #         self.budget.n_graph)       
         else:
             self.batch_generator = self.static_batch(
                 self._generator,
@@ -439,7 +452,7 @@ class DataReader:
         return self
 
     # @functools.partial(jax.jit, static_argnums=0)
-    @functools.partial(jax.jit)
+    # @functools.partial(jax.jit)
     def __next__(self):
         # if self.dynamic_batch:
             return next(self.batch_generator)
