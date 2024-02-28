@@ -438,9 +438,11 @@ class DataReader:
     def __iter__(self):
         return self
 
-    @functools.partial(jax.jit, static_argnums=0)
+    # @functools.partial(jax.jit, static_argnums=0)
+    @functools.partial(jax.jit)
     def __next__(self):
-        return next(self.batch_generator)
+        # if self.dynamic_batch:
+            return next(self.batch_generator)
 
 
     def _make_generator(self):
