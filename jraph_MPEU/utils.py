@@ -218,7 +218,7 @@ def scale_targets(inputs, outputs, mean, std, aggregation_type):
     if aggregation_type == 'sum':
         n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
         for i in range(len(outputs)):
-            n_atoms[i] = inputs[i].n_node
+            n_atoms[i] = inputs[i].n_node[0]
         return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
     else:
         return (outputs * std) + mean

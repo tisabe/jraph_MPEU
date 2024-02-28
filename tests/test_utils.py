@@ -88,10 +88,8 @@ class TestUtilsFunctions(unittest.TestCase):
     def test_str_to_list(self):
         text = '[1  2 3 4]'
         res = str_to_list(text)
-        print(res)
-        print(type(res))
-        for i in res:
-            print(type(i))
+        list_expected = [1, 2, 3, 4]
+        self.assertListEqual(res, list_expected)
 
     def test_get_num_pairs(self):
         """Test function get_num_pairs."""
@@ -168,18 +166,18 @@ class TestUtilsFunctions(unittest.TestCase):
 
     def test_save_and_load_config(self):
         """Test saving and loading a config.json file by saving and loading."""
-        test_dir = tempfile.TemporaryDirectory()
-        config = ml_collections.ConfigDict()
-        config.a = 1
-        config.b = 0.1
-        config.c = 'c'
-        config.array = [0, 1, 3]
-        save_config(config, test_dir.name)
+        with tempfile.TemporaryDirectory() as test_dir:
+            config = ml_collections.ConfigDict()
+            config.a = 1
+            config.b = 0.1
+            config.c = 'c'
+            config.array = [0, 1, 3]
+            save_config(config, test_dir)
 
-        config_loaded = load_config(test_dir.name)
-        self.assertEqual(config_loaded.a, config.a)
-        self.assertEqual(config_loaded.b, config.b)
-        self.assertEqual(config_loaded.c, config.c)
+            config_loaded = load_config(test_dir)
+            self.assertEqual(config_loaded.a, config.a)
+            self.assertEqual(config_loaded.b, config.b)
+            self.assertEqual(config_loaded.c, config.c)
 
     def test_normalize_targets_dict(self):
         """Test the normalization of targets for dict inputs."""
@@ -264,7 +262,7 @@ class TestUtilsFunctions(unittest.TestCase):
         for i in range(n_graph):
             key, subkey = jax.random.split(key)
             graph = get_random_graph(key)
-            n_nodes.append(int(graph.n_node))
+            n_nodes.append(graph.n_node[0])
             graphs.append(graph)
             labels.append(np.float32(jax.random.uniform(subkey)))
 
@@ -277,17 +275,17 @@ class TestUtilsFunctions(unittest.TestCase):
         expected_mean = expected_mean/n_graph
 
         for i in range(n_graph):
-            expected_std += np.square(labels[i]/graphs[i].n_node - expected_mean)
+            expected_std += np.square(labels[i]/graphs[i].n_node[0] - expected_mean)
         expected_std = np.sqrt(expected_std/n_graph)
 
         for i in range(n_graph):
-            expected_targets[i] = (labels[i] - graphs[i].n_node*expected_mean)/expected_std
+            expected_targets[i] = (labels[i] - graphs[i].n_node[0]*expected_mean[0])/expected_std[0]
 
         # calculate function values
         targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
 
         np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
-        np.testing.assert_almost_equal(mean, float(expected_mean))
+        np.testing.assert_almost_equal(mean, expected_mean)
         np.testing.assert_almost_equal(std, expected_std)
 
     def test_scale_targets_mean(self):
@@ -381,21 +379,19 @@ class TestUtilsFunctions(unittest.TestCase):
         graph_example = graphs[10]
         global_example = graph_example.globals
         label_example = labels[10]
-        print(global_example)
-        print(label_example)
         np.testing.assert_equal(global_example, label_example)
 
         batch_generator = jraph.dynamically_batch(
             iter(graphs), budget.n_node, budget.n_edge, budget.n_graph)
-        print(budget.n_node)
-        print(budget.n_edge)
-        print(budget.n_graph)
+        self.assertEqual(budget.n_graph, batch_size)
+        self.assertEqual(budget.n_node, 192)
+        self.assertEqual(budget.n_edge, 256)
 
+        # check the sum of globals returned from batch generator
         global_sum = 0
         for batch in batch_generator:
             global_sum += sum(batch.globals)
-        print(global_sum)
-        print(sum(labels))
+        self.assertEqual(global_sum, sum(labels))
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ import ml_collections
 from jraph_MPEU.models.gcn import GCN
 from jraph_MPEU.models.mpeu import MPEU
 from jraph_MPEU.models.schnet import SchNet
+from jraph_MPEU.models.painn import get_painn
 from jraph_MPEU.utils import load_config
 
 
@@ -28,6 +29,8 @@ def load_model(workdir, is_training):
         net_fn = MPEU(config, is_training)
     elif config.model_str == 'SchNet':
         net_fn = SchNet(config, is_training)
+    elif config.model_str == 'painn':
+        net_fn = get_painn(config)
     else:
         raise ValueError(
             f'Model string {config.model_str} not recognized')
