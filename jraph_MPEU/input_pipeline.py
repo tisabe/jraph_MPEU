@@ -395,11 +395,11 @@ class DataReader:
         # needs an iterator itself which is also defined in this class.
         if dynamic_batch is True:
             # if self.compute_device is 'gpu':
-            self.batch_generator = jax.jit(jraph.dynamically_batch(
+            self.batch_generator = jraph.dynamically_batch(
                 self._generator,
                 self.budget.n_node,
                 self.budget.n_edge,
-                self.budget.n_graph), static_argnums=0)
+                self.budget.n_graph)
             # else:
             #     self.batch_generator = jraph.dynamically_batch(
             #         self._generator,
@@ -454,8 +454,18 @@ class DataReader:
     # @functools.partial(jax.jit, static_argnums=0)
     # @functools.partial(jax.jit)
     def __next__(self):
-        # if self.dynamic_batch:
-            return next(self.batch_generator)
+        if self.dynamic_batch:
+            return self.jax_next()
+        else:
+            return self.uncompiled_next()
+
+    @functools.partial(jax.jit, static_argnums=0)
+    def jax_next(self):
+        return next(self.batch_generator)
+    
+
+    def uncompiled_next(self):
+        return next(self.batch_generator)
 
 
     def _make_generator(self):
