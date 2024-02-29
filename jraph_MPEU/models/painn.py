@@ -321,7 +321,9 @@ def PaiNNReadout(
         s, v = jnp.squeeze(s), jnp.squeeze(v)
 
         if task == "graph":
-            graph_globals = GlobalFeatures(s=s, v=v)
+            #graph_globals = GlobalFeatures(s=s, v=v)
+            # TODO: integrate the GlobalFeatures with rest of codebase
+            graph_globals = s
             graph = graph._replace(globals=graph_globals)
         else:
             graph = graph._replace(nodes=NodeFeatures(s, v))
@@ -465,17 +467,22 @@ class PaiNNLayer(hk.Module):
 
 def get_painn(config):
     """Return the painn model object with parameters from config."""
-    return PaiNN(
-        hidden_size=config.latent_size,
-        n_layers=config.message_passing_steps,
-        radial_basis_fn=gaussian_rbf,
-        cutoff_fn=None,
-        radius=config.cutoff_radius,
-        task="graph",
-        pool=config.aggregation_readout_type,
-        out_channels=1,
-        readout_fn=PaiNNReadout
-    )
+    def painn(x):
+        return PaiNN(
+            hidden_size=config.latent_size,
+            n_layers=config.message_passing_steps,
+            max_z=config.max_atomic_number,
+            node_type="discrete",
+            radial_basis_fn=gaussian_rbf,
+            cutoff_fn=cosine_cutoff,
+            task="graph",
+            pool=config.aggregation_readout_type,
+            radius=config.cutoff_radius,
+            n_rbf=20,
+            out_channels=1,
+            readout_fn=PaiNNReadout
+        )(x)
+    return painn
 
 
 class PaiNN(hk.Module):

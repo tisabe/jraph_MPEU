@@ -29,7 +29,7 @@ def load_model(workdir, is_training):
         net_fn = MPEU(config, is_training)
     elif config.model_str == 'SchNet':
         net_fn = SchNet(config, is_training)
-    elif config.model_str == 'painn':
+    elif config.model_str == 'PaiNN':
         net_fn = get_painn(config)
     else:
         raise ValueError(
@@ -53,6 +53,8 @@ def create_model(config: ml_collections.ConfigDict, is_training=True):
         return MPEU(config, is_training)
     elif config.model_str == 'SchNet':
         return SchNet(config, is_training)
+    elif config.model_str == 'PaiNN':
+        return get_painn(config)
     else:
         raise ValueError(
             f'Model string {config.model_str} not recognized')

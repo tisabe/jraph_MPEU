@@ -1,6 +1,7 @@
 """Test defining and output of the PaiNN model."""
 
 import unittest
+import tempfile
 
 import numpy as np
 import jax
@@ -9,8 +10,10 @@ import jraph
 import haiku as hk
 import ml_collections
 
+from jraph_MPEU import train
 from jraph_MPEU.models.painn import (
     PaiNN, get_painn, gaussian_rbf, cosine_cutoff, PaiNNReadout, NodeFeatures)
+from jraph_MPEU_configs import test_painn as cfg_painn
 
 
 def rotation_matrix_x(alpha):
@@ -136,6 +139,18 @@ class UnitTest(unittest.TestCase):
 
         np.testing.assert_allclose(rot_v, v_rot, rtol=1e-6)
         np.testing.assert_allclose(s, rot_s, rtol=1e-6)
+
+    def test_train_painn(self):
+        """Test training the painn model."""
+        config = cfg_painn.get_config()
+        config.model_str = 'PaiNN'
+        config.cutoff_radius = 5.
+        with tempfile.TemporaryDirectory() as test_dir:
+            evaluater, lowest_val_loss = train.train_and_evaluate(
+                config, test_dir)
+
+            self.assertIsInstance(evaluater.best_state, dict)
+            print(evaluater.loss_dict['train'])
 
 
 

@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J qm9_default
+#SBATCH -J qm9_painn
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -16,6 +16,7 @@
 #SBATCH --mail-type=none
 #SBATCH --mail-user=userid@example.mpg.de
 #SBATCH --time=12:00:00
+#SBATCH --partition=gpudev
 
 # load the environment with modules and python packages
 cd ~/envs ; source ~/envs/activate_jax.sh
@@ -24,5 +25,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/qm9/U0 \
---config=jraph_MPEU_configs/default.py 
+--workdir=./results/qm9/U0/painn \
+--config=jraph_MPEU_configs/qm9_painn.py 
