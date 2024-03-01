@@ -561,6 +561,9 @@ def train_and_evaluate(
     else:
         compile_batching = False
 
+    logging.info(f'Because of compute device: {config.compute_device} '
+                 f'we set compile batching to: {compile_batching}')
+
     # initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],
