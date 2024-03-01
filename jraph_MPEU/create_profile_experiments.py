@@ -79,6 +79,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.label_str = <label_str>
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
+    config.compute_device = <compute_device>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = False
 
@@ -118,6 +119,10 @@ def create_config_file_path(
     config = config.replace(
         '<static_round_to_multiple>',
         str(setting['static_round_to_multiple'])
+    )
+    config = config.replace(
+        '<compute_device>',
+        str(setting['computing_type'])
     )
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"

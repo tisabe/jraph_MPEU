@@ -325,7 +325,8 @@ class TestPipelineFunctions(unittest.TestCase):
         num_batches = 3  # Number of batches to query and test
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=True,
-            seed=42, dynamic_batch=True)
+            seed=42, dynamic_batch=True, static_round_to_multiple=False,
+            compile_batching=False)
         labels_repeat_sum = 0
 
         for _ in range(num_batches):
@@ -337,8 +338,6 @@ class TestPipelineFunctions(unittest.TestCase):
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
         self.assertEqual(len(graphs.n_node), batch_size)
-
-        print(graphs)
 
         for i, n_node in enumerate(reversed(graphs.n_node)):
             print(f'{i}, {n_node} are the features here')

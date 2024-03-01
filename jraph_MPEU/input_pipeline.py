@@ -364,7 +364,7 @@ class DataReader:
             batch_size: int, repeat: Boolean, seed: int = None,
             dynamic_batch: bool = True,
             static_round_to_multiple: bool = True,
-            # compute_device='gpu_a100'
+            compile_batching=False,
             ):
         self.data = data[:]  # Pass a copy of the list.
         self.batch_size = batch_size
@@ -372,10 +372,7 @@ class DataReader:
         self.total_num_graphs = len(data)
         self.seed = seed
         self._generator = self._make_generator()
-        # if 'gpu' in compute_device:
-        #     self.compute_device = 'gpu'
-        # else:
-        #     self.compute_device = 'cpu'
+        self.compile_batching = compile_batching
         self._timing_measurements_batching = []
         self._update_measurements = []
 
@@ -390,24 +387,17 @@ class DataReader:
             self.data, batch_size,
             num_estimation_graphs=1000)
 
-
         self.dynamic_batch = dynamic_batch
         # From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
         if self.dynamic_batch is True:
-            # if self.compute_device is 'gpu':
             self.batch_generator = jraph.dynamically_batch(
                 self._generator,
                 self.budget.n_node,
                 self.budget.n_edge,
                 self.budget.n_graph)
-            # else:
-            #     self.batch_generator = jraph.dynamically_batch(
-            #         self._generator,
-            #         self.budget.n_node,
-            #         self.budget.n_edge,
-            #         self.budget.n_graph)       
+
         else:
             self.batch_generator = self.static_batch(
                 self._generator,
@@ -419,7 +409,9 @@ class DataReader:
             batch_size: int) -> Generator[gn_graph.GraphsTuple, None, None]:
 
         batch_size_minus_one = batch_size-1
-        accumulated_graphs = [] # [None]*batch_size_minus_one
+        # Curious if we should initialize this. [None]*batch_size_minus_one
+        # It seems like MCPCDF is not too worried about it.
+        accumulated_graphs = []
 
         for graph in graphs_tuple_iterator:
             
@@ -453,10 +445,8 @@ class DataReader:
     def __iter__(self):
         return self
 
-    # @functools.partial(jax.jit, static_argnums=0)
-    # @functools.partial(jax.jit)
     def __next__(self):
-        if self.dynamic_batch:
+        if self.dynamic_batch and self.compile_batching is True:
             return self.jax_next()
         else:
             return self.uncompiled_next()
@@ -464,11 +454,9 @@ class DataReader:
     @functools.partial(jax.jit, static_argnums=0)
     def jax_next(self):
         return next(self.batch_generator)
-    
 
     def uncompiled_next(self):
         return next(self.batch_generator)
-
 
     def _make_generator(self):
         random.seed(a=self.seed)

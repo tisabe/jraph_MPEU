@@ -264,11 +264,17 @@ class Evaluater:
         """Return mean loss for all graphs in graphs. First return value is
         RMSE, second value is MAE, both scaled back using std of dataset."""
 
+        # We always don't compile the evaluator function. For some reason
+        # on GPU with dynamic batching it was hanging. Nots sure why. Maybe
+        # something to do with the repeat=False being tricky for the jax
+        # compiler. It isn't being profiled, we profile only the training
+        # update steps, so we let it be.
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=False,
             seed=config.seed,
             dynamic_batch=config.dynamic_batch,
-            static_round_to_multiple=config.static_round_to_multiple)
+            static_round_to_multiple=config.static_round_to_multiple,
+            compile_batching=False)
 
         loss_list = []
         weights_list = []
@@ -550,6 +556,11 @@ def train_and_evaluate(
     # save the config in txt for later inspection
     save_config(config, workdir)
 
+    if 'gpu' in config.compute_device:
+        compile_batching = True
+    else:
+        compile_batching = False
+
     # initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],
@@ -557,7 +568,8 @@ def train_and_evaluate(
         repeat=True,
         seed=config.seed,
         dynamic_batch=config.dynamic_batch,
-        static_round_to_multiple=config.static_round_to_multiple)
+        static_round_to_multiple=config.static_round_to_multiple,
+        compile_batching=compile_batching)
 
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
@@ -632,34 +644,34 @@ def train_and_evaluate(
             break
 
         
-        # logging.info('running evaluator')
+        logging.info('running evaluator')
 
-        # # Get evaluation on all splits of the data (train/validation/test),
-        # # checkpoint if needed and
-        # # check if we should be stopping early.
-        # early_stop = evaluater.update(state, datasets, eval_splits, config)
-        # logging.info('check early stop')
+        # Get evaluation on all splits of the data (train/validation/test),
+        # checkpoint if needed and
+        # check if we should be stopping early.
+        early_stop = evaluater.update(state, datasets, eval_splits, config)
+        logging.info('check early stop')
 
-        # if early_stop:
-        #     logging.info(f'Loss converged at step {step}, stopping early.')
-        #     # create a file that signals that training stopped early
-        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
-        #         with open(workdir + '/STOPPED_EARLY', 'w'):
-        #             pass
-        #     break
-        # logging.info('is last step part')
-        # # No need to break if it's the last step since the loop terminates
-        # # automatically when reaching the last step.
-        # if is_last_step:
-        #     logging.info(
-        #         'Reached maximum number of steps without early stopping.')
-        #     if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-        #         with open(workdir + '/REACHED_MAX_STEPS', 'w'):
-        #             pass
+        if early_stop:
+            logging.info(f'Loss converged at step {step}, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/STOPPED_EARLY'):
+                with open(workdir + '/STOPPED_EARLY', 'w'):
+                    pass
+            break
+        logging.info('is last step part')
+        # No need to break if it's the last step since the loop terminates
+        # automatically when reaching the last step.
+        if is_last_step:
+            logging.info(
+                'Reached maximum number of steps without early stopping.')
+            if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+                    pass
     logging.info('log the validation loss:')
 
-    # lowest_val_loss = evaluater.lowest_val_loss
-    # logging.info(f'Lowest validation loss: {lowest_val_loss}')
+    lowest_val_loss = evaluater.lowest_val_loss
+    logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
     mean_batching_time = np.mean(train_reader._timing_measurements_batching)
     logging.info(f'Mean batching time: {mean_batching_time}')
