@@ -643,14 +643,11 @@ def train_and_evaluate(
                     pass
             break
 
-        
-        logging.info('running evaluator')
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits, config)
-        logging.info('check early stop')
 
         if early_stop:
             logging.info(f'Loss converged at step {step}, stopping early.')
@@ -668,7 +665,6 @@ def train_and_evaluate(
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
                 with open(workdir + '/REACHED_MAX_STEPS', 'w'):
                     pass
-    logging.info('log the validation loss:')
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
