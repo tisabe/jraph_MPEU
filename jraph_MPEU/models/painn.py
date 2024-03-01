@@ -263,6 +263,57 @@ def pooling(
     return s, v
 
 
+def StandardReadout(
+    hidden_size: int,
+    task: str,
+    pool: str,
+    out_channels: int = 1,
+    activation: Callable = jax.nn.silu,
+    blocks: int = 2,
+    eps: float = 1e-8
+) -> ReadoutFn:
+    """
+    Standard readout block, that first applies a downsampling MLP and the pools
+    the nodes to a single scalar.
+    """
+    del blocks # only exists to have identical interface with PaiNNReadout
+    del eps # only exists to have identical interface with PaiNNReadout
+    assert task in ["node", "graph"], "task must be node or graph"
+    assert pool in ["sum", "mean"], "pool must be sum or mean"
+    if pool == "mean":
+        pool_fn = jraph.segment_mean
+    if pool == "sum":
+        pool_fn = jraph.segment_sum
+    readout_block = hk.Sequential(
+        [
+            LinearXav(hidden_size),
+            activation,
+            LinearXav(out_channels),
+        ],
+        name="readout_block",
+    )
+
+    def _readout(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
+        s, _ = graph.nodes # only use scalar feature
+        s = jnp.squeeze(s)
+        s = readout_block(s)
+
+        if task == "graph":
+            n_graphs = graph.n_node.shape[0]
+            graph_idx = jnp.arange(n_graphs)
+            # Equivalent to jnp.sum(n_node), but jittable
+            sum_n_node = tree.tree_leaves(graph.nodes)[0].shape[0]
+            batch = jnp.repeat(graph_idx,
+                graph.n_node, axis=0, total_repeat_length=sum_n_node)
+            s = pool_fn(s, batch, n_graphs)
+            graph = graph._replace(globals=s)
+        else:
+            graph = graph._replace(nodes=s)
+
+        return graph
+
+    return _readout
+
 def PaiNNReadout(
     hidden_size: int,
     task: str,
@@ -278,20 +329,20 @@ def PaiNNReadout(
     Args:
         hidden_size: Number of hidden channels.
         task: Task to perform. Either "node" or "graph".
-        pool: pool method. Either "sum" or "avg".
+        pool: pool method. Either "sum" or "mean".
         scalar_out_channels: Number of scalar/vector output channels.
         activation: Activation function.
         blocks: Number of readout blocks.
     """
 
     assert task in ["node", "graph"], "task must be node or graph"
-    assert pool in ["sum", "avg"], "pool must be sum or avg"
-    if pool == "avg":
+    assert pool in ["sum", "mean"], "pool must be sum or mean"
+    if pool == "mean":
         pool_fn = jraph.segment_mean
     if pool == "sum":
         pool_fn = jraph.segment_sum
 
-    def _readout(graph: jraph.GraphsTuple) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    def _readout(graph: jraph.GraphsTuple) -> jraph.GraphsTuple:
         s, v = graph.nodes
         s = jnp.squeeze(s)
         for i in range(blocks - 1):
@@ -480,7 +531,7 @@ def get_painn(config):
             radius=config.cutoff_radius,
             n_rbf=20,
             out_channels=1,
-            readout_fn=PaiNNReadout
+            readout_fn=StandardReadout
         )(x)
     return painn
 
