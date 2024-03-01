@@ -60,7 +60,6 @@ cd /u/dansp/jraph_MPEU
 # Load the environment with modules and python packages.
 source activate_jax.sh
 srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
-# --config.label_str=<label_str>
 """
 
 TEMPLATE_CONFIG = """

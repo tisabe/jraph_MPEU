@@ -126,23 +126,22 @@ def test_create_folder_and_files_for_setting(tmp_path):
         assert len(job_files) == 2
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/True/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
+            'static/round_True/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
         assert (
             str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
-            'static/False/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
+            'static/round_False/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
     # Open one of the job paths and check the job script is good.
-    print(str(folder_base_path))
     with open(
         str(folder_base_path) + \
         '/profiling_experiments/mpnn/aflow/' + \
-        'static/True/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
+        'static/round_True/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
         job_script = fd.readlines()
         print(job_script)
         assert '#SBATCH --gres=gpu:a100:4\n' in job_script
         expected_srun_statement = (
             'srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) + \
-            '/profiling_experiments/mpnn/aflow/static/32/gpu_a100/iteration_1' + \
+            '/profiling_experiments/mpnn/aflow/static/round_True/32/gpu_a100/iteration_1' + \
             ' --config=' + str(folder_base_path) + '/' + \
-            'profiling_experiments/mpnn/aflow/static/32/gpu_a100/iteration_1/config_aflow_static_32.py\n')
+            'profiling_experiments/mpnn/aflow/static/round_True/32/gpu_a100/iteration_1/config_aflow_static_32.py\n')
         print(expected_srun_statement)
         assert expected_srun_statement in job_script
