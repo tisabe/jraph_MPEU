@@ -650,16 +650,15 @@ def train_and_evaluate(
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits, config)
+        # early_stop = evaluater.update(state, datasets, eval_splits, config)
 
-        if early_stop:
-            logging.info(f'Loss converged at step {step}, stopping early.')
-            # create a file that signals that training stopped early
-            if not os.path.exists(workdir + '/STOPPED_EARLY'):
-                with open(workdir + '/STOPPED_EARLY', 'w'):
-                    pass
-            break
-        logging.info('is last step part')
+        # if early_stop:
+        #     logging.info(f'Loss converged at step {step}, stopping early.')
+        #     # create a file that signals that training stopped early
+        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
+        #         with open(workdir + '/STOPPED_EARLY', 'w'):
+        #             pass
+        #     break
         # No need to break if it's the last step since the loop terminates
         # automatically when reaching the last step.
         if is_last_step:
