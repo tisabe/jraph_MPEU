@@ -190,7 +190,7 @@ def create_folder_for_setting(base_dir, setting):
         setting['network_type'] + '/' +
         setting['dataset'] + '/' +
         setting['batching_method'] + '/' +
-        str(setting['static_round_to_multiple']) + '/' +
+        "round_" + str(setting['static_round_to_multiple']) + '/' +
         str(setting['batch_size']) + '/' +
         setting['computing_type'].replace(':', '_') + '/' +
         'iteration_' + str(setting['iteration']))

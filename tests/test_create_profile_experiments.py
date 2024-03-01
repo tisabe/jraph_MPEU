@@ -10,7 +10,7 @@ def test_get_settings_list(
         dataset_list=['aflow'],
         batch_size_list=[16, 32],
         batching_method_list=['static', 'dynamic'],
-        static_round_to_multiple_list=[True, False],
+        static_round_to_multiple_list=['True', 'False'],
         computing_type_list=['cpu']):
     settings_list = cpe.get_settings_list(
         network_type_list, dataset_list,
@@ -34,7 +34,7 @@ def test_create_folder_for_setting(tmp_path):
         'iteration': 1,
     }
     folder_name = cpe.create_folder_for_setting(folder_base_path, setting)
-    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/True/32/cpu/iteration_1'
+    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/round_True/32/cpu/iteration_1'
     assert folder_name == str(expected_path)
     assert os.path.isdir(expected_path)
 
@@ -60,8 +60,9 @@ def test_create_config_file_path(tmp_path):
         assert '    config.batch_size = 32\n' in config
         assert '    config.dynamic_batch = False\n' in config
         assert '    config.static_round_to_multiple = False\n' in config
-        assert '    config.data_file = aflow/graphs_knn_fix.db\n' in config
-        assert '    config.label_str = enthalpy_formation_atom\n'
+        assert "    config.data_file = 'aflow/graphs_knn.db'\n" in config
+        assert "    config.label_str = 'enthalpy_formation_atom'\n"
+        assert "    config.compute_device = 'gpu_a100'\n"
 
 
 def test_create_job_script(tmp_path):
