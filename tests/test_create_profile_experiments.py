@@ -62,7 +62,7 @@ def test_create_config_file_path(tmp_path):
         assert '    config.static_round_to_multiple = False\n' in config
         assert "    config.data_file = 'aflow/graphs_knn.db'\n" in config
         assert "    config.label_str = 'enthalpy_formation_atom'\n" in config
-        assert "    config.compute_device = gpu_a100\n" in config
+        assert "    config.compute_device = 'gpu_a100'\n" in config
 
 
 def test_create_job_script(tmp_path):

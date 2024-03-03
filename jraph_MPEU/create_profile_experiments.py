@@ -121,7 +121,7 @@ def create_config_file_path(
     )
     config = config.replace(
         '<compute_device>',
-        str(setting['computing_type'].replace(':', '_'))
+        "\'" + str(setting['computing_type'].replace(':', '_') + "\'")
     )
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"
