@@ -30,11 +30,11 @@ def test_create_folder_for_setting(tmp_path):
         'batch_size': 32,
         'batching_method': 'static',
         'static_round_to_multiple': True,
-        'computing_type': 'cpu',
+        'computing_type': 'gpu:a100',
         'iteration': 1,
     }
     folder_name = cpe.create_folder_for_setting(folder_base_path, setting)
-    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/round_True/32/cpu/iteration_1'
+    expected_path = folder_base_path / 'profiling_experiments/mpnn/aflow/static/round_True/32/gpu_a100/iteration_1'
     assert folder_name == str(expected_path)
     assert os.path.isdir(expected_path)
 
@@ -61,8 +61,8 @@ def test_create_config_file_path(tmp_path):
         assert '    config.dynamic_batch = False\n' in config
         assert '    config.static_round_to_multiple = False\n' in config
         assert "    config.data_file = 'aflow/graphs_knn.db'\n" in config
-        assert "    config.label_str = 'enthalpy_formation_atom'\n"
-        assert "    config.compute_device = 'gpu_a100'\n"
+        assert "    config.label_str = 'enthalpy_formation_atom'\n" in config
+        assert "    config.compute_device = gpu_a100\n" in config
 
 
 def test_create_job_script(tmp_path):

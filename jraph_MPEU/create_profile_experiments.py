@@ -50,7 +50,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=6:00:00
+#SBATCH --time=4:00:00
 <gres>
 <constraint>
 
@@ -121,7 +121,7 @@ def create_config_file_path(
     )
     config = config.replace(
         '<compute_device>',
-        str(setting['computing_type'])
+        str(setting['computing_type'].replace(':', '_'))
     )
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"
