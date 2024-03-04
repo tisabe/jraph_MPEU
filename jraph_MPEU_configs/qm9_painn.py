@@ -21,6 +21,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Optimizer
     config.optimizer = 'adam'
     config.schedule = 'exponential_decay'
+    config.weight_decay = 0.
     config.init_lr = 5e-4 # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = 100_000

@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J qm9_painn
+#SBATCH -J adamw
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,6 +24,9 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/qm9/U0/painn \
+--workdir=./results/qm9/U0/painn_bs_adamw \
 --config=jraph_MPEU_configs/qm9_painn.py \
+--config.batch_size=100 \
+--config.optimizer=adamw \
+--config.weight_decay=0.01 \
 --rerun=True

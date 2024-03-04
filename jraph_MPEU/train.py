@@ -75,7 +75,7 @@ class Updater:
         (loss, (_, hk_state)), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, hk_state, rng, data, self._net_apply)
 
-        updates, opt_state = self._opt.update(grad, state['opt_state'])
+        updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
 
         new_state = {
@@ -405,6 +405,10 @@ def create_optimizer(
 
     if config.optimizer == 'adam':
         return optax.adam(learning_rate=learning_rate)
+    elif config.optimizer == 'adamw':
+        return optax.adamw(
+            learning_rate=learning_rate, weight_decay=config.weight_decay)
+
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 

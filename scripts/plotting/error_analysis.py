@@ -72,7 +72,7 @@ def plot_regression(df, workdir, label_str, plot_name):
     if FLAGS.label == 'egap':
         xlim = [-0.5, 12.5]
         ylim = [-0.5, 12.5]
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         xlim = None
         ylim = None
     else:
@@ -96,7 +96,7 @@ def plot_regression(df, workdir, label_str, plot_name):
     if FLAGS.label == 'egap':
         g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
         g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         pass
     else:
         g.ax_joint.set_xticks([-4, -2, 0, 2])
@@ -192,7 +192,7 @@ def main(argv):
         PREDICT_LABEL = r'Predicted $E_g$ (eV)'
         CALCULATE_LABEL = r'Calculated $E_g$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
@@ -266,9 +266,13 @@ def main(argv):
     print(f'Median error on test set: {median_err}')
 
     # print rows with highest errors
+    if 'auid' in df_test.columns:
+        col_to_print = ['auid', 'prediction', config.label_str, 'abs. error',
+        'formula', 'crystal system', 'Egap']
+    else:
+        col_to_print = ['prediction', config.label_str, 'abs. error', 'formula']
     df_test = df_test.sort_values(by='abs. error', axis='index')
-    print(df_test[-3:][['auid', 'prediction', config.label_str, 'abs. error',
-        'formula', 'crystal system', 'Egap']])
+    print(df_test[-3:][col_to_print])
 
     if FLAGS.plot in ('all', 'natoms'):
         fig, ax = plt.subplots()
