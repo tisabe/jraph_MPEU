@@ -68,6 +68,7 @@ class Updater:
         )
         return state
 
+    # Jit the functions
     @functools.partial(jax.jit, static_argnums=0)
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
@@ -575,6 +576,7 @@ def train_and_evaluate(
         compile_batching=compile_batching)
 
     init_graphs = next(train_reader)
+
     # Initialize globals in graph to zero. Don't want to give the model
     # the right answer. The model's not using them now anyway.
     init_graphs = replace_globals(init_graphs)
@@ -612,6 +614,7 @@ def train_and_evaluate(
         state['step'].block_until_ready()
 
         after_getting_graphs = time.time()
+        # This needs to get passed to pmap, where it is jitted.
         state, loss_metrics = updater.update(state, graphs)
 
         state['step'].block_until_ready()
@@ -652,7 +655,7 @@ def train_and_evaluate(
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        # early_stop = evaluater.update(state, datasets, eval_splits, config)
+        early_stop = evaluater.update(state, datasets, eval_splits, config)
 
         # if early_stop:
         #     logging.info(f'Loss converged at step {step}, stopping early.')
