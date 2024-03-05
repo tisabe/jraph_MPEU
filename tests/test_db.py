@@ -87,7 +87,7 @@ class UnitTests(absltest.TestCase):
                 self.assertEqual(len(edges), n_atoms*cutoff)
             elif cutoff_type == 'const':
                 dist = np.sqrt(np.sum(edges**2, axis=1))
-                self.assertListEqual(dist <= cutoff, [True]*len(edges))
+                self.assertListEqual(list(dist <= cutoff), [True]*len(edges))
                 # TODO: test this case with a new generated database
 
 
