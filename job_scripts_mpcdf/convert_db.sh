@@ -22,5 +22,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/data/asedb_to_graphs.py \
--f databases/QM9/graphs_fc.db -o databases/QM9/graphs_5A_vec.db \
--cutoff_type const -cutoff 5.0
+-f databases/aflow/graphs_all_12knn.db -o databases/aflow/graphs_12knn_vec.db \
+-cutoff_type knearest -cutoff 12.0

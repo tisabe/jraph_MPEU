@@ -67,6 +67,7 @@ class UnitTests(absltest.TestCase):
         database = ase.db.connect(FLAGS.file)
         limit = FLAGS.limit
         rows = database.select(limit=limit)
+        count_isolated_nodes = 0
         for row in rows:
             atoms = row.toatoms()
             n_atoms = len(atoms.get_atomic_numbers())
@@ -81,6 +82,9 @@ class UnitTests(absltest.TestCase):
             self.assertEqual(len(receivers), len(edges))
             self.assertEqual(np.shape(edges)[1], 3)
 
+            nodes_not_in_receivers = set(receivers) - set(range(n_atoms))
+            count_isolated_nodes += len(nodes_not_in_receivers)
+
             if cutoff_type == 'fc':
                 self.assertEqual(len(edges), n_atoms*(n_atoms-1))
             elif cutoff_type == 'knearest':
@@ -88,7 +92,9 @@ class UnitTests(absltest.TestCase):
             elif cutoff_type == 'const':
                 dist = np.sqrt(np.sum(edges**2, axis=1))
                 self.assertListEqual(list(dist <= cutoff), [True]*len(edges))
-                # TODO: test this case with a new generated database
+
+        print(f"Number of isolated nodes in {FLAGS.file}: {count_isolated_nodes}")
+
 
 
 if __name__ == "__main__":

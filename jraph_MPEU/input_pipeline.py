@@ -544,11 +544,19 @@ def get_datasets(config, workdir):
     if not os.path.exists(num_path):
         num_list = get_atom_num_list(graphs_dict)
         # save num list here
-        with open(num_path, 'w+') as num_file:
+        with open(num_path, 'w+', encoding="utf-8") as num_file:
             json.dump(num_list, num_file)
     else:
-        with open(num_path, 'r') as num_file:
+        with open(num_path, 'r', encoding="utf-8") as num_file:
             num_list = json.load(num_file)
+        # the list might be empty from a failed previous run,
+        # if so, generate new list
+        if len(num_list) == 0:
+            os.remove(num_path)
+            num_list = get_atom_num_list(graphs_dict)
+            # save num list here
+            with open(num_path, 'w+', encoding="utf-8") as num_file:
+                json.dump(num_list, num_file)
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     num_classes = len(num_list)

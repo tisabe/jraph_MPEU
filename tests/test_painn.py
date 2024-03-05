@@ -145,6 +145,7 @@ class UnitTest(unittest.TestCase):
         """Test training the painn model."""
         config = cfg_painn.get_config()
         config.model_str = 'PaiNN'
+        config.aggregation_message_type = 'sum'
         config.cutoff_radius = 5.
         with tempfile.TemporaryDirectory() as test_dir:
             evaluater, lowest_val_loss = train.train_and_evaluate(

@@ -528,6 +528,7 @@ def get_painn(config):
             cutoff_fn=cosine_cutoff,
             task="graph",
             pool=config.aggregation_readout_type,
+            message_agg_fn=config.aggregation_message_type,
             radius=config.cutoff_radius,
             n_rbf=20,
             out_channels=1,
@@ -561,6 +562,7 @@ class PaiNN(hk.Module):
         pool: str = "sum",
         out_channels: Optional[int] = None,
         readout_fn: ReadoutBuilderFn = PaiNNReadout,
+        message_agg_fn: str = "sum",
         max_z: int = 100,
         shared_interactions: bool = False,
         shared_filters: bool = False,
@@ -605,6 +607,10 @@ class PaiNN(hk.Module):
 
         self.cutoff_fn = cutoff_fn(radius) if cutoff_fn else None
         self.radial_basis_fn = radial_basis_fn(n_rbf, radius)
+        if message_agg_fn=="sum":
+            self.message_aggregation_fn = jraph.segment_sum
+        else:
+            self.message_aggregation_fn = jraph.segment_mean
 
         if node_type == "discrete":
             self.scalar_emb = hk.Embed(
@@ -626,10 +632,15 @@ class PaiNN(hk.Module):
             self.filter_net = LinearXav(n_layers * 3 * hidden_size, name="filter_net")
 
         if self._shared_interactions:
-            self.layers = [PaiNNLayer(hidden_size, 0, activation, eps=eps)] * n_layers
+            self.layers = [
+                PaiNNLayer(hidden_size, 0, activation,
+                aggregate_fn=self.message_aggregation_fn,
+                eps=eps)] * n_layers
         else:
             self.layers = [
-                PaiNNLayer(hidden_size, i, activation, eps=eps) for i in range(n_layers)
+                PaiNNLayer(hidden_size, i, activation,
+                aggregate_fn=self.message_aggregation_fn,
+                eps=eps) for i in range(n_layers)
             ]
 
         self.readout = None

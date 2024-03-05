@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J cutoff
+#SBATCH -J painn_mean
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,10 +24,6 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/qm9/U0/painn_bs_adamw_cutoff \
---config=jraph_MPEU_configs/qm9_painn.py \
---config.batch_size=100 \
---config.optimizer=adamw \
---config.weight_decay=0.01 \
---config.data_file=databases/QM9/graphs_5A_vec.db \
---rerun=True
+--workdir=./results/aflow/ef/painn_mean \
+--config=jraph_MPEU_configs/aflow_ef_painn.py \
+--config.aggregation_message_type=mean
