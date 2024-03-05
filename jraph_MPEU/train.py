@@ -676,8 +676,14 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
+    median_batching_time = np.median(train_reader._timing_measurements_batching)
+    logging.info(f'Median batching time: {median_batching_time}')
+
     mean_batching_time = np.mean(train_reader._timing_measurements_batching)
     logging.info(f'Mean batching time: {mean_batching_time}')
+
+    median_updating_time = np.median(train_reader._update_measurements)
+    logging.info(f'Median update time: {median_updating_time}')
 
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
