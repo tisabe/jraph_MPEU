@@ -565,6 +565,10 @@ def train_and_evaluate(
     logging.info(f'Because of compute device: {config.compute_device} '
                  f'we set compile batching to: {compile_batching}')
 
+
+    logging.info(f'Config dynamic batch: {config.dynamic_batch}')
+    logging.info(f'Config dynamic batch is True?: {config.dynamic_batch is True}')
+
     # initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],
