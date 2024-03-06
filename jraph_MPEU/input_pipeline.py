@@ -446,17 +446,18 @@ class DataReader:
         return self
 
     def __next__(self):
-        if self.dynamic_batch and self.compile_batching is True:
-            return self.jax_next()
-        else:
-            return self.uncompiled_next()
-
-    @functools.partial(jax.jit, static_argnums=0)
-    def jax_next(self):
         return next(self.batch_generator)
+        # if self.dynamic_batch and self.compile_batching is True:
+        #     return self.jax_next()
+        # else:
+        #     return self.uncompiled_next()
 
-    def uncompiled_next(self):
-        return next(self.batch_generator)
+    # @functools.partial(jax.jit, static_argnums=0)
+    # def jax_next(self):
+    #     return next(self.batch_generator)
+
+    # def uncompiled_next(self):
+    #     return next(self.batch_generator)
 
     def _make_generator(self):
         random.seed(a=self.seed)
