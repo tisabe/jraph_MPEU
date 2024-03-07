@@ -68,8 +68,14 @@ class Updater:
         )
         return state
 
-    # Jit the functions
-    @functools.partial(jax.jit, static_argnums=0)
+    # map update over 'super' batch of graphs
+    @functools.partial(
+        jax.pmap,
+        static_broadcasted_argnums=0,
+        in_axes=(None,None,0),
+        out_axes=(None,None),
+        axis_name="p",
+    )
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
         # Note this LOG message should only be called by the program
@@ -80,6 +86,9 @@ class Updater:
         hk_state = state['hk_state']
         (loss, (_, hk_state)), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, hk_state, rng, data, self._net_apply)
+
+        # all-reduce gradient
+        grad = jax.lax.psum(grad, 'p')
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
         params = optax.apply_updates(params, updates)
@@ -609,9 +618,21 @@ def train_and_evaluate(
     # Begin training loop.
     logging.info('Starting training.')
 
+    n_dev = len(jax.local_devices())
     for step in range(initial_step, config.num_train_steps_max + 1):
         start_loop_time = time.time()
-        graphs = next(train_reader)
+        graphs = [next(train_reader) for _ in range(n_dev)]
+        # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
+        # to pmap update over available devices
+        graphs = jraph.GraphsTuple(
+            n_node = np.array([i.n_node for i in graphs]),
+            n_edge = np.array([i.n_edge for i in graphs]),
+            nodes = np.array([i.nodes for i in graphs]),
+            edges = np.array([i.edges for i in graphs]),
+            globals = np.array([i.globals for i in graphs]),
+            senders = np.array([i.senders for i in graphs]),
+            receivers = np.array([i.receivers for i in graphs]),
+        )
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
