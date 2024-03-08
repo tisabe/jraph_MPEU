@@ -69,10 +69,10 @@ class ProfilingParser():
         self.csv_filename = csv_filename
         # Name of columns for header in csv.
         self.csv_columns = [
-            'model', 'time_day', 'dataset', 'batching_type', 'batch_size',
+            'model', 'time_day', 'dataset', 'batching_type',
+            'batching_round_to_64', 'batch_size',
             'computing_type', 'iteration', 'experiment_completed',
             'submission_path', 'path', 'recompilation_counter',
-            'batching_round_to_64',
             'step_100000_train_rmse',
             'step_100000_val_rmse', 'step_100000_test_rmse',
             'step_100000_batching_time', 'step_100000_update_time',
