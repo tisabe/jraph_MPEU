@@ -72,9 +72,9 @@ class ProfilingParser():
             'model', 'time_day', 'dataset', 'batching_type', 'batch_size',
             'computing_type', 'iteration', 'experiment_completed',
             'submission_path', 'path', 'recompilation_counter',
-            'step_10000_train_rmse',
-            'step_10000_val_rmse', 'step_10000_test_rmse',
-            'step_10000_batching_time', 'step_10000_update_time',
+            'step_100000_train_rmse',
+            'step_100000_val_rmse', 'step_100000_test_rmse',
+            'step_100000_batching_time', 'step_100000_update_time',
 
             # 'step_200000_train_rmse',
             # 'step_200000_val_rmse', 'step_200000_test_rmse',
@@ -214,11 +214,11 @@ class ProfilingParser():
 
 
         # initialize values in case we don't find them.
-        data_dict[f'step_10000_train_rmse'] = np.nan
-        data_dict[f'step_10000_val_rmse'] = np.nan
-        data_dict[f'step_10000_test_rmse'] = np.nan
-        data_dict[f'step_10000_batching_time'] = np.nan
-        data_dict[f'step_10000_update_time'] = np.nan
+        data_dict[f'step_100000_train_rmse'] = np.nan
+        data_dict[f'step_100000_val_rmse'] = np.nan
+        data_dict[f'step_100000_test_rmse'] = np.nan
+        data_dict[f'step_100000_batching_time'] = np.nan
+        data_dict[f'step_100000_update_time'] = np.nan
 
 
         # # initialize values in case we don't find them.
