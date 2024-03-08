@@ -75,7 +75,7 @@ class ProfilingParser():
             'submission_path', 'path', 'recompilation_counter',
             'step_100000_train_rmse',
             'step_100000_val_rmse', 'step_100000_test_rmse',
-            'step_100000_batching_time_mean', 'step_100000_update_time_meand',
+            'step_100000_batching_time_mean', 'step_100000_update_time_mean',
             'step_100000_batching_time_median', 'step_100000_update_time_median',
             # 'step_200000_train_rmse',
             # 'step_200000_val_rmse', 'step_200000_test_rmse',
