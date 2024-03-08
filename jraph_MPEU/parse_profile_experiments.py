@@ -218,7 +218,7 @@ class ProfilingParser():
         data_dict[f'step_100000_val_rmse'] = np.nan
         data_dict[f'step_100000_test_rmse'] = np.nan
         data_dict[f'step_100000_batching_time'] = np.nan
-        data_dict[f'step_100000_update_time'] = np.nan
+        data_dict[f'step_10000_update_time'] = np.nan
 
 
         # # initialize values in case we don't find them.
@@ -295,9 +295,10 @@ class ProfilingParser():
         data_dict['iteration'] = int(settings_list[-1].split('_')[-1])
         data_dict['computing_type'] = settings_list[-2]
         data_dict['batch_size'] = int(settings_list[-3])
-        data_dict['batching_type'] = settings_list[-4]
-        data_dict['dataset'] = settings_list[-5]
-        data_dict['model'] = settings_list[-6]
+        data_dict['batching_round_to_64'] = settings_list[-4]
+        data_dict['batching_type'] = settings_list[-5]
+        data_dict['dataset'] = settings_list[-6]
+        data_dict['model'] = settings_list[-7]
         return data_dict
 
     def add_expired_path(self, submission_path):
