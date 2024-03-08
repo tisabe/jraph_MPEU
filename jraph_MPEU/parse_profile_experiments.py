@@ -75,8 +75,8 @@ class ProfilingParser():
             'submission_path', 'path', 'recompilation_counter',
             'step_100000_train_rmse',
             'step_100000_val_rmse', 'step_100000_test_rmse',
-            'step_100000_batching_time', 'step_100000_update_time',
-
+            'step_100000_batching_time_mean', 'step_100000_update_time_meand',
+            'step_100000_batching_time_median', 'step_100000_update_time_median',
             # 'step_200000_train_rmse',
             # 'step_200000_val_rmse', 'step_200000_test_rmse',
             # 'step_200000_batching_time', 'step_200000_update_time',
@@ -218,8 +218,10 @@ class ProfilingParser():
         data_dict[f'step_100000_train_rmse'] = np.nan
         data_dict[f'step_100000_val_rmse'] = np.nan
         data_dict[f'step_100000_test_rmse'] = np.nan
-        data_dict[f'step_100000_batching_time'] = np.nan
-        data_dict[f'step_100000_update_time'] = np.nan
+        data_dict[f'step_100000_batching_time_median'] = np.nan
+        data_dict[f'step_100000_batching_time_mean'] = np.nan
+        data_dict[f'step_100000_update_time_median'] = np.nan
+        data_dict[f'step_100000_update_time_mean'] = np.nan
 
 
         # # initialize values in case we don't find them.
@@ -275,11 +277,19 @@ class ProfilingParser():
                 elif 'Mean batching time' in line:
                     # Grab the training loss
                     batching_time = float(line.split(' ')[-1])
-                    data_dict[f'step_{step_num}_batching_time'] = batching_time
+                    data_dict[f'step_{step_num}_batching_time_mean'] = batching_time
                 elif 'Mean update time' in line:
                     # Grab the training loss
                     update_time = float(line.split(' ')[-1])
-                    data_dict[f'step_{step_num}_update_time'] = update_time
+                    data_dict[f'step_{step_num}_update_time_mean'] = update_time
+                elif 'Median batching time' in line:
+                    # Grab the training loss
+                    batching_time = float(line.split(' ')[-1])
+                    data_dict[f'step_{step_num}_batching_time_median'] = batching_time
+                elif 'Median update time' in line:
+                    # Grab the training loss
+                    update_time = float(line.split(' ')[-1])
+                    data_dict[f'step_{step_num}_update_time_median'] = update_time
                 elif 'Reached maximum number of steps without early stopping' in line:
                     experiment_completed = True
 
