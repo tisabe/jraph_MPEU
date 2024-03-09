@@ -62,7 +62,50 @@ source activate_jax.sh
 srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
-TEMPLATE_CONFIG = """
+TEMPLATE_SCHNET_CONFIG = """
+import ml_collections
+from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
+
+def get_config() -> ml_collections.ConfigDict():
+    config = get_config_super() # inherit from default mp config
+    config.eval_every_steps = 100_000
+    config.num_train_steps_max = 100_000
+    config.log_every_steps = 100_000
+    config.checkpoint_every_steps = 100_000
+    config.limit_data = None
+    config.selection = None
+    config.data_file = <data_file>
+    config.label_str = <label_str>
+    config.num_edges_max = None
+    config.dynamic_batch = <dynamic_batch>
+    config.compute_device = <compute_device>
+    config.batch_size = <batch_size>
+    config.static_round_to_multiple = False
+
+    # MPNN hyperparameters
+    config.model_str = 'SchNet'
+    config.message_passing_steps = 3
+    config.latent_size = 64
+    config.hk_init = None
+    config.max_input_feature_size = 100
+    config.aggregation_message_type = 'mean'
+    config.aggregation_readout_type = 'mean'
+    config.global_readout_mlp_layers = 0
+    config.mlp_depth = 2
+    config.activation_name = 'shifted_softplus'
+    # Edge embedding parameters
+    config.k_max = 150
+    config.delta = 0.1
+    config.mu_min = 0.0
+    # Node embedding parameters
+    config.max_atomic_number = 90
+    config.use_layer_norm = False
+    config.dropout_rate = 0.0
+
+    return config
+"""
+
+TEMPLATE_MPEU_CONFIG = """
 import ml_collections
 from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 
@@ -111,7 +154,13 @@ def create_config_file_path(
         dynamic_batch = True
     else:
         dynamic_batch = False
-    config = TEMPLATE_CONFIG.replace(
+    if setting['network_type'] == 'schnet':
+        config = TEMPLATE_SCHNET_CONFIG
+    elif setting['network_type'] == 'MPEU':
+        config = TEMPLATE_MPEU_CONFIG
+    else:
+        raise ValueError(f'wrong value for network type {setting['network_type']}')
+    config = config.replace(
         '<dynamic_batch>', str(dynamic_batch))
     config = config.replace(
         '<batch_size>', str(setting['batch_size']))
