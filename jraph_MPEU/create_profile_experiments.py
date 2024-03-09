@@ -159,7 +159,7 @@ def create_config_file_path(
     elif setting['network_type'] == 'MPEU':
         config = TEMPLATE_MPEU_CONFIG
     else:
-        raise ValueError(f'wrong value for network type {setting['network_type']}')
+        raise ValueError(f'wrong value for network type {setting["network_type"]}')
     config = config.replace(
         '<dynamic_batch>', str(dynamic_batch))
     config = config.replace(
