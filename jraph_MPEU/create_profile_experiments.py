@@ -50,7 +50,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=4:00:00
+#SBATCH --time=12:00:00
 <gres>
 <constraint>
 
