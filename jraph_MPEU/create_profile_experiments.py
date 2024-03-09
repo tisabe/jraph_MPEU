@@ -80,7 +80,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
     config.batch_size = <batch_size>
-    config.static_round_to_multiple = False
+    config.static_round_to_multiple = <static_round_to_multiple>
 
     # MPNN hyperparameters
     config.model_str = 'SchNet'
@@ -123,7 +123,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
     config.batch_size = <batch_size>
-    config.static_round_to_multiple = False
+    config.static_round_to_multiple = <static_round_to_multiple>
 
     # MPNN hyperparameters
     config.model_str = 'SchNet'
@@ -202,11 +202,7 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']))
-        #
-        #+ 'round_to_multiple' + '_' 
-        
-        # + str(bool(setting['static_round_to_multiple'])))    
+        setting['batching_method'] + '_' + str(setting['batch_size']))   
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
