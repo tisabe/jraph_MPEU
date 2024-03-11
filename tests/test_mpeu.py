@@ -454,27 +454,33 @@ class TestModelFunctions(unittest.TestCase):
         hk_init = hk.initializers.Identity(2.0)
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
-        # for some reason it needs to be wrapped like this,
-        # otherwise haiku complains
-        def wrapped_mlp(output_sizes):
-            def mlp_fn(arr_in):
-                mlp = MLP(
-                    'test_name', output_sizes, use_layer_norm=False,
-                    dropout_rate=0.0, activation=jax.nn.relu, with_bias=False,
-                    activate_final=False, w_init=hk_init
-                )
-                return mlp(arr_in)
-            return mlp_fn
 
-        mlp = hk.transform(wrapped_mlp(hidden_sizes))
+        def mlp(x, is_training):
+            return MLP(
+                name='test_name',
+                output_sizes=hidden_sizes,
+                use_layer_norm=False,
+                use_batch_norm=True,
+                dropout_rate=.0,
+                activation=jax.nn.relu,
+                with_bias=False,
+                activate_final=False,
+                w_init=hk_init
+            )(x, is_training)
+
+        mlp = hk.transform_with_state(mlp)
         init_inputs = jnp.zeros((1, 10))
-        params = mlp.init(init_rng, init_inputs)
+        params, state = mlp.init(init_rng, init_inputs, True)
 
-        inputs = np.array([-4, -2, 0, 1, 2, 3, 4, 5, 6, 7])
-        outputs = mlp.apply(params, rng, inputs)
-        expected_outputs = np.array(
-            [0, 0, 0, 1, 2, 3, 4, 5]
-        )*(2**len(hidden_sizes))
+        inputs = np.array([
+            [-4, -2, 0, 1, 2, 3, 4, 5, 6, 7],
+            [-4, -2, 0, 1, 2, 3, 4, 5, 6, 7]
+        ])
+        outputs, state = mlp.apply(params, state, rng, inputs, True)
+        expected_outputs = np.array([
+            [0, 0, 0, 1, 2, 3, 4, 5],
+            [0, 0, 0, 1, 2, 3, 4, 5],
+        ])*(2**len(hidden_sizes))
         np.testing.assert_allclose(outputs, expected_outputs)
 
 if __name__ == '__main__':

@@ -33,6 +33,7 @@ class MLP(hk.Module):
             name: str,
             output_sizes: Sequence[int],
             use_layer_norm=False,
+            use_batch_norm=False,
             dropout_rate=0.0,
             activation=shifted_softplus,
             with_bias=False,
@@ -40,25 +41,49 @@ class MLP(hk.Module):
             w_init=None
     ):
         super().__init__(name=name)
-        self.mlp = hk.nets.MLP(
-            output_sizes=output_sizes,
-            w_init=w_init,
-            with_bias=with_bias,
-            activation=activation,
-            activate_final=activate_final,
-            name=name
-        )
+        layers = []
+        for index, output_size in enumerate(output_sizes):
+            layers.append(hk.Linear(
+                output_size=output_size,
+                w_init=w_init,
+                with_bias=with_bias,
+                name=f"{name}_linear_{index}"
+            ))
+        self.layers = tuple(layers)
+
         self.dropout_rate = dropout_rate
         self.use_layer_norm = use_layer_norm
+        self.use_batch_norm = use_batch_norm
+        self.activation = activation
+        self.activate_final = activate_final
         if self.use_layer_norm:
             self.layer_norm = hk.LayerNorm(
                 axis=-1,
                 create_scale=True,
                 create_offset=True,
                 name=name + "_layer_norm")
+        if self.use_batch_norm:
+            self.batch_norm = hk.BatchNorm(
+                create_scale=True,
+                create_offset=True,
+                decay_rate=1.
+            )
 
-    def __call__(self, inputs):
-        outputs = self.mlp(inputs, self.dropout_rate, hk.next_rng_key())
+    def __call__(self, inputs, is_training):
+        num_layers = len(self.layers)
+
+        out = inputs
+        for i, layer in enumerate(self.layers):
+            out = layer(out)
+            if i < (num_layers - 1) or self.activate_final:
+                # Only perform dropout if we are activating the output.
+                if self.dropout_rate is not None:
+                    out = hk.dropout(hk.next_rng_key(), self.dropout_rate, out)
+                    out = self.activation(out)
+
         if self.use_layer_norm:
-            outputs = self.layer_norm(outputs)
-        return outputs
+            out = self.layer_norm(out)
+        if self.use_batch_norm:
+            out = self.batch_norm(out, is_training)
+
+        return out
