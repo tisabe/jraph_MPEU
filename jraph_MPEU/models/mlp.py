@@ -38,7 +38,9 @@ class MLP(hk.Module):
             activation=shifted_softplus,
             with_bias=False,
             activate_final=True,
-            w_init=None
+            w_init=None,
+            batch_norm_decay=0.9,
+            is_training=True
     ):
         super().__init__(name=name)
         layers = []
@@ -56,6 +58,7 @@ class MLP(hk.Module):
         self.use_batch_norm = use_batch_norm
         self.activation = activation
         self.activate_final = activate_final
+        self.is_training = is_training
         if self.use_layer_norm:
             self.layer_norm = hk.LayerNorm(
                 axis=-1,
@@ -66,10 +69,10 @@ class MLP(hk.Module):
             self.batch_norm = hk.BatchNorm(
                 create_scale=True,
                 create_offset=True,
-                decay_rate=1.
+                decay_rate=batch_norm_decay
             )
 
-    def __call__(self, inputs, is_training):
+    def __call__(self, inputs):
         num_layers = len(self.layers)
 
         out = inputs
@@ -84,6 +87,6 @@ class MLP(hk.Module):
         if self.use_layer_norm:
             out = self.layer_norm(out)
         if self.use_batch_norm:
-            out = self.batch_norm(out, is_training)
+            out = self.batch_norm(out, self.is_training)
 
         return out

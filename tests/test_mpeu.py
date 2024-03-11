@@ -52,6 +52,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.batch_size = 32
         self.config.latent_size = 64
         self.config.use_layer_norm = False
+        self.config.use_batch_norm = False
         self.config.message_passing_steps = 3
         self.config.global_readout_mlp_layers = 0
         self.config.mlp_depth = 2
@@ -121,9 +122,9 @@ class TestModelFunctions(unittest.TestCase):
             self.config.activation_name = activation_name
             net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
-            params = net.init(init_rng, init_graphs) # create weights etc. for the model
+            params = net.init(init_rng, init_graphs, True) # create weights etc. for the model
 
-            graph_pred = net.apply(params, rng, graph_zero)
+            graph_pred = net.apply(params, rng, graph_zero, True)
             prediction = graph_pred.globals
 
             # the following is the analytical expected result
@@ -200,9 +201,9 @@ class TestModelFunctions(unittest.TestCase):
             net_fn = MPEU(self.config)
             net = hk.transform(net_fn)
             # Create weights for the model
-            params = net.init(init_rng, init_graphs)
+            params = net.init(init_rng, init_graphs, True)
 
-            graph_pred = net.apply(params, rng, graph)
+            graph_pred = net.apply(params, rng, graph, True)
             prediction = graph_pred.globals
 
             # Here, we calculate the expected result, starting with the embeddings.
@@ -286,12 +287,13 @@ class TestModelFunctions(unittest.TestCase):
 
         config = get_class_config()
         config.use_layer_norm = False
+        config.use_batch_norm = False
         net_fn = MPEU(config)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
-        params, state = net.init(init_rng, init_graphs)
+        params, state = net.init(init_rng, init_graphs, True)
 
-        graphs_pred = net.apply(params, state, rng, graphs)
+        graphs_pred = net.apply(params, state, rng, graphs, True)
         self.assertEqual(len(graphs_pred), 2)
         prediction = graphs_pred[0].globals
         self.assertEqual(np.shape(prediction)[-1], 2)
@@ -305,8 +307,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 10
         hk_init = hk.initializers.Identity()
         edge_update_fn = _get_edge_update_fn(
-            latent_size, hk_init, use_layer_norm=False,
-            activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            activation=shifted_softplus, dropout_rate=0, mlp_depth=2, is_training=False)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -378,8 +380,8 @@ class TestModelFunctions(unittest.TestCase):
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
         node_embedding_fn = _get_node_embedding_fn(
-            latent_size, max_atomic_number, False,
-            shifted_softplus, hk_init)
+            latent_size, max_atomic_number, False, False,
+            shifted_softplus, hk_init, True)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
 
         nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
@@ -406,8 +408,9 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         node_update_fn = _get_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False,
-            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2,
+            is_training=True)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -442,8 +445,9 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         readout_node_update_fn = _get_readout_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
-            activation=shifted_softplus, output_size=1)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            dropout_rate=0.0, activation=shifted_softplus, output_size=1,
+            is_training=True)
         # TODO: finish test
 
     def test_mlp(self):
@@ -455,7 +459,7 @@ class TestModelFunctions(unittest.TestCase):
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
-        def mlp(x, is_training):
+        def mlp(x):
             return MLP(
                 name='test_name',
                 output_sizes=hidden_sizes,
@@ -465,23 +469,45 @@ class TestModelFunctions(unittest.TestCase):
                 activation=jax.nn.relu,
                 with_bias=False,
                 activate_final=False,
-                w_init=hk_init
-            )(x, is_training)
+                w_init=hk_init,
+                batch_norm_decay=0.999,
+                is_training=True
+            )(x)
 
         mlp = hk.transform_with_state(mlp)
         init_inputs = jnp.zeros((1, 10))
-        params, state = mlp.init(init_rng, init_inputs, True)
+        params, state = mlp.init(init_rng, init_inputs)
 
         inputs = np.array([
             [-4, -2, 0, 1, 2, 3, 4, 5, 6, 7],
-            [-4, -2, 0, 1, 2, 3, 4, 5, 6, 7]
+            [-2, 0, 0, -1, 0, 1, 2, 3, 4, 5]
         ])
-        outputs, state = mlp.apply(params, state, rng, inputs, True)
+        outputs, state = mlp.apply(params, state, rng, inputs)
         expected_outputs = np.array([
-            [0, 0, 0, 1, 2, 3, 4, 5],
-            [0, 0, 0, 1, 2, 3, 4, 5],
-        ])*(2**len(hidden_sizes))
-        np.testing.assert_allclose(outputs, expected_outputs)
+            [0., 0., 0., 1., 1., 1., 1., 1.],
+            [0., 0., 0., -1., -1., -1., -1., -1.],
+        ])
+        np.testing.assert_allclose(outputs, expected_outputs, atol=6)
+
+        # create new mlp with is_training=True to test batch_norm
+        def mlp_new(x):
+            return MLP(
+                name='test_name',
+                output_sizes=hidden_sizes,
+                use_layer_norm=False,
+                use_batch_norm=True,
+                dropout_rate=.0,
+                activation=jax.nn.relu,
+                with_bias=False,
+                activate_final=False,
+                w_init=hk_init,
+                batch_norm_decay=0.999,
+                is_training=False
+            )(x)
+
+        mlp = hk.transform_with_state(mlp_new)
+        outputs, state = mlp.apply(params, state, rng, inputs)
+        np.testing.assert_allclose(outputs, expected_outputs, atol=6)
 
 if __name__ == '__main__':
     unittest.main()

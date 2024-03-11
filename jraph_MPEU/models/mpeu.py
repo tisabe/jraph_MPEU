@@ -70,8 +70,8 @@ def _get_edge_embedding_fn(
 
 
 def _get_node_embedding_fn(
-        latent_size: int, max_atomic_number: int, use_layer_norm, activation,
-        hk_init=None):
+        latent_size: int, max_atomic_number: int, use_layer_norm,
+        use_batch_norm, activation, hk_init=None, is_training=True):
     """Return the node embedding function.
 
     We take the node atomic number and one hot encode the number. At this point
@@ -90,6 +90,7 @@ def _get_node_embedding_fn(
         use_layer_norm: whether layer normalization should be used.
         activation: activation function for MLPs.
         hk_init: Linear weight intializer function for our linear embedding.
+        is_training: used in batch normalization of MLP
     """
     def node_embedding_fn(nodes) -> jnp.ndarray:
         """Embeds the node features using one-hot encoding, linearly.
@@ -98,8 +99,9 @@ def _get_node_embedding_fn(
         """
         net = MLP(
             "node_embedding_layer", [latent_size],
-            use_layer_norm=use_layer_norm, dropout_rate=0.0,
-            activation=activation, w_init=hk_init, activate_final=False
+            use_layer_norm=use_layer_norm, use_batch_norm=use_batch_norm,
+            dropout_rate=0.0, activation=activation, w_init=hk_init,
+            activate_final=False, is_training=is_training
         )
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)
@@ -108,7 +110,7 @@ def _get_node_embedding_fn(
 
 def _get_embedder(
         latent_size, k_max, delta, mu_min, max_atomic_number, hk_init,
-        use_layer_norm, activation
+        use_layer_norm, use_batch_norm, activation, is_training
     ):
     """Return embedding function, with hyperparameters defined in config.
 
@@ -121,15 +123,15 @@ def _get_embedder(
         embed_edge_fn=_get_edge_embedding_fn(
             latent_size, k_max, delta, mu_min),
         embed_node_fn=_get_node_embedding_fn(
-            latent_size, max_atomic_number, use_layer_norm, activation,
-            hk_init),
+            latent_size, max_atomic_number, use_layer_norm, use_batch_norm, activation,
+            hk_init, is_training),
         embed_global_fn=None)
     return embedder
 
 
 def _get_edge_update_fn(
-        latent_size: int, hk_init, use_layer_norm, activation, dropout_rate,
-        mlp_depth):
+        latent_size: int, hk_init, use_layer_norm, use_batch_norm,
+        activation, dropout_rate, mlp_depth, is_training):
     """Return the edge update function and message update function.
 
     Takes in the previous edge vector value e_vw(t-1) and concatenates with
@@ -193,9 +195,15 @@ def _get_edge_update_fn(
         # activation. Second network is FC, input 2C, output C, identity as
         # actiavtion (e.g. linear network).
         net_edge = MLP(
-            'edge_update', [2*latent_size] + [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-            activation=activation, activate_final=False, w_init=hk_init)
+            'edge_update',
+            [2*latent_size] + [latent_size]*(mlp_depth-1),
+            use_layer_norm=use_layer_norm,
+            use_batch_norm=use_batch_norm,
+            dropout_rate=dropout_rate,
+            activation=activation,
+            activate_final=False,
+            w_init=hk_init,
+            is_training=is_training)
 
         edge_message['edges'] = net_edge(edge_node_concat)
 
@@ -204,17 +212,29 @@ def _get_edge_update_fn(
         # vector gets passed through two FC layers with shifted softplus.
         # Dimensionality doesn't change at all from input to output here.
         net_message_edge = MLP(
-            'message_edge_net', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-            activation=activation, activate_final=True, w_init=hk_init)
+            'message_edge_net',
+            [latent_size]*mlp_depth,
+            use_layer_norm=use_layer_norm,
+            use_batch_norm=use_batch_norm,
+            dropout_rate=dropout_rate,
+            activation=activation,
+            activate_final=True,
+            w_init=hk_init,
+            is_training=is_training)
         edges_new = net_message_edge(edge_message['edges'])
 
         # We also pass the sending/receiving node feature vector through a
         # linear embedding layer (FC with no actiavtion).
         net_message_node = MLP(
-            'message_node_net', [latent_size]*(mlp_depth-1),
-            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-            activation=activation, activate_final=False, w_init=hk_init)
+            'message_node_net',
+            [latent_size]*(mlp_depth-1),
+            use_layer_norm=use_layer_norm,
+            use_batch_norm=use_batch_norm,
+            dropout_rate=dropout_rate,
+            activation=activation,
+            activate_final=False,
+            w_init=hk_init,
+            is_training=is_training)
         nodes_new = net_message_node(sent_attributes)
 
         # Then element wise multiply together the output of the
@@ -227,8 +247,8 @@ def _get_edge_update_fn(
 
 
 def _get_node_update_fn(
-        latent_size, hk_init, use_layer_norm, activation, dropout_rate,
-        mlp_depth):
+        latent_size, hk_init, use_layer_norm, use_batch_norm, activation, dropout_rate,
+        mlp_depth, is_training):
     """Return the node update function.
 
     Wrapper function so that we can interface with jraph.
@@ -267,9 +287,15 @@ def _get_node_update_fn(
         # First layer is FC with shifted_softplus activation. Second layer
         # is linear.
         net = MLP(
-            'node_update', [latent_size]*mlp_depth,
-            use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-            activation=activation, activate_final=False, w_init=hk_init)
+            'node_update',
+            [latent_size]*mlp_depth,
+            use_layer_norm=use_layer_norm,
+            use_batch_norm=use_batch_norm,
+            dropout_rate=dropout_rate,
+            activation=activation,
+            activate_final=False,
+            w_init=hk_init,
+            is_training=is_training)
         # Get the messages term of Equation 9 which is the net applied to
         # the aggregation of incoming messages to the node.
         messages_propagated = net(received_attributes['messages'])
@@ -314,9 +340,13 @@ def _get_readout_global_fn(
             if label_type == 'class':
                 # return logits, softmax happens in loss function
                 net = MLP(
-                    'readout', [latent_size] * global_readout_mlp_layers + [2],
-                    use_layer_norm=False, dropout_rate=dropout_rate,
-                    activation=activation, activate_final=False)
+                    'readout',
+                    [latent_size] * global_readout_mlp_layers + [2],
+                    use_layer_norm=False,
+                    use_batch_norm=False,
+                    dropout_rate=dropout_rate,
+                    activation=activation,
+                    activate_final=False)
                 return net(node_attributes)
             else:
                 net = MLP(
@@ -330,8 +360,8 @@ def _get_readout_global_fn(
 
 
 def _get_readout_node_update_fn(
-        latent_size, hk_init, use_layer_norm, dropout_rate,
-        activation, output_size):
+        latent_size, hk_init, use_layer_norm, use_batch_norm,
+        dropout_rate, activation, output_size, is_training):
     """Return readout node update function.
 
     This is a wrapper function for the readout_node_update_fn.
@@ -369,16 +399,28 @@ def _get_readout_node_update_fn(
             # NN. First layer has output size of latent_size/2 (C/2) with
             # shifted softplus. Then we have a linear FC layer with no softplus.
             net = MLP(
-                'readout_node', [latent_size//2, output_size],
-                use_layer_norm=False, dropout_rate=dropout_rate,
-                activation=activation, activate_final=False, w_init=hk_init
+                'readout_node',
+                [latent_size//2, output_size],
+                use_layer_norm=False,
+                use_batch_norm=use_batch_norm,
+                dropout_rate=dropout_rate,
+                activation=activation,
+                activate_final=False,
+                w_init=hk_init,
+                is_training=is_training
             )
         else:
             # add extra shsp and larger hidden layer
             net = MLP(
-                'readout_node', [latent_size, output_size],
-                use_layer_norm=use_layer_norm, dropout_rate=dropout_rate,
-                activation=activation, activate_final=True, w_init=hk_init
+                'readout_node',
+                [latent_size, output_size],
+                use_layer_norm=use_layer_norm,
+                use_batch_norm=use_batch_norm,
+                dropout_rate=dropout_rate,
+                activation=activation,
+                activate_final=True,
+                w_init=hk_init,
+                is_training=is_training
             )
         # Apply the network to the nodes.
         return net(nodes)
@@ -387,15 +429,15 @@ def _get_readout_node_update_fn(
 
 class MPEU:
     """Graph neural network class where we define the interactions/updates."""
-    def __init__(self, config: ml_collections.ConfigDict, is_training=True):
+    def __init__(self, config: ml_collections.ConfigDict):
         """Initialize the GNN using a config.
 
         Args:
             config: Configuration specifying GNN properties.
         """
         self.config = config
-        self.is_training = is_training
-        self.norm = config.use_layer_norm
+        self.use_layer_norm = config.use_layer_norm
+        self.use_batch_norm = config.use_batch_norm
 
         # figure out which activation function to use
         if self.config.activation_name == 'shifted_softplus':
@@ -427,11 +469,12 @@ class MPEU:
                 f'Aggregation type {self.config.aggregation_readout_type} '
                 f'not recognized')
 
-    def __call__(self, graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
+    def __call__(self, graphs: jraph.GraphsTuple, is_training=True) -> jraph.GraphsTuple:
         """Call function to do forward pass of the GNN.
 
         Args:
             graphs: The input graphs on which to do the forward pass.
+            is_training: used by BatchNorm in MLPs
 
         Returns:
             Returns the same graphs as the input.
@@ -444,7 +487,7 @@ class MPEU:
         # use global labels. We don't put the graph output labels here since
         # we don't want to carry around the right answer with our input to
         # the GNNs.
-        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
+        dropout_rate = self.config.dropout_rate if is_training else 0.0
 
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
@@ -456,7 +499,8 @@ class MPEU:
         embedder = _get_embedder(
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
-            self.config.hk_init, self.norm, self.activation
+            self.config.hk_init, self.use_layer_norm, self.use_batch_norm,
+            self.activation, is_training
         )
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).
@@ -468,11 +512,23 @@ class MPEU:
             # we don't do yet).
             net = jraph.GraphNetwork(
                 update_node_fn=_get_node_update_fn(
-                    self.config.latent_size, self.config.hk_init, self.norm,
-                    self.activation, dropout_rate, self.config.mlp_depth),
+                    self.config.latent_size,
+                    self.config.hk_init,
+                    self.use_layer_norm,
+                    self.use_batch_norm,
+                    self.activation,
+                    dropout_rate,
+                    self.config.mlp_depth,
+                    is_training),
                 update_edge_fn=_get_edge_update_fn(
-                    self.config.latent_size, self.config.hk_init, self.norm,
-                    self.activation, dropout_rate, self.config.mlp_depth),
+                    self.config.latent_size,
+                    self.config.hk_init,
+                    self.use_layer_norm,
+                    self.use_batch_norm,
+                    self.activation,
+                    dropout_rate,
+                    self.config.mlp_depth,
+                    is_training),
                 update_global_fn=None,
                 aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
             # Update the graphs by applying our message passing step on graphs.
@@ -491,8 +547,14 @@ class MPEU:
 
         net_readout = jraph.GraphNetwork(
             update_node_fn=_get_readout_node_update_fn(
-                self.config.latent_size, self.config.hk_init, self.norm,
-                dropout_rate, self.activation, node_output_size),
+                self.config.latent_size,
+                self.config.hk_init,
+                self.use_layer_norm,
+                self.use_batch_norm,
+                dropout_rate,
+                self.activation,
+                node_output_size,
+                is_training),
             update_edge_fn=None,
             update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,
