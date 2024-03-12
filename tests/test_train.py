@@ -81,7 +81,6 @@ class TestTrain(unittest.TestCase):
         self.assertAlmostEqual(loss, loss_expected)
         self.assertAlmostEqual(acc, acc_expected)
 
-
     def test_init_state(self):
         """Test that init optimizer state is the right class."""
         init_graphs = self.datasets['train'][0]
@@ -109,10 +108,8 @@ class TestTrain(unittest.TestCase):
 
             self.assertIsInstance(evaluater.best_state, dict)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            print(type(lowest_val_loss))
             self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
             self.assertTrue(os.path.isfile(test_dir + '/REACHED_MAX_STEPS'))
-            #self.assertTrue(os.path.isfile(test_dir + '/result.csv'))
 
 
         # reset temp directory
@@ -121,10 +118,8 @@ class TestTrain(unittest.TestCase):
             evaluater, lowest_val_loss2 = train.train_and_evaluate(
                 config, test_dir)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            print(lowest_val_loss2 - lowest_val_loss)
             self.assertTrue(os.path.isfile(test_dir + '/REACHED_MAX_STEPS'))
-            #self.assertTrue(os.path.isfile(test_dir + '/result.csv'))
-            self.assertAlmostEqual(lowest_val_loss2, lowest_val_loss, places=4)
+            self.assertAlmostEqual(lowest_val_loss2, lowest_val_loss, places=6)
 
     def test_checkpoint_best_loss(self):
         """Test checkpointing of the best loss.
@@ -172,7 +167,6 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             evaluater, _ = train.train_and_evaluate(
                 config, test_dir)
-            print(evaluater.loss_dict)
             self.assertCountEqual(
                 evaluater.loss_dict.keys(),
                 ['train', 'validation', 'test'])

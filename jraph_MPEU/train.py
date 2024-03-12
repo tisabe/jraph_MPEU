@@ -259,7 +259,7 @@ class Evaluater:
         RMSE, second value is MAE, both scaled back using std of dataset."""
 
         reader = DataReader(
-            data=graphs, batch_size=batch_size, repeat=False)
+            data=graphs, batch_size=batch_size, repeat=False, seed=0)
 
         loss_list = []
         weights_list = []
@@ -440,7 +440,6 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     # try get_valid_mask function instead
     mask = jraph.get_graph_padding_mask(graphs)
     pred_graphs, new_state = net_apply(params, state, rng, graphs)
-    print(jnp.shape(pred_graphs.globals))
     # compute class probabilities
     preds = jax.nn.log_softmax(pred_graphs.globals)
     # Cross entropy loss, note: we average only over valid (unmasked) graphs
