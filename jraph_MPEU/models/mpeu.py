@@ -429,7 +429,7 @@ def _get_readout_node_update_fn(
 
 class MPEU:
     """Graph neural network class where we define the interactions/updates."""
-    def __init__(self, config: ml_collections.ConfigDict):
+    def __init__(self, config: ml_collections.ConfigDict, is_training=True):
         """Initialize the GNN using a config.
 
         Args:
@@ -438,6 +438,7 @@ class MPEU:
         self.config = config
         self.use_layer_norm = config.use_layer_norm
         self.use_batch_norm = config.use_batch_norm
+        self.is_training = is_training
 
         # figure out which activation function to use
         if self.config.activation_name == 'shifted_softplus':
@@ -469,7 +470,7 @@ class MPEU:
                 f'Aggregation type {self.config.aggregation_readout_type} '
                 f'not recognized')
 
-    def __call__(self, graphs: jraph.GraphsTuple, is_training=True) -> jraph.GraphsTuple:
+    def __call__(self, graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
         """Call function to do forward pass of the GNN.
 
         Args:
@@ -487,7 +488,7 @@ class MPEU:
         # use global labels. We don't put the graph output labels here since
         # we don't want to carry around the right answer with our input to
         # the GNNs.
-        dropout_rate = self.config.dropout_rate if is_training else 0.0
+        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
 
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
@@ -500,7 +501,7 @@ class MPEU:
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
             self.config.hk_init, self.use_layer_norm, self.use_batch_norm,
-            self.activation, is_training
+            self.activation, self.is_training
         )
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).
@@ -519,7 +520,7 @@ class MPEU:
                     self.activation,
                     dropout_rate,
                     self.config.mlp_depth,
-                    is_training),
+                    self.is_training),
                 update_edge_fn=_get_edge_update_fn(
                     self.config.latent_size,
                     self.config.hk_init,
@@ -528,7 +529,7 @@ class MPEU:
                     self.activation,
                     dropout_rate,
                     self.config.mlp_depth,
-                    is_training),
+                    self.is_training),
                 update_global_fn=None,
                 aggregate_edges_for_nodes_fn=self.aggregation_message_fn)
             # Update the graphs by applying our message passing step on graphs.
@@ -554,7 +555,7 @@ class MPEU:
                 dropout_rate,
                 self.activation,
                 node_output_size,
-                is_training),
+                self.is_training),
             update_edge_fn=None,
             update_global_fn=_get_readout_global_fn(
                 latent_size=self.config.latent_size,
