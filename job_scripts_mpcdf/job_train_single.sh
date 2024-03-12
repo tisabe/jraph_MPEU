@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J painn_mean
+#SBATCH -J egap_full
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,6 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/ef/painn_mean \
---config=jraph_MPEU_configs/aflow_ef_painn.py \
---config.aggregation_message_type=mean
+--workdir=./results/aflow/egap/mpeu/full_data \
+--config=jraph_MPEU_configs/aflow_egap_pbj.py 

@@ -24,7 +24,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.loss_type = 'MSE'
 
     # Training hyperparameters
-    config.batch_size = 32
+    config.batch_size = 100
     config.num_train_steps_max = 10_000_000
     config.log_every_steps = 10_000
     config.eval_every_steps = 50_000
@@ -45,25 +45,15 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
 
     # MPNN hyperparameters
-    config.model_str = 'MPEU'
+    config.model_str = 'PaiNN'
+    config.cutoff_radius = 6.
     config.message_passing_steps = 3
     config.latent_size = 256
-    config.hk_init = None
     config.max_input_feature_size = 100
-    config.aggregation_message_type = 'mean'
+    config.aggregation_message_type = 'sum'
     config.aggregation_readout_type = 'mean'
-    config.global_readout_mlp_layers = 0
-    config.mlp_depth = 2
-    config.activation_name = 'shifted_softplus'
-    # Edge embedding parameters
-    config.k_max = 150
-    config.delta = 0.1
-    config.mu_min = 0.0
     # Node embedding parameters
     config.max_atomic_number = 90
-    config.use_layer_norm = False
-    config.use_batch_norm = False
-    config.dropout_rate = 0.0
 
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
