@@ -98,10 +98,15 @@ def _get_node_embedding_fn(
         Uses a linear dense nn layer.
         """
         net = MLP(
-            "node_embedding_layer", [latent_size],
-            use_layer_norm=use_layer_norm, use_batch_norm=use_batch_norm,
-            dropout_rate=0.0, activation=activation, w_init=hk_init,
-            activate_final=False, is_training=is_training
+            "node_embedding_layer",
+            [latent_size],
+            use_layer_norm=use_layer_norm,
+            use_batch_norm=use_batch_norm,
+            dropout_rate=0.0,
+            activation=activation,
+            w_init=hk_init,
+            activate_final=False,
+            is_training=is_training
         )
         nodes = jax.nn.one_hot(nodes, max_atomic_number)
         return net(nodes)

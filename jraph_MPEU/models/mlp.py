@@ -79,14 +79,15 @@ class MLP(hk.Module):
         for i, layer in enumerate(self.layers):
             out = layer(out)
             if i < (num_layers - 1) or self.activate_final:
-                # Only perform dropout if we are activating the output.
+                # perform BatchNorm/dropout/activation after every hidden layer
+                # but only on the last, if self.activate_final
+                if self.use_batch_norm:
+                    out = self.batch_norm(out, self.is_training)
                 if self.dropout_rate is not None:
                     out = hk.dropout(hk.next_rng_key(), self.dropout_rate, out)
                     out = self.activation(out)
 
         if self.use_layer_norm:
             out = self.layer_norm(out)
-        if self.use_batch_norm:
-            out = self.batch_norm(out, self.is_training)
 
         return out
