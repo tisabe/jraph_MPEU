@@ -70,6 +70,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_atomic_number = 5
     # Regularization parameters
     config.use_layer_norm = False
+    config.use_batch_norm = False
     config.dropout_rate = 0.0
 
     # Logging options

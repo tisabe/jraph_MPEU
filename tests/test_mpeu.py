@@ -120,11 +120,11 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 sp = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = MPEU(self.config)
+            net_fn = MPEU(self.config, True)
             net = hk.transform(net_fn)
-            params = net.init(init_rng, init_graphs, True) # create weights etc. for the model
+            params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
-            graph_pred = net.apply(params, rng, graph_zero, True)
+            graph_pred = net.apply(params, rng, graph_zero)
             prediction = graph_pred.globals
 
             # the following is the analytical expected result
@@ -198,12 +198,12 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 activation_fn = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = MPEU(self.config)
+            net_fn = MPEU(self.config, True)
             net = hk.transform(net_fn)
             # Create weights for the model
-            params = net.init(init_rng, init_graphs, True)
+            params = net.init(init_rng, init_graphs)
 
-            graph_pred = net.apply(params, rng, graph, True)
+            graph_pred = net.apply(params, rng, graph)
             prediction = graph_pred.globals
 
             # Here, we calculate the expected result, starting with the embeddings.
@@ -288,12 +288,12 @@ class TestModelFunctions(unittest.TestCase):
         config = get_class_config()
         config.use_layer_norm = False
         config.use_batch_norm = False
-        net_fn = MPEU(config)
+        net_fn = MPEU(config, True)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
-        params, state = net.init(init_rng, init_graphs, True)
+        params, state = net.init(init_rng, init_graphs)
 
-        graphs_pred = net.apply(params, state, rng, graphs, True)
+        graphs_pred = net.apply(params, state, rng, graphs)
         self.assertEqual(len(graphs_pred), 2)
         prediction = graphs_pred[0].globals
         self.assertEqual(np.shape(prediction)[-1], 2)
