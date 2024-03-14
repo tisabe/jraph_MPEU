@@ -116,7 +116,7 @@ def get_ensemble_curve_df(directory, n_max):
         by='RMSE_validation')
 
     metrics_best = []
-    for n_best in range(n_max):
+    for n_best in range(1, n_max+1):
         ids_best_n = ids_best.iloc[:n_best].index.to_list()
         #df_best = df[['target', 'split']+ids_best]
 
@@ -126,7 +126,7 @@ def get_ensemble_curve_df(directory, n_max):
 
         df['abs. error'] = abs(df['pred_ensemble'] - df['target'])
 
-        metrics_dict = {'n_best': n_best+1, 'dir': directory}
+        metrics_dict = {'n_best': n_best, 'dir': directory}
 
         for split in splits:
             errors = df[df['split']==split]['abs. error']
@@ -143,7 +143,7 @@ def main(_):
     df_curves = pd.DataFrame({})
     for directory in FLAGS.dirs:
         print("getting data from ", directory)
-        df_curve = get_ensemble_curve_df(directory, 50)
+        df_curve = get_ensemble_curve_df(directory, FLAGS.n_best)
         df_curves = pd.concat([df_curves, df_curve], axis=0, ignore_index=True)
 
     fig, ax = plt.subplots()
@@ -159,6 +159,7 @@ def main(_):
     dir_to_label_dict = {
         'egap_rand_search': 'Random search',
         'egap_pbj_ensemble': 'Reference ensemble',
+        'egap_pbj_val_ensemble': 'Randomized train/val split reference ensemble',
         'ef_rand_search': 'Random search',
         'ef_pbj_ensemble': 'Reference ensemble',
     }
