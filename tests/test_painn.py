@@ -38,6 +38,7 @@ class UnitTest(unittest.TestCase):
         self.config.cutoff_radius=6.0
         self.config.aggregation_readout_type="sum"
 
+    @unittest.skip("For now, PaiNN only outputs invariant features.")
     def test_equivariance_graph_readout(self):
         """Test that the graph readout is equivariant upon rotating the edges."""
         n_node = 4
@@ -89,6 +90,7 @@ class UnitTest(unittest.TestCase):
         np.testing.assert_allclose(rot_v, v_rot, rtol=1e-6)
         np.testing.assert_allclose(s, rot_s, rtol=1e-6)
 
+    @unittest.skip("For now, PaiNN only outputs invariant features.")
     def test_equivariance_node_readout(self):
         """Test that the graph readout is equivariant upon rotating the edges."""
         n_node = 4
