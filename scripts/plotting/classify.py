@@ -12,6 +12,7 @@ import numpy as np
 import sklearn.metrics
 from sklearn.metrics import RocCurveDisplay
 from sklearn.metrics import roc_auc_score
+from sklearn.calibration import CalibrationDisplay
 
 from jraph_MPEU.utils import str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -77,6 +78,7 @@ def main(argv):
     # calculate and display ROC curve
     y_pred = df_test['p_insulator'].to_numpy().reshape(-1, 1)
     y_true = df_test['class_true'].to_numpy()
+
     fig, ax = plt.subplots()
     _ = RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax)
     x_ref = np.linspace(*ax.get_xlim())
@@ -88,6 +90,13 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
+
+    # display calibration curve
+    fig, ax = plt.subplots()
+    _ = CalibrationDisplay.from_predictions(y_true, y_pred, n_bins=10, ax=ax)
+    ax.set_box_aspect(1)
+    plt.tight_layout()
+    plt.show()
 
     # print ROC-AUC score
     auc = roc_auc_score(y_true, y_pred)
