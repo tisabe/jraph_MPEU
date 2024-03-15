@@ -3,6 +3,7 @@
 import tempfile
 import unittest
 
+from parameterized import parameterized
 import jax
 import jraph
 import numpy as np
@@ -13,7 +14,7 @@ from jraph_MPEU.utils import (
     save_config,
     load_config,
     normalize_targets,
-    normalize_targets_dict,
+    get_normalization_dict,
     scale_targets,
     estimate_padding_budget_for_batch_size,
     add_labels_to_graphs,
@@ -23,17 +24,28 @@ from jraph_MPEU.utils import (
 )
 
 
-def get_random_graph(key) -> jraph.GraphsTuple:
-    """Return a random graphsTuple using a jax random key."""
+def get_random_graph(n_features=1) -> jraph.GraphsTuple:
+    """Return a random graphsTuple with n_node from 1 to 10 and global feature
+    vector of size n_features."""
     graph = jraph.GraphsTuple(
         nodes=None,
         edges=None,
         senders=None,
         receivers=None,
-        n_node=jax.random.randint(key, (1,), minval=1, maxval=10),
+        n_node=np.random.randint(1, 10, (1,)),
         n_edge=None,
-        globals=None)
+        globals=np.random.random_sample((n_features,)))
     return graph
+
+
+def get_random_graph_list(n_graphs, n_features=1, seed=42):
+    """Return a list of n_graphs jraph.GraphsTuple."""
+    np.random.seed(seed)
+    graphs = []
+    for _ in range(n_graphs):
+        graph = get_random_graph(n_features)
+        graphs.append(graph)
+    return graphs
 
 
 class TestUtilsFunctions(unittest.TestCase):
@@ -179,94 +191,42 @@ class TestUtilsFunctions(unittest.TestCase):
             self.assertEqual(config_loaded.b, config.b)
             self.assertEqual(config_loaded.c, config.c)
 
-    def test_normalize_targets_dict(self):
-        """Test the normalization of targets for dict inputs."""
-        n_graph = 10 # number of graphs and labels to generate
-        graphs = {}
-        labels = {}
-        seed = 0
-        key = jax.random.PRNGKey(seed)
-        for i in range(n_graph):
-            key, subkey = jax.random.split(key)
-            graph = get_random_graph(key)
-            graphs[i] = graph
-            labels[i] = jax.random.uniform(subkey)
-
-        aggregation_type = 'mean'
-        expected_targets = np.zeros(n_graph)
-        expected_mean = 0
-        expected_std = 0
-        for i in range(n_graph):
-            expected_mean += labels[i]
-        expected_mean = expected_mean/n_graph
-
-        for i in range(n_graph):
-            expected_std += np.square(labels[i] - expected_mean)
-        expected_std = np.sqrt(expected_std/n_graph)
-
-        for i in range(n_graph):
-            expected_targets[i] = (labels[i] - expected_mean)/expected_std
-
-        # calculate function values
-        targets, mean, std = normalize_targets_dict(
-            graphs, labels, aggregation_type)
-        targets = list(targets.values())
-
-        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
-        np.testing.assert_almost_equal(mean, expected_mean)
-        np.testing.assert_almost_equal(std, expected_std)
+    def test_get_normalization_dict(self):
+        """Test if values of norm_dict have the right shape."""
+        n_graphs = 10
+        n_features = 4
+        normalization_type = 'standard'
+        graphs = get_random_graph_list(n_graphs, n_features)
+        norm_dict = get_normalization_dict(graphs, normalization_type)
+        self.assertTupleEqual(norm_dict['mean'].shape, (n_features,))
+        self.assertTupleEqual(norm_dict['std'].shape, (n_features,))
+        self.assertEqual(norm_dict['type'], normalization_type)
 
     def test_normalize_targets_mean(self):
         """Test the normalization of targets when doing mean aggregation."""
-        n_graph = 10 # number of graphs and labels to generate
-        graphs = []
-        labels = []
-        seed = 0
-        key = jax.random.PRNGKey(seed)
-        for i in range(n_graph):
-            key, subkey = jax.random.split(key)
-            graph = get_random_graph(key)
-            graphs.append(graph)
-            labels.append(jax.random.uniform(subkey))
+        normalization_type = 'standard'
+        n_features = 4
+        mean = np.array([1, 2, 3, 4])
+        std = np.array([0, 1, 2, 3])
+        n_graphs = 10 # number of graphs and labels to generate
+        graphs = get_random_graph_list(n_graphs, n_features)
+        targets = np.array([graph.globals for graph in graphs])
+        normalization = {
+            'type': normalization_type,
+            'mean': mean, 
+            'std': std}
+        norm_targets = normalize_targets(graphs, targets, normalization)
 
-        aggregation_type = 'mean'
-        expected_targets = np.zeros(n_graph)
-        expected_mean = 0
-        expected_std = 0
-        for i in range(n_graph):
-            expected_mean += labels[i]
-        expected_mean = expected_mean/n_graph
+        self.assertTupleEqual(norm_targets.shape, (n_graphs, n_features))
+        print(norm_targets)
 
-        for i in range(n_graph):
-            expected_std += np.square(labels[i] - expected_mean)
-        expected_std = np.sqrt(expected_std/n_graph)
-
-        for i in range(n_graph):
-            expected_targets[i] = (labels[i] - expected_mean)/expected_std
-
-        # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
-
-        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
-        np.testing.assert_almost_equal(mean, expected_mean)
-        np.testing.assert_almost_equal(std, expected_std)
-
-    def test_normalize_targets_sum(self):
+    @parameterized.expand(['sum', 'per_atom_standard'])
+    def test_normalize_targets_sum(self, aggregation_type):
         """Test the normalization of targets when doing sum aggregation."""
         n_graph = 1000 # number of graphs and labels to generate
-        graphs = []
-        labels = []
-        n_nodes = []
-        seed = 1
-        key = jax.random.PRNGKey(seed)
-        for i in range(n_graph):
-            key, subkey = jax.random.split(key)
-            graph = get_random_graph(key)
-            n_nodes.append(graph.n_node[0])
-            graphs.append(graph)
-            labels.append(np.float32(jax.random.uniform(subkey)))
+        graphs = get_random_graph_list(n_graph)
+        labels = [graph.globals for graph in graphs]
 
-        aggregation_type = 'sum'
         expected_targets = np.zeros(n_graph)
         expected_mean = 0
         expected_std = 0
@@ -292,15 +252,8 @@ class TestUtilsFunctions(unittest.TestCase):
         """Test scaling targets back to original values with mean
         aggregation."""
         n_graph = 10 # number of graphs and labels to generate
-        graphs = []
-        labels = []
-        seed = 0
-        key = jax.random.PRNGKey(seed)
-        for _ in range(n_graph):
-            key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
-            graphs.append(graph)
-            labels.append(jax.random.uniform(subkey))
+        graphs = get_random_graph_list(n_graph)
+        labels = [graph.globals for graph in graphs]
 
         aggregation_type = 'mean'
         outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
@@ -311,17 +264,7 @@ class TestUtilsFunctions(unittest.TestCase):
         """Test scaling targets back to original values with sum
         aggregation."""
         n_graph = 10 # number of graphs and labels to generate
-        graphs = []
-        labels = []
-        seed = 0
-        key = jax.random.PRNGKey(seed)
-        n_atoms = []
-        for _ in range(n_graph):
-            key, subkey = jax.random.split(key)
-            graph = get_random_graph(subkey)
-            n_atoms.append(graph.n_node)
-            graphs.append(graph)
-
+        graphs = get_random_graph_list(n_graph)
         labels = np.random.randint(
             low=0, high=10, size=(n_graph, 1)).astype(np.float32)
 

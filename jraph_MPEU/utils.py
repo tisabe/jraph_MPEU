@@ -6,7 +6,7 @@ import time
 import json
 from ast import literal_eval
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, List, Dict
 
 import jax.numpy as jnp
 import jraph
@@ -137,53 +137,71 @@ def dist_matrix(position_matrix):
     return jnp.sqrt(distance_matrix)
 
 
-def normalize_targets_dict(graphs_dict, labels_dict, aggregation_type):
-    """Wrapper for normalize targets, when graphs and labels are dicts."""
-    # convert from dicts to arrays
-    inputs = list(graphs_dict.values())
-    outputs = list(labels_dict.values())
+def get_normalization_dict(graphs, normalization_type):
+    """Return the normalization dict given list of graphs and normalization
+    type.
+    
+    Args:
+      graphs: list of jraph.GraphsTuple with targets as global feature
+      normalization_type: string that describes which normalization to apply
+    
+    Returns:
+      dict with values for normalization (e.g. mean, standard deviation of 
+      features)
+    """
+    targets = np.array([graph.globals for graph in graphs])
 
-    res, mean, std = normalize_targets(inputs, outputs, aggregation_type)
+    if normalization_type in ['per_atom_standard', 'sum']:
+        n_atoms = np.array([graph.n_node[0] for graph in graphs])
+        scaled_targets = targets/n_atoms
+        norm_dict = {
+            "type": normalization_type,
+            "mean": np.mean(scaled_targets, axis=0),
+            "std": np.std(scaled_targets, axis=0)
+        }
+    elif normalization_type in ['standard', 'mean']:
+        norm_dict = {
+            "type": normalization_type,
+            "mean": np.mean(targets, axis=0),
+            "std": np.std(targets, axis=0)
+        }
+    return norm_dict
 
-    # convert results back into dict
-    res_dict = {}
-    for id_single, label in zip(labels_dict.keys(), res):
-        res_dict[id_single] = label
 
-    return res_dict, mean, std
+def normalize_targets(
+    graphs: List[jraph.GraphsTuple], targets: np.array, normalization: Dict
+    ) -> List[float]:
+    """Return normalized targets, based on normalization type.
 
+    Args:
+      graphs: list of jraph.GraphsTuple
+      targets: target values pre normalization, np.array of shape (N, F)
+      normalization: dict that contains values and description string to apply
+        normalization
 
-def normalize_targets(inputs, outputs, aggregation_type):
-    """Return normalized outputs, based on aggregation type.
+    Returns:
+      normalized targets, np.array of shape (N, F)
+    """
+    norm_type = normalization['type']
 
-    Also return mean and standard deviation for later rescaling.
-    Inputs, i.e. graphs, are used to get number of atoms,
-    for atom-wise scaling."""
-    outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
-    n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
-    for i in range(len(outputs)):
-        n_atoms[i] = inputs[i].n_node[0]
-
-    if aggregation_type == 'sum':
-        scaled_targets = np.array(outputs)/n_atoms
-    elif aggregation_type == 'mean':
-        scaled_targets = outputs
+    if norm_type in ['per_atom_standard', 'sum']:
+        n_atoms = np.array([graph.n_node[0] for graph in graphs])
+        scaled_targets = targets/n_atoms
+        mean = normalization['mean']
+        std = normalization['std']
+        # prevent division by zero
+        mask = std == 0
+        std = np.where(mask, 1, std)
+        return (scaled_targets - mean*n_atoms)/std
+    elif norm_type in ['standard', 'mean']:
+        mean = normalization['mean']
+        std = normalization['std']
+        # prevent division by zero
+        mask = std == 0
+        std = np.where(mask, 1, std)
+        return (targets - mean)/std
     else:
-        raise Exception(f"Unrecognized readout type: {aggregation_type}")
-    mean = np.mean(scaled_targets)
-    std = np.std(scaled_targets)
-
-    if aggregation_type == 'sum':
-        return (outputs - (mean*n_atoms))/std, mean, std
-    else:
-        return (scaled_targets - mean)/std, mean, std
-
-
-def get_normalization_metrics(graphs, aggregation_type):
-    """Wrapper for normalize_targets, when input is only graphs with globals."""
-    labels = [graph.globals for graph in graphs]
-    _, mean, std = normalize_targets(graphs, labels, aggregation_type)
-    return mean, std
+        raise ValueError(f"Unrecognized readout type: {norm_type}")
 
 
 def normalize_graphs(graphs, mean, std, aggregation_type):
@@ -196,7 +214,7 @@ def normalize_graphs(graphs, mean, std, aggregation_type):
         elif aggregation_type == 'mean':
             label = (label - mean)/std
         else:
-            raise Exception(f"Unrecognized readout type: {aggregation_type}")
+            raise ValueError(f"Unrecognized readout type: {aggregation_type}")
         labels.append(label[0])
     graphs = add_labels_to_graphs(graphs, labels)
     return graphs
@@ -207,21 +225,19 @@ def scale_targets(inputs, outputs, mean, std, aggregation_type):
     scales targets back to the original size.
     Args:
         inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
-        outputs: 1D-array of normalized target values
+        outputs: array of normalized target values
         mean: mean of original targets
         std: standard deviation of original targets
         aggregation_type: type of aggregation function
     Returns:
         numpy.array of scaled target values
     '''
-    outputs = np.reshape(outputs, len(outputs))
+    outputs = np.array(outputs)
     if aggregation_type == 'sum':
-        n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
-        for i in range(len(outputs)):
-            n_atoms[i] = inputs[i].n_node[0]
-        return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
+        n_atoms = np.array([graph.n_node[0] for graph in inputs])
+        return outputs * std + n_atoms * mean
     else:
-        return (outputs * std) + mean
+        return outputs * std + mean
 
 
 def _nearest_bigger_power_of_two(num: int) -> int:
