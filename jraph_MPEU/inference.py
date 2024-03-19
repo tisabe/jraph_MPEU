@@ -1,7 +1,6 @@
 """This module defines function used for making inferences with an existing
 model."""
 import os
-import pickle
 import json
 import glob
 
@@ -13,11 +12,11 @@ import ase.db
 import pandas
 
 from jraph_MPEU.input_pipeline import (
-    DataReader, load_data, load_split_dict, ase_row_to_jraph,
+    DataReader, load_split_dict, ase_row_to_jraph,
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, normalize_targets_dict, scale_targets
+    get_valid_mask, load_config, get_normalization_dict, scale_targets
 )
 from jraph_MPEU.models.loading import load_model
 
@@ -123,16 +122,18 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
-    with open(num_path, 'r') as num_file:
+    with open(num_path, 'r', encoding="utf-8") as num_file:
         num_list = json.load(num_file)
 
     # convert to dict for atoms_to_nodes function
     graphs_dict = dict(enumerate(graphs))
     labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+    graphs_dict = {key: graph._replace(globals=[label])
+        for (key, graph), label in zip(graphs_dict.values(), labels_dict.values())}
     pooling = config.aggregation_readout_type  # abbreviation
-    _, mean, std = normalize_targets_dict(
-        graphs_dict, labels_dict, pooling)
+    norm_dict = get_normalization_dict(
+        graphs_dict.values(), pooling)
     graphs = list(graphs_dict.values())
     #labels = list(graphs_dict.values())
 
@@ -144,7 +145,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         # scale the predictions using the std and mean
         logging.debug(f'using {pooling} pooling function')
         #preds = np.array(preds)*std + mean
-        preds = [scale_targets(graphs, preds_sample, mean, std, pooling) for preds_sample in preds]
+        preds = scale_targets(graphs, preds, norm_dict)
 
     if mc_dropout:
         preds = np.transpose(np.array(preds))
@@ -179,7 +180,6 @@ def get_results_kfold(workdir_super, mc_dropout=False):
         else:
             # make sure that the folds have the same underlying data
             assert set(ids) == set(base_ids)
-        test_ids = []
 
     ase_db = ase.db.connect(base_config.data_file)
     graphs = []
@@ -204,7 +204,7 @@ def get_results_kfold(workdir_super, mc_dropout=False):
     # Normalize graphs and targets
     # Convert the atomic numbers in nodes to classes and set number of classes.
     num_path = os.path.join(workdir, 'atomic_num_list.json')
-    with open(num_path, 'r') as num_file:
+    with open(num_path, 'r', encoding="utf-8") as num_file:
         num_list = json.load(num_file)
 
     # convert to dict for atoms_to_nodes function
@@ -212,8 +212,6 @@ def get_results_kfold(workdir_super, mc_dropout=False):
     labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
     pooling = base_config.aggregation_readout_type  # abbreviation
-    _, mean, std = normalize_targets_dict(
-        graphs_dict, labels_dict, pooling)
     graphs = list(graphs_dict.values())
 
 

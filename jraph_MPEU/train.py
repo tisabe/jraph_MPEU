@@ -34,7 +34,6 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )
-from jraph_MPEU.inference import get_results_df
 
 # maximum loss, if training batch loss exceeds this, stop training
 _MAX_TRAIN_LOSS = 1e10
@@ -537,7 +536,7 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, std = get_datasets(config, workdir)
+    datasets, norm_dict = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
     # save the config in txt for later inspection
@@ -568,7 +567,7 @@ def train_and_evaluate(
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
     if config.label_type == 'scalar':
-        evaluater.set_loss_scalar(std)
+        evaluater.set_loss_scalar(norm_dict['std'])
     else:
         evaluater.set_loss_scalar(1.0)
 
@@ -628,17 +627,4 @@ def train_and_evaluate(
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
-
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
     return evaluater, lowest_val_loss

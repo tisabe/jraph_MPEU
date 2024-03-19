@@ -28,7 +28,7 @@ class TestTrain(unittest.TestCase):
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
         with tempfile.TemporaryDirectory() as test_dir:
-            datasets, _, _ = get_datasets(self.config, test_dir)
+            datasets, _ = get_datasets(self.config, test_dir)
             self.datasets = datasets
 
     def test_cross_entropy(self):

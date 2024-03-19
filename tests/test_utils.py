@@ -1,5 +1,6 @@
 """Test the functions in the utils module."""
 
+import os
 import tempfile
 import unittest
 
@@ -14,12 +15,15 @@ from jraph_MPEU.utils import (
     load_config,
     normalize_targets,
     get_normalization_dict,
+    normalize_graph_globals,
     scale_targets,
     estimate_padding_budget_for_batch_size,
     add_labels_to_graphs,
     update_config_fields,
     get_num_pairs,
-    str_to_list
+    str_to_list,
+    save_norm_dict,
+    load_norm_dict
 )
 
 
@@ -259,6 +263,52 @@ class TestUtilsFunctions(unittest.TestCase):
         norm_targets = normalize_targets(graphs, targets, norm_dict)
         targets_rescaled = scale_targets(graphs, norm_targets, norm_dict)
         np.testing.assert_array_almost_equal(targets, targets_rescaled)
+
+    def test_normalize_graph_globals_mean(self):
+        """Test normalization of targets inside globals of graphs."""
+        n_graph = 10
+        n_features = 4
+        mean = np.array([1, 2, 3, 4])
+        std = np.array([1, 2, 3, 4])
+        normalization = {
+            'type': 'standard',
+            'mean': mean, 
+            'std': std}
+        graphs = get_random_graph_list(self.rng, n_graph, n_features)
+        graphs_norm = normalize_graph_globals(graphs, normalization)
+        for graph_norm, graph in zip(graphs_norm, graphs):
+            self.assertTupleEqual(graph_norm.globals.shape, (n_features,))
+            np.testing.assert_array_almost_equal(
+                graph_norm.globals, (graph.globals-mean)/std)
+
+    def test_normalize_graph_globals_sum(self):
+        """Test normalization of targets inside globals of graphs."""
+        n_graph = 10
+        n_features = 4
+        mean = np.array([1, 2, 3, 4])
+        std = np.array([1, 2, 3, 4])
+        normalization = {
+            'type': 'per_atom_standard',
+            'mean': mean, 
+            'std': std}
+        graphs = get_random_graph_list(self.rng, n_graph, n_features)
+        graphs_norm = normalize_graph_globals(graphs, normalization)
+        for graph_norm, graph in zip(graphs_norm, graphs):
+            self.assertTupleEqual(graph_norm.globals.shape, (n_features,))
+            np.testing.assert_array_almost_equal(
+                graph_norm.globals, (graph.globals-graph.n_node[0]*mean)/std)
+
+    def test_save_load_norm_dict(self):
+        """Test saving and loading of a dummy normalization dict."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            norm_path = os.path.join(test_dir, 'norm.json')
+            norm_dict = {'string': 'test', 'np.array': np.array([1.,2.])}
+            save_norm_dict(norm_dict, norm_path)
+            norm_dict_load = load_norm_dict(norm_path)
+            np.testing.assert_array_equal(
+                norm_dict['np.array'], norm_dict_load['np.array'])
+            self.assertEqual(norm_dict['string'], norm_dict_load['string'])
+
 
     def test_dynamic_batch_budget(self):
         """Test dynamic batching budget of graphs by looking at sizes of the

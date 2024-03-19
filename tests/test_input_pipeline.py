@@ -80,9 +80,11 @@ class TestPipelineFunctions(unittest.TestCase):
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
-            graphs_split, mean, std = get_datasets(
+            graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
             train_labels = [graph.globals[0]*std + mean \
                 for graph in graphs_split['train']]
             val_labels = [graph.globals[0]*std + mean \
@@ -98,9 +100,11 @@ class TestPipelineFunctions(unittest.TestCase):
             # are shuffled
             config.shuffle_val_seed = 1
 
-            graphs_split, mean, std = get_datasets(
+            graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
             train_labels = [graph.globals[0]*std + mean \
                 for graph in graphs_split['train']]
             val_labels = [graph.globals[0]*std + mean \
@@ -162,6 +166,7 @@ class TestPipelineFunctions(unittest.TestCase):
             config.data_file = test_dir + 'test.db'
             path_split = os.path.join(test_dir, 'splits.json')
             path_num = os.path.join(test_dir, 'atomic_num_list.json')
+            path_norm = os.path.join(test_dir, 'normalization.json')
             # check that there is no file with splits or atomic numbers yet
             self.assertFalse(os.path.exists(path_split))
             self.assertFalse(os.path.exists(path_num))
@@ -183,9 +188,11 @@ class TestPipelineFunctions(unittest.TestCase):
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
-            graphs_split, mean, std = get_datasets(
+            graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
             # calculate expected metrics using only training labels
             mean_expected = np.mean(
                 label_values[np.array(test_split_dict['train'])-1])
@@ -193,29 +200,28 @@ class TestPipelineFunctions(unittest.TestCase):
                 label_values[np.array(test_split_dict['train'])-1])
             self.assertAlmostEqual(mean, mean_expected)
             self.assertAlmostEqual(std, std_expected)
-            self.assertTrue(mean is not None)
-            self.assertTrue(std is not None)
 
             # check that the splits.json and atomic_num_list.json file was created
             self.assertTrue(os.path.exists(path_split))
             self.assertTrue(os.path.exists(path_num))
+            self.assertTrue(os.path.exists(path_norm))
             # check that the atomic num list has at least one entry
-            with open(path_num) as list_file:
+            with open(path_num, 'r', encoding="utf-8") as list_file:
                 num_list = json.load(list_file)
             self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
-                'train': [0, 1, 2, 3, 4],
-                'validation': [5, 6, 7],
-                'test': [8, 9]
+                'train': [[0], [1], [2], [3], [4]],
+                'validation': [[5], [6], [7]],
+                'test': [[8], [9]]
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
-                labels = [(graph.globals[0]*std)+mean for graph in graph_list]
+                labels = [(graph.globals*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
 
             # load the dataset again to check if generated jsons work
-            graphs_split, mean, std = get_datasets(
+            graphs_split, _ = get_datasets(
                 config, test_dir
             )
             # TODO: test that the nodes are still transformed in the same way
@@ -249,12 +255,13 @@ class TestPipelineFunctions(unittest.TestCase):
         config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
-            graphs_split, mean, std = get_datasets(config, workdir)
+            graphs_split, norm_dict = get_datasets(config, workdir)
             globals_list = []
             for graph in graphs_split['train']:
                 globals_list.append(graph.globals[0])
             # check that there are only zeros and ones in the list
             self.assertTrue(sorted(set(globals_list)) == [0, 1])
+            self.assertFalse(norm_dict)
             # TODO: check that threshold is evaluated correctly
 
     def test_save_load_split_dict(self):

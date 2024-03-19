@@ -4,6 +4,7 @@ processing."""
 import os
 import time
 import json
+import pickle
 from ast import literal_eval
 import logging
 from typing import NamedTuple, List, Dict
@@ -168,6 +169,19 @@ def get_normalization_dict(graphs, normalization_type):
     return norm_dict
 
 
+def save_norm_dict(norm_dict, path):
+    """Save norm_dict at path."""
+    with open(path, 'w+', encoding="utf-8") as file:
+        json.dump(pickle.dumps(norm_dict).decode('latin-1'), file)
+
+
+def load_norm_dict(path):
+    """Load saved norm_dict at path."""
+    with open(path, 'r', encoding="utf-8") as file:
+        norm_dict = pickle.loads(json.load(file).encode('latin-1'))
+    return norm_dict
+
+
 def normalize_targets(
     graphs: List[jraph.GraphsTuple], targets: np.array, normalization: Dict
     ) -> List[float]:
@@ -195,6 +209,19 @@ def normalize_targets(
         return (targets - mean)/std
     else:
         raise ValueError(f"Unrecognized readout type: {norm_type}")
+
+
+def normalize_graph_globals(
+    graphs: List[jraph.GraphsTuple], normalization: Dict
+    ) -> List[jraph.GraphsTuple]:
+    """Return list of graphs with normalized globals according to normalization."""
+    targets = np.array([graph.globals for graph in graphs])
+    targets_norm = normalize_targets(graphs, targets, normalization)
+    graphs_norm = []
+    for graph, target in zip(graphs, targets_norm):
+        graph = graph._replace(globals=target)
+        graphs_norm.append(graph)
+    return graphs_norm
 
 
 def scale_targets(graphs, targets, normalization):
