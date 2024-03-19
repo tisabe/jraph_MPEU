@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 from parameterized import parameterized
-import jax
 import jraph
 import numpy as np
 import ml_collections
@@ -24,7 +23,7 @@ from jraph_MPEU.utils import (
 )
 
 
-def get_random_graph(n_features=1) -> jraph.GraphsTuple:
+def get_random_graph(rng, n_features) -> jraph.GraphsTuple:
     """Return a random graphsTuple with n_node from 1 to 10 and global feature
     vector of size n_features."""
     graph = jraph.GraphsTuple(
@@ -32,24 +31,26 @@ def get_random_graph(n_features=1) -> jraph.GraphsTuple:
         edges=None,
         senders=None,
         receivers=None,
-        n_node=np.random.randint(1, 10, (1,)),
+        n_node=rng.integers(1, 10, (1,)),
         n_edge=None,
-        globals=np.random.random_sample((n_features,)))
+        globals=rng.random((n_features,)))
     return graph
 
 
-def get_random_graph_list(n_graphs, n_features=1, seed=42):
+def get_random_graph_list(rng, n_graphs, n_features):
     """Return a list of n_graphs jraph.GraphsTuple."""
-    np.random.seed(seed)
     graphs = []
     for _ in range(n_graphs):
-        graph = get_random_graph(n_features)
+        graph = get_random_graph(rng, n_features)
         graphs.append(graph)
     return graphs
 
 
 class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
+    def setUp(self):
+        self.rng = np.random.default_rng()
+
     def test_estimate_padding_budget(self):
         """Test estimator by generating graph lists with different
         distributions of n_node and n_edge."""
@@ -191,25 +192,25 @@ class TestUtilsFunctions(unittest.TestCase):
             self.assertEqual(config_loaded.b, config.b)
             self.assertEqual(config_loaded.c, config.c)
 
-    def test_get_normalization_dict(self):
+    @parameterized.expand(['sum', 'per_atom_standard', 'mean', 'standard'])
+    def test_get_normalization_dict(self, normalization_type):
         """Test if values of norm_dict have the right shape."""
         n_graphs = 10
         n_features = 4
-        normalization_type = 'standard'
-        graphs = get_random_graph_list(n_graphs, n_features)
+        graphs = get_random_graph_list(self.rng, n_graphs, n_features)
         norm_dict = get_normalization_dict(graphs, normalization_type)
         self.assertTupleEqual(norm_dict['mean'].shape, (n_features,))
         self.assertTupleEqual(norm_dict['std'].shape, (n_features,))
         self.assertEqual(norm_dict['type'], normalization_type)
 
-    def test_normalize_targets_mean(self):
+    @parameterized.expand(['mean', 'standard'])
+    def test_normalize_targets_mean(self, normalization_type):
         """Test the normalization of targets when doing mean aggregation."""
-        normalization_type = 'standard'
         n_features = 4
         mean = np.array([1, 2, 3, 4])
         std = np.array([0, 1, 2, 3])
         n_graphs = 10 # number of graphs and labels to generate
-        graphs = get_random_graph_list(n_graphs, n_features)
+        graphs = get_random_graph_list(self.rng, n_graphs, n_features)
         targets = np.array([graph.globals for graph in graphs])
         normalization = {
             'type': normalization_type,
@@ -218,61 +219,46 @@ class TestUtilsFunctions(unittest.TestCase):
         norm_targets = normalize_targets(graphs, targets, normalization)
 
         self.assertTupleEqual(norm_targets.shape, (n_graphs, n_features))
-        print(norm_targets)
+        std = np.where(std==0, 1, std)
+        norm_targets_expected = (targets - mean)/std
+        np.testing.assert_array_almost_equal(
+            norm_targets, norm_targets_expected)
 
     @parameterized.expand(['sum', 'per_atom_standard'])
-    def test_normalize_targets_sum(self, aggregation_type):
+    def test_normalize_targets_sum(self, normalization_type):
         """Test the normalization of targets when doing sum aggregation."""
-        n_graph = 1000 # number of graphs and labels to generate
-        graphs = get_random_graph_list(n_graph)
-        labels = [graph.globals for graph in graphs]
+        n_features = 4
+        mean = np.array([1, 2, 3, 4])
+        std = np.array([0, 1, 2, 3])
+        n_graphs = 10 # number of graphs and labels to generate
+        graphs = get_random_graph_list(self.rng, n_graphs, n_features)
+        targets = np.array([graph.globals for graph in graphs])
+        n_nodes = np.array([graph.n_node[0] for graph in graphs])
 
-        expected_targets = np.zeros(n_graph)
-        expected_mean = 0
-        expected_std = 0
-        for i in range(n_graph):
-            expected_mean += labels[i]/graphs[i].n_node
-        expected_mean = expected_mean/n_graph
+        normalization = {
+            'type': normalization_type,
+            'mean': mean, 
+            'std': std}
+        norm_targets = normalize_targets(graphs, targets, normalization)
 
-        for i in range(n_graph):
-            expected_std += np.square(labels[i]/graphs[i].n_node[0] - expected_mean)
-        expected_std = np.sqrt(expected_std/n_graph)
+        self.assertTupleEqual(norm_targets.shape, (n_graphs, n_features))
+        std = np.where(std==0, 1, std)
+        norm_targets_expected = (targets - np.outer(n_nodes, mean))/std
+        np.testing.assert_array_almost_equal(
+            norm_targets, norm_targets_expected)
 
-        for i in range(n_graph):
-            expected_targets[i] = (labels[i] - graphs[i].n_node[0]*expected_mean[0])/expected_std[0]
-
-        # calculate function values
-        targets, mean, std = normalize_targets(graphs, labels, aggregation_type)
-
-        np.testing.assert_almost_equal(targets, expected_targets, decimal=5)
-        np.testing.assert_almost_equal(mean, expected_mean)
-        np.testing.assert_almost_equal(std, expected_std)
-
-    def test_scale_targets_mean(self):
-        """Test scaling targets back to original values with mean
-        aggregation."""
+    @parameterized.expand(['sum', 'per_atom_standard', 'mean', 'standard'])
+    def test_norm_and_scale(self, normalization_type):
+        """Test normalizing and scaling back targets and check for identity."""
         n_graph = 10 # number of graphs and labels to generate
-        graphs = get_random_graph_list(n_graph)
-        labels = [graph.globals for graph in graphs]
+        n_features = 4
+        graphs = get_random_graph_list(self.rng, n_graph, n_features)
+        targets = np.array([graph.globals for graph in graphs])
 
-        aggregation_type = 'mean'
-        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
-        np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
-
-    def test_scale_targets_sum(self):
-        """Test scaling targets back to original values with sum
-        aggregation."""
-        n_graph = 10 # number of graphs and labels to generate
-        graphs = get_random_graph_list(n_graph)
-        labels = np.random.randint(
-            low=0, high=10, size=(n_graph, 1)).astype(np.float32)
-
-        aggregation_type = 'sum'
-        outputs, mean, std = normalize_targets(graphs, labels, aggregation_type)
-        outputs_scaled = scale_targets(graphs, outputs, mean, std, aggregation_type)
-
-        np.testing.assert_almost_equal(np.array(labels), outputs_scaled)
+        norm_dict = get_normalization_dict(graphs, normalization_type)
+        norm_targets = normalize_targets(graphs, targets, norm_dict)
+        targets_rescaled = scale_targets(graphs, norm_targets, norm_dict)
+        np.testing.assert_array_almost_equal(targets, targets_rescaled)
 
     def test_dynamic_batch_budget(self):
         """Test dynamic batching budget of graphs by looking at sizes of the

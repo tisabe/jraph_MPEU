@@ -152,8 +152,8 @@ def get_normalization_dict(graphs, normalization_type):
     targets = np.array([graph.globals for graph in graphs])
 
     if normalization_type in ['per_atom_standard', 'sum']:
-        n_atoms = np.array([graph.n_node[0] for graph in graphs])
-        scaled_targets = targets/n_atoms
+        n_nodes = np.array([graph.n_node for graph in graphs])
+        scaled_targets = targets/n_nodes
         norm_dict = {
             "type": normalization_type,
             "mean": np.mean(scaled_targets, axis=0),
@@ -183,61 +183,43 @@ def normalize_targets(
       normalized targets, np.array of shape (N, F)
     """
     norm_type = normalization['type']
+    mean = normalization['mean']
+    std = normalization['std']
+    # prevent division by zero
+    std = np.where(std==0, 1, std)
 
     if norm_type in ['per_atom_standard', 'sum']:
-        n_atoms = np.array([graph.n_node[0] for graph in graphs])
-        scaled_targets = targets/n_atoms
-        mean = normalization['mean']
-        std = normalization['std']
-        # prevent division by zero
-        mask = std == 0
-        std = np.where(mask, 1, std)
-        return (scaled_targets - mean*n_atoms)/std
+        n_nodes = np.array([graph.n_node[0] for graph in graphs])
+        return (targets - np.outer(n_nodes, mean))/std
     elif norm_type in ['standard', 'mean']:
-        mean = normalization['mean']
-        std = normalization['std']
-        # prevent division by zero
-        mask = std == 0
-        std = np.where(mask, 1, std)
         return (targets - mean)/std
     else:
         raise ValueError(f"Unrecognized readout type: {norm_type}")
 
 
-def normalize_graphs(graphs, mean, std, aggregation_type):
-    """Return graphs with normalized global values."""
-    labels = []
-    for graph in graphs:
-        label = np.array(graph.globals)
-        if aggregation_type == 'sum':
-            label = (label - (mean*graph.n_node[0]))/std
-        elif aggregation_type == 'mean':
-            label = (label - mean)/std
-        else:
-            raise ValueError(f"Unrecognized readout type: {aggregation_type}")
-        labels.append(label[0])
-    graphs = add_labels_to_graphs(graphs, labels)
-    return graphs
-
-
-def scale_targets(inputs, outputs, mean, std, aggregation_type):
-    '''Return scaled targets. Inverse of normalize_targets,
+def scale_targets(graphs, targets, normalization):
+    """Return scaled targets. Inverse of normalize_targets,
     scales targets back to the original size.
     Args:
-        inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
-        outputs: array of normalized target values
-        mean: mean of original targets
-        std: standard deviation of original targets
-        aggregation_type: type of aggregation function
+        graphs: list of jraph.GraphsTuple, to get number of atoms in graphs
+        targets: array of normalized target values, np.array of shape (N, F)
+        normalization: dict that contains values and description string to apply
+            normalization
     Returns:
-        numpy.array of scaled target values
-    '''
-    outputs = np.array(outputs)
-    if aggregation_type == 'sum':
-        n_atoms = np.array([graph.n_node[0] for graph in inputs])
-        return outputs * std + n_atoms * mean
+        numpy.array of scaled target values, np.array of shape (N, F)
+    """
+    norm_type = normalization['type']
+    mean = normalization['mean']
+    std = normalization['std']
+    std = np.where(std==0, 1, std)
+
+    if norm_type in ['per_atom_standard', 'sum']:
+        n_nodes = np.array([graph.n_node[0] for graph in graphs])
+        return targets*std + np.outer(n_nodes, mean)
+    elif norm_type in ['standard', 'mean']:
+        return targets*std + mean
     else:
-        return outputs * std + mean
+        raise ValueError(f"Unrecognized readout type: {norm_type}")
 
 
 def _nearest_bigger_power_of_two(num: int) -> int:
