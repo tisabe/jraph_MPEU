@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from parameterized import parameterized
+import jax
 import jraph
 import numpy as np
 import ml_collections
@@ -18,18 +19,23 @@ from jraph_MPEU.utils import (
     normalize_graph_globals,
     scale_targets,
     estimate_padding_budget_for_batch_size,
+    pad_graph_to_nearest_power_of_two,
     add_labels_to_graphs,
     update_config_fields,
     get_num_pairs,
     str_to_list,
     save_norm_dict,
-    load_norm_dict
+    load_norm_dict,
+    dist_matrix,
+    _nearest_bigger_power_of_two,
+    replace_globals,
+    get_valid_mask
 )
 
 
-def get_random_graph(rng, n_features) -> jraph.GraphsTuple:
+def get_random_graph_no_edge(rng, n_features) -> jraph.GraphsTuple:
     """Return a random graphsTuple with n_node from 1 to 10 and global feature
-    vector of size n_features."""
+    vector of size n_features and no edges."""
     graph = jraph.GraphsTuple(
         nodes=None,
         edges=None,
@@ -40,12 +46,30 @@ def get_random_graph(rng, n_features) -> jraph.GraphsTuple:
         globals=rng.random((n_features,)))
     return graph
 
+def get_random_graph(rng, n_features) -> jraph.GraphsTuple:
+    """Return a random graphsTuple with n_node from 1 to 10 and global feature
+    vector of size n_features."""
+    n_node = rng.integers(1, 10, (1,))
+    n_edge = rng.integers(1, 20, (1,))
+    graph = jraph.GraphsTuple(
+        nodes=None,
+        edges=None,
+        senders=rng.integers(0, n_node[0], (n_edge[0],)),
+        receivers=rng.integers(0, n_node[0], (n_edge[0],)),
+        n_node=n_node,
+        n_edge=n_edge,
+        globals=rng.random((n_features,)))
+    return graph
 
-def get_random_graph_list(rng, n_graphs, n_features):
+
+def get_random_graph_list(rng, n_graphs, n_features, make_edges=True):
     """Return a list of n_graphs jraph.GraphsTuple."""
     graphs = []
     for _ in range(n_graphs):
-        graph = get_random_graph(rng, n_features)
+        if make_edges:
+            graph = get_random_graph(rng, n_features)
+        else:
+            graph = get_random_graph_no_edge(rng, n_features)
         graphs.append(graph)
     return graphs
 
@@ -54,6 +78,18 @@ class TestUtilsFunctions(unittest.TestCase):
     """Testing class for utility functions."""
     def setUp(self):
         self.rng = np.random.default_rng()
+
+    def test_replace_globals(self):
+        """Test that globals are replaced by zeros."""
+        graph = get_random_graph(self.rng, 4)
+        graph = replace_globals(graph)
+        np.testing.assert_array_equal(graph.globals, [[0]])
+
+        n_graphs = 10
+        graphs = get_random_graph_list(self.rng, n_graphs, 4)
+        graph = jraph.batch(graphs)
+        graph = replace_globals(graph)
+        np.testing.assert_array_equal(graph.globals, [[0]]*n_graphs)
 
     def test_estimate_padding_budget(self):
         """Test estimator by generating graph lists with different
@@ -102,7 +138,32 @@ class TestUtilsFunctions(unittest.TestCase):
         self.assertEqual(estimate.n_edge, 128)
         self.assertEqual(estimate.n_graph, batch_size)
 
+        with self.assertRaises(ValueError):
+            # batch size has to be larger than 1
+            estimate = estimate_padding_budget_for_batch_size(
+                dataset, 1, num_estimation_graphs)
+        with self.assertRaises(ValueError):
+            # dataset cannot contain batched graphs
+            estimate = estimate_padding_budget_for_batch_size(
+                dataset+[jraph.batch(dataset[:3])],
+                batch_size, num_estimation_graphs)
+
+    def test_pad_graph_to_nearest_power_of_two(self):
+        """Test pad_graph_to_nearest_power_of_two function."""
+        n_features = 4
+        n_graphs = 100
+        graphs = get_random_graph_list(self.rng, n_graphs, n_features)
+        for graph in graphs:
+            graph_padded = pad_graph_to_nearest_power_of_two(graph)
+            self.assertEqual(sum(graph_padded.n_node)%2, 1)
+            self.assertEqual(sum(graph_padded.n_edge)%2, 0)
+            self.assertTupleEqual(graph_padded.n_node.shape, (2,))
+            self.assertTupleEqual(graph_padded.n_edge.shape, (2,))
+            mask = get_valid_mask(graph_padded)
+            np.testing.assert_array_equal(mask, [[True], [False]])
+
     def test_str_to_list(self):
+        """Test for str_to_list function."""
         text = '[1  2 3 4]'
         res = str_to_list(text)
         list_expected = [1, 2, 3, 4]
@@ -196,6 +257,25 @@ class TestUtilsFunctions(unittest.TestCase):
             self.assertEqual(config_loaded.b, config.b)
             self.assertEqual(config_loaded.c, config.c)
 
+    def test_normalization_raises(self):
+        """Test that an incompatible normalization type raises ValueError."""
+        normalization_type = 'test'
+        n_graphs = 10
+        n_features = 4
+        graphs = get_random_graph_list(self.rng, n_graphs, n_features)
+        with self.assertRaises(ValueError):
+            _ = get_normalization_dict(graphs, normalization_type)
+        normalization = {
+            'type': normalization_type,
+            'mean': np.array([1, 2, 3, 4]), 
+            'std': np.array([0, 1, 2, 3])}
+        targets = np.array([graph.globals for graph in graphs])
+        with self.assertRaises(ValueError):
+            _ = normalize_targets(graphs, targets, normalization)
+        with self.assertRaises(ValueError):
+            _ = scale_targets(graphs, targets, normalization)
+
+
     @parameterized.expand(['sum', 'per_atom_standard', 'mean', 'standard'])
     def test_get_normalization_dict(self, normalization_type):
         """Test if values of norm_dict have the right shape."""
@@ -251,7 +331,9 @@ class TestUtilsFunctions(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             norm_targets, norm_targets_expected)
 
-    @parameterized.expand(['sum', 'per_atom_standard', 'mean', 'standard'])
+    @parameterized.expand(
+        ['sum', 'per_atom_standard', 'mean', 'standard',
+        'scalar_non_negative'])
     def test_norm_and_scale(self, normalization_type):
         """Test normalizing and scaling back targets and check for identity."""
         n_graph = 10 # number of graphs and labels to generate
@@ -371,6 +453,30 @@ class TestUtilsFunctions(unittest.TestCase):
         for batch in batch_generator:
             global_sum += sum(batch.globals)
         self.assertEqual(global_sum, sum(labels))
+
+    def test_dist_matrix(self):
+        """Test dist_matrix function manually with small list of positions."""
+        pos = np.array([
+            [0,0,0],
+            [1,0,0],
+            [0,1,0],
+            [0,0,1]
+        ])
+        expected = np.sqrt(np.array([
+            [0, 1, 1, 1],
+            [1, 0, 2, 2],
+            [1, 2, 0, 2],
+            [1, 2, 2, 0]
+        ]))
+        dist = dist_matrix(pos)
+        np.testing.assert_array_almost_equal(dist, expected)
+
+    @parameterized.expand([
+        (1, 2), (2, 2), (42, 64), (111, 128)
+    ])
+    def test_nearest_bigger_power_of_two(self, input_val, expected):
+        """Test _nearest_bigger_power_of_two with examples."""
+        self.assertEqual(_nearest_bigger_power_of_two(input_val), expected)
 
 
 if __name__ == '__main__':

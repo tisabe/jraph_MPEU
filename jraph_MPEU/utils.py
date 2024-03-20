@@ -2,11 +2,8 @@
 processing."""
 
 import os
-import time
 import json
 import pickle
-from ast import literal_eval
-import logging
 from typing import NamedTuple, List, Dict
 
 import jax.numpy as jnp
@@ -69,30 +66,6 @@ def str_to_list(text):
     return list(map(int, filter(None, text.lstrip('[').rstrip(']').split(' '))))
 
 
-def str_to_array(str_array):
-    '''Return a numpy array converted from a single string, representing an array.'''
-    return np.array(literal_eval(str_array))
-
-
-def str_to_array_replace(str_array):
-    '''Return a numpy array converted from a single string, representing an array,
-    while replacing spaces with commas.'''
-    str_array = str_array.replace('  ', ' ')
-    str_array = str_array.replace('[ ', '[')
-    str_array = str_array.replace(' ', ',')
-    return np.array(literal_eval(str_array))
-
-
-def str_to_array_float(str_array):
-    '''Return a numpy array converted from a single string, representing an array,
-    while replacing spaces with commas.'''
-    for _ in range(10):
-        str_array = str_array.replace('  ', ' ')
-    str_array = str_array.replace('[ ', '[')
-    str_array = str_array.replace(' ', ',')
-    return np.array(literal_eval(str_array))
-
-
 def save_config(config: ml_collections.ConfigDict, workdir: str):
     """"Save the config in a human and machine-readable json file.
 
@@ -128,15 +101,14 @@ def dist_matrix(position_matrix):
       Euclidian distances between nodes as a jnp array.
         Size: (number of positions, number of positions)
     '''
-
-    row_norm_squared = jnp.sum(position_matrix * position_matrix, axis=-1)
+    row_norm_squared = np.sum(position_matrix * position_matrix, axis=-1)
     # Turn r into column vector
-    row_norm_squared = jnp.reshape(row_norm_squared, [-1, 1])
+    row_norm_squared = np.reshape(row_norm_squared, [-1, 1])
     # 2*pos*potT
-    distance_matrix = 2 * jnp.matmul(position_matrix, jnp.transpose(position_matrix))
-    distance_matrix = row_norm_squared + jnp.transpose(row_norm_squared) - distance_matrix
-    distance_matrix = jnp.abs(distance_matrix)  # to avoid negative numbers before sqrt
-    return jnp.sqrt(distance_matrix)
+    distance_matrix = 2 * np.matmul(position_matrix, np.transpose(position_matrix))
+    distance_matrix = row_norm_squared + np.transpose(row_norm_squared) - distance_matrix
+    distance_matrix = np.abs(distance_matrix)  # to avoid negative numbers before sqrt
+    return np.sqrt(distance_matrix)
 
 
 def get_normalization_dict(graphs, normalization_type):
@@ -153,20 +125,28 @@ def get_normalization_dict(graphs, normalization_type):
     """
     targets = np.array([graph.globals for graph in graphs])
 
-    if normalization_type in ['per_atom_standard', 'sum']:
-        n_nodes = np.array([graph.n_node for graph in graphs])
-        scaled_targets = targets/n_nodes
-        norm_dict = {
-            "type": normalization_type,
-            "mean": np.mean(scaled_targets, axis=0),
-            "std": np.std(scaled_targets, axis=0)
-        }
-    elif normalization_type in ['standard', 'mean']:
-        norm_dict = {
-            "type": normalization_type,
-            "mean": np.mean(targets, axis=0),
-            "std": np.std(targets, axis=0)
-        }
+    match normalization_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node for graph in graphs])
+            scaled_targets = targets/n_nodes
+            norm_dict = {
+                "type": normalization_type,
+                "mean": np.mean(scaled_targets, axis=0),
+                "std": np.std(scaled_targets, axis=0)}
+        case 'standard'|'mean':
+            norm_dict = {
+                "type": normalization_type,
+                "mean": np.mean(targets, axis=0),
+                "std": np.std(targets, axis=0)}
+        case 'scalar_non_negative':
+            # this type is meant for fitting band gaps, or other non-zero targets,
+            # when the output of the last layer is also non-negative
+            norm_dict = {
+                "type": normalization_type,
+                "std": np.std(targets, axis=0)}
+        case _:
+            raise ValueError(
+                f"Unrecognized normalization type: {normalization_type}")
     return norm_dict
 
 
@@ -198,18 +178,23 @@ def normalize_targets(
       normalized targets, np.array of shape (N, F)
     """
     norm_type = normalization['type']
-    mean = normalization['mean']
-    std = normalization['std']
-    # prevent division by zero
-    std = np.where(std==0, 1, std)
+    if 'mean' in normalization:
+        mean = normalization['mean']
+    if 'std' in normalization:
+        std = normalization['std']
+        # prevent division by zero
+        std = np.where(std==0, 1, std)
 
-    if norm_type in ['per_atom_standard', 'sum']:
-        n_nodes = np.array([graph.n_node[0] for graph in graphs])
-        return (targets - np.outer(n_nodes, mean))/std
-    elif norm_type in ['standard', 'mean']:
-        return (targets - mean)/std
-    else:
-        raise ValueError(f"Unrecognized readout type: {norm_type}")
+    match norm_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node[0] for graph in graphs])
+            return (targets - np.outer(n_nodes, mean))/std
+        case 'standard'|'mean':
+            return (targets - mean)/std
+        case 'scalar_non_negative':
+            return targets/std
+        case _:
+            raise ValueError(f"Unrecognized normalization type: {norm_type}")
 
 
 def normalize_graph_globals(
@@ -237,17 +222,22 @@ def scale_targets(graphs, targets, normalization):
         numpy.array of scaled target values, np.array of shape (N, F)
     """
     norm_type = normalization['type']
-    mean = normalization['mean']
-    std = normalization['std']
-    std = np.where(std==0, 1, std)
+    if 'mean' in normalization:
+        mean = normalization['mean']
+    if 'std' in normalization:
+        std = normalization['std']
+        std = np.where(std==0, 1, std)
 
-    if norm_type in ['per_atom_standard', 'sum']:
-        n_nodes = np.array([graph.n_node[0] for graph in graphs])
-        return targets*std + np.outer(n_nodes, mean)
-    elif norm_type in ['standard', 'mean']:
-        return targets*std + mean
-    else:
-        raise ValueError(f"Unrecognized readout type: {norm_type}")
+    match norm_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node[0] for graph in graphs])
+            return targets*std + np.outer(n_nodes, mean)
+        case 'standard'|'mean':
+            return targets*std + mean
+        case 'scalar_non_negative':
+            return targets*std
+        case _:
+            raise ValueError(f"Unrecognized normalization type: {norm_type}")
 
 
 def _nearest_bigger_power_of_two(num: int) -> int:
@@ -261,19 +251,19 @@ def _nearest_bigger_power_of_two(num: int) -> int:
 def pad_graph_to_nearest_power_of_two(
         graphs_tuple: jraph.GraphsTuple) -> jraph.GraphsTuple:
     """Pads a batched `GraphsTuple` to the nearest power of two.
-  For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
-  would pad the `GraphsTuple` nodes and edges:
-    7 nodes --> 8 nodes (2^3)
-    5 edges --> 8 edges (2^3)
-  And since padding is accomplished using `jraph.pad_with_graphs`, an extra
-  graph and node is added:
-    8 nodes --> 9 nodes
-    3 graphs --> 4 graphs
-  Args:
-    graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
-  Returns:
-    A graphs_tuple batched to the nearest power of two.
-  """
+    For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
+    would pad the `GraphsTuple` nodes and edges:
+        7 nodes --> 8 nodes (2^3)
+        5 edges --> 8 edges (2^3)
+    And since padding is accomplished using `jraph.pad_with_graphs`, an extra
+    graph and node is added:
+        8 nodes --> 9 nodes
+        3 graphs --> 4 graphs
+    Args:
+        graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
+    Returns:
+        A graphs_tuple batched to the nearest power of two.
+    """
     # Add 1 since we need at least one padding node for pad_with_graphs.
     pad_nodes_to = _nearest_bigger_power_of_two(jnp.sum(graphs_tuple.n_node)) + 1
     pad_edges_to = _nearest_bigger_power_of_two(jnp.sum(graphs_tuple.n_edge))

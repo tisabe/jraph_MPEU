@@ -25,17 +25,9 @@ from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     get_normalization_dict,
     normalize_graph_globals,
-    load_config,
     save_norm_dict,
     load_norm_dict
 )
-
-
-def load_data(workdir):
-    """Load datasets only using the working directory."""
-    config = load_config(workdir)
-    dataset, mean, std = get_datasets(config, workdir)  # might refactor
-    return dataset, mean, std
 
 
 def get_graph_fc(atoms: Atoms):
@@ -596,20 +588,31 @@ def get_datasets(config, workdir):
     # get normalization metrics from train data, or from file if it exists
     norm_path = os.path.join(workdir, 'normalization.json')
     if not os.path.exists(norm_path):
-        if config.label_type == 'scalar':
-            norm_dict = get_normalization_dict(
-                graphs_split['train'], config.aggregation_readout_type)
-            logging.info(f'Mean: {norm_dict["mean"]}, Std: {norm_dict["std"]}')
-            save_norm_dict(norm_dict, norm_path)
-        elif config.label_type == 'class':
-            norm_dict = {}
-        else:
-            raise ValueError(f'{config.label_type} not recognized as label type.')
+        match config.label_type:
+            case 'scalar':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], config.aggregation_readout_type)
+                logging.info(f"Normalization: {norm_dict}")
+                save_norm_dict(norm_dict, norm_path)
+            case 'scalar_non_negative':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], 'scalar_non_negative')
+                logging.info(f"Normalization: {norm_dict}")
+                save_norm_dict(norm_dict, norm_path)
+            case 'class'|'class_binary'|'class_multi':
+                norm_dict = {}
+            case _:
+                raise ValueError(
+                    f'{config.label_type} not recognized as label type.')
     else:
-        if config.label_type == 'scalar':
-            norm_dict = load_norm_dict(norm_path)
-        else:
-            norm_dict = {}
+        match config.label_type:
+            case 'scalar'|'scalar_non_negative':
+                norm_dict = load_norm_dict(norm_path)
+            case 'class'|'class_binary'|'class_multi':
+                norm_dict = {}
+            case _:
+                raise ValueError(
+                    f'{config.label_type} not recognized as label type.')
 
     for split, graphs_list in graphs_split.items():
         if norm_dict:

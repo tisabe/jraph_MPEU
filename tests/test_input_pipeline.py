@@ -23,9 +23,12 @@ from jraph_MPEU.input_pipeline import (
     get_atom_num_list,
     label_list_to_class_dict,
     label_list_to_int_class_list,
-    shuffle_train_val_data
+    shuffle_train_val_data,
+    get_graph_fc,
+    get_graph_knearest,
+    get_graph_cutoff
 )
-from jraph_MPEU.utils import add_labels_to_graphs
+from jraph_MPEU.utils import add_labels_to_graphs, dist_matrix
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
@@ -41,6 +44,132 @@ class TestPipelineFunctions(unittest.TestCase):
         self.test_db = 'QM9/qm9_graphs.db'
         # aflow database to test Egap classification inputs
         self.aflow_db = 'aflow/graphs_all_12knn.db'
+        self.rng = np.random.default_rng()
+
+    def test_graph_fc(self):
+        """Test if fully connected graphs are correctly generated."""
+        atoms = Atoms('H5')
+        num_nodes = 5
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+
+        nodes, pos, edges, senders, receivers = get_graph_fc(atoms)
+
+        expected_edges = []
+        expected_senders = []
+        expected_receivers = []
+
+        for receiver in range(num_nodes):
+            for sender in range(num_nodes):
+                if sender != receiver:
+                    expected_edges.append(
+                        position_matrix[receiver] - position_matrix[sender])
+                    expected_senders.append(sender)
+                    expected_receivers.append(receiver)
+
+        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
+        np.testing.assert_array_equal(pos, position_matrix)
+        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+        np.testing.assert_array_equal(np.array(expected_senders), senders)
+        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
+
+    def test_catch_fc_with_pbc(self):
+        """Test that trying to make a fully connected graph from atoms with
+        periodic boundary conditions raises an exception."""
+        atoms = Atoms('H5', pbc=True)
+        num_nodes = 5
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+
+        with self.assertRaises(Exception, msg='PBC not allowed for fully connected graph.'):
+            get_graph_fc(atoms)
+
+    def test_k_nn_random(self):
+        """Test generating a k-nearest neighbor graph from random atomic
+        positions."""
+        atoms = Atoms('H5')
+        num_nodes = 5
+        dimensions = 3
+        k = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        distances = dist_matrix(position_matrix)
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
+
+        expected_senders = []
+        expected_receivers = []
+
+        for row in range(num_nodes):
+            idx_list = []
+            last_idx = 0
+            for _ in range(k):
+                # temporary last saved minimum value, initialized to high value
+                min_val_last = 9999.9
+                for col in range(num_nodes):
+                    if col == row or (col in idx_list):
+                        # do nothing on the diagonal,
+                        # or if column has already been included
+                        continue
+                    else:
+                        val = distances[row, col]
+                        if val < min_val_last:
+                            min_val_last = val
+                            last_idx = col
+                idx_list.append(last_idx)
+                expected_senders.append(last_idx)
+                expected_receivers.append(row)
+
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
+        print(np.array(expected_senders))
+        print(senders)
+        print(np.array(expected_receivers))
+        print(receivers)
+        dists = np.sqrt(np.sum(edges**2, axis=1))
+        dists_expected = np.sqrt(np.sum(expected_edges**2, axis=1))
+        print(dists)
+        print(dists_expected)
+        np.testing.assert_array_equal(np.array(expected_senders), senders)
+        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
+        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
+        np.testing.assert_array_equal(pos, position_matrix)
+        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+
+    def test_get_cutoff_adj_from_dist_random(self):
+        """Test generating a graph with constant cutoff from random
+        atomic positions."""
+        atoms = Atoms('H4')
+        num_nodes = 4
+        dimensions = 3
+        cutoff = 0.7
+        position_matrix = self.rng.random((num_nodes, dimensions))
+        distances = dist_matrix(position_matrix)
+
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
+
+        expected_senders = []
+        expected_receivers = []
+
+        for receiver in range(num_nodes):
+            for sender in range(num_nodes):
+                if not sender == receiver:
+                    if distances[sender, receiver] < cutoff:
+                        expected_senders.append(sender)
+                        expected_receivers.append(receiver)
+
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
+
+        # edges might be arranged differently
+        edges = np.sort(edges)
+        expected_edges = np.sort(expected_edges)
+
+        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
+        np.testing.assert_array_equal(pos, position_matrix)
+        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+        self.assertCountEqual(np.array(expected_senders), senders)
+        self.assertCountEqual(np.array(expected_receivers), receivers)
 
     def test_get_datasets_split(self):
         """Test that the same reproducible splits are returned by get_datasets."""
@@ -224,7 +353,6 @@ class TestPipelineFunctions(unittest.TestCase):
             graphs_split, _ = get_datasets(
                 config, test_dir
             )
-            # TODO: test that the nodes are still transformed in the same way
             for split, graph_list in graphs_split.items():
                 nodes = [np.array(graph.nodes) for graph in graph_list]
                 graphs_list_old = graphs_split_old[split]
