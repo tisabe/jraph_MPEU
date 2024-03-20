@@ -10,7 +10,7 @@ import numpy as np
 import ml_collections
 
 from jraph_MPEU.utils import (
-    Config_iterator,
+    ConfigIterator,
     save_config,
     load_config,
     normalize_targets,
@@ -149,12 +149,12 @@ class TestUtilsFunctions(unittest.TestCase):
         self.assertEqual(config.latent_size, 64)
 
     def test_config_iterator(self):
-        """Test config_iterator by producing config grid and printing them."""
+        """Test ConfigIterator by producing config grid and checking it."""
         config = ml_collections.ConfigDict()
         config.list = [1, 2]
         config.list2 = ['d', 'e', 'f']
         config.single = ['c']
-        iterator = Config_iterator(config)
+        iterator = ConfigIterator(config)
 
         configs = list(iterator)
         self.assertEqual(configs[0].list, 1)

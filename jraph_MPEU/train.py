@@ -25,7 +25,6 @@ import haiku as hk
 # import custom functions
 from jraph_MPEU.models.loading import create_model
 from jraph_MPEU.utils import (
-    #Time_logger,
     replace_globals,
     get_valid_mask,
     save_config
@@ -577,7 +576,6 @@ def train_and_evaluate(
 
     # Begin training loop.
     logging.info('Starting training.')
-    # time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step. Get next training graphs.
@@ -588,7 +586,7 @@ def train_and_evaluate(
         state, loss_metrics = updater.update(state, graphs)
 
         # Log periodically the losses/step count.
-        is_last_step = (step == config.num_train_steps_max)
+        is_last_step = step == config.num_train_steps_max
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
@@ -598,10 +596,9 @@ def train_and_evaluate(
             logging.info('Invalid loss, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w'):
+                with open(workdir + '/ABORTED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
-
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
@@ -612,7 +609,7 @@ def train_and_evaluate(
             logging.info(f'Loss converged at step {step}, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/STOPPED_EARLY'):
-                with open(workdir + '/STOPPED_EARLY', 'w'):
+                with open(workdir + '/STOPPED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
 
@@ -622,7 +619,7 @@ def train_and_evaluate(
             logging.info(
                 'Reached maximum number of steps without early stopping.')
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
                     pass
 
     lowest_val_loss = evaluater.lowest_val_loss

@@ -47,7 +47,7 @@ def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
     return config
 
 
-class Config_iterator:
+class ConfigIterator:
     """Constructs an iterator for all combinations of elements in config.
 
     Essentially gives all the elements for a grid search.
@@ -65,6 +65,7 @@ class Config_iterator:
 
 
 def str_to_list(text):
+    """Convert a string into a list of integers, by removing [] and ' '."""
     return list(map(int, filter(None, text.lstrip('[').rstrip(']').split(' '))))
 
 
@@ -98,13 +99,13 @@ def save_config(config: ml_collections.ConfigDict, workdir: str):
     File will be saved as config.json at workdir directory.
     """
     config_dict = vars(config)['_fields']
-    with open(os.path.join(workdir, 'config.json'), 'w') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'w', encoding="utf-8") as config_file:
         json.dump(config_dict, config_file, indent=4, separators=(',', ': '))
 
 
 def load_config(workdir: str) -> ml_collections.ConfigDict:
     """Load and return a config from the directory workdir."""
-    with open(os.path.join(workdir, 'config.json'), 'r') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'r', encoding="utf-8") as config_file:
         config_dict = json.load(config_file)
     config = dict_to_config(config_dict)
     return update_config_fields(config)
@@ -381,25 +382,3 @@ def get_valid_mask(
     graph_mask = jraph.get_graph_padding_mask(graphs)
 
     return jnp.expand_dims(graph_mask, 1)
-
-
-class Time_logger:
-    """Class to keep track of time spent per gradient step. WIP"""
-    def __init__(self, config):
-        self.start = time.time()
-        self.step_max = config.num_train_steps_max
-        self.time_limit = config.time_limit
-
-    def log_eta(self, step):
-        """Log the estimated time of arrival, with the maximum number of steps."""
-        time_elapsed = time.time() - self.start
-        eta = int(time_elapsed * (self.step_max/step - 1))
-        logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')
-
-    def get_time_stop(self):
-        """Return whether the time is over the time limit."""
-        time_elapsed = time.time() - self.start
-        if self.time_limit is not None:
-            return (time_elapsed/3600) > self.time_limit
-        else:
-            return False
