@@ -44,7 +44,7 @@ class TestPipelineFunctions(unittest.TestCase):
         self.test_db = 'QM9/qm9_graphs.db'
         # aflow database to test Egap classification inputs
         self.aflow_db = 'aflow/graphs_all_12knn.db'
-        self.rng = np.random.default_rng()
+        self.rng = np.random.default_rng(seed=7)
 
     def test_graph_fc(self):
         """Test if fully connected graphs are correctly generated."""
@@ -83,14 +83,14 @@ class TestPipelineFunctions(unittest.TestCase):
         position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
         atoms.set_positions(position_matrix)
 
-        with self.assertRaises(Exception, msg='PBC not allowed for fully connected graph.'):
+        with self.assertRaises(ValueError, msg='PBC not allowed for fully connected graph.'):
             get_graph_fc(atoms)
 
     def test_k_nn_random(self):
         """Test generating a k-nearest neighbor graph from random atomic
         positions."""
-        atoms = Atoms('H5')
         num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}')
         dimensions = 3
         k = 3
         position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
@@ -122,25 +122,54 @@ class TestPipelineFunctions(unittest.TestCase):
                 expected_receivers.append(row)
 
         expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
-        print(np.array(expected_senders))
-        print(senders)
-        print(np.array(expected_receivers))
-        print(receivers)
+        # we only check distances exactly, since senders have an arbitrary
+        # ordering because of the way neighborlists are built in ase
         dists = np.sqrt(np.sum(edges**2, axis=1))
         dists_expected = np.sqrt(np.sum(expected_edges**2, axis=1))
-        print(dists)
-        print(dists_expected)
-        np.testing.assert_array_equal(np.array(expected_senders), senders)
-        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
-        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
-        np.testing.assert_array_equal(pos, position_matrix)
-        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+        np.testing.assert_array_equal(np.array(dists_expected), dists)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
+        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
+        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+
+    def test_k_nn_pbc(self):
+        """Test generating a k-nearest neighbor graph from random atomic
+        positions with periodic boundary conditions."""
+        cell_l = 2
+        num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
+        dimensions = 3
+        k = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
+        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
+        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+        # check that coordinates of pos have been wrapped to inside the cell
+        for coordinate in pos.flatten():
+            self.assertLessEqual(coordinate, cell_l)
+
+    def test_k_nn_too_far(self):
+        """Test generating a k-nearest neighbor graph, but an exception is
+        raised because the atoms are too far apart."""
+        atoms = Atoms('H2')
+        dimensions = 3
+        scale = 10
+        position_matrix = [[0]*dimensions, [scale]*dimensions]
+        k = 1
+        atoms.set_positions(position_matrix)
+        with self.assertRaises(RuntimeError):
+            _ = get_graph_knearest(atoms, k, initial_radius=scale/20)
 
     def test_get_cutoff_adj_from_dist_random(self):
         """Test generating a graph with constant cutoff from random
         atomic positions."""
-        atoms = Atoms('H4')
         num_nodes = 4
+        atoms = Atoms(f'H{num_nodes}')
         dimensions = 3
         cutoff = 0.7
         position_matrix = self.rng.random((num_nodes, dimensions))
@@ -170,6 +199,40 @@ class TestPipelineFunctions(unittest.TestCase):
         np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
         self.assertCountEqual(np.array(expected_senders), senders)
         self.assertCountEqual(np.array(expected_receivers), receivers)
+
+    def test_cutoff_pbc(self):
+        """Test generating a constant cutoff graph from random atomic
+        positions with periodic boundary conditions."""
+        cell_l = 10
+        num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+        nodes, pos, _, _, _ = get_graph_cutoff(atoms, 5)
+        np.testing.assert_array_equal(nodes, [1]*5)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        # check that coordinates of pos have been wrapped to inside the cell
+        for coordinate in pos.flatten():
+            self.assertLessEqual(coordinate, cell_l)
+
+    def test_cutoff_no_edges(self):
+        """Test generating a constant cutoff graph from random atomic
+        positions with periodic boundary conditions."""
+        num_nodes = 2
+        atoms = Atoms('H2')
+        dimensions = 3
+        position_matrix = [[0]*dimensions, [1]*dimensions]
+        atoms.set_positions(position_matrix)
+        with self.assertWarns(RuntimeWarning):
+            nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, 1)
+        np.testing.assert_array_equal(nodes, [1]*num_nodes)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertEqual(len(senders), 0)
+        self.assertEqual(len(receivers), 0)
+        np.testing.assert_array_equal(edges, np.zeros((0, 1)))
 
     def test_get_datasets_split(self):
         """Test that the same reproducible splits are returned by get_datasets."""

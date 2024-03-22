@@ -39,7 +39,7 @@ def get_graph_fc(atoms: Atoms):
     if np.any(atoms.get_pbc()):
         #raise Exception('Received Atoms object with periodic boundary conditions. ' +
         #    'Fully connected graph cannot be generated.')
-        raise Exception('PBC not allowed for fully connected graph.')
+        raise ValueError('PBC not allowed for fully connected graph.')
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
     receivers = []
@@ -72,8 +72,9 @@ def get_graph_fc(atoms: Atoms):
 
 
 def get_graph_cutoff(atoms: Atoms, cutoff):
-    '''Return the graph features, with cutoff adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
+    """Return the graph features, with cutoff adjacency.
+    Inspired by https://github.com/peterbjorgensen/msgnet/blob/mastesr/src/msgnet/dataloader.py
+    """
 
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
@@ -116,7 +117,7 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
             edges.append(dist_vec)
 
     if len(edges) == 0:
-        warnings.warn("Generated graph has zero edges")
+        warnings.warn("Generated graph has zero edges", RuntimeWarning)
         edges = np.zeros((0, 1))
 
     return (
@@ -129,8 +130,9 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
 
 def get_graph_knearest(
         atoms: Atoms, num_neighbors, initial_radius=3.0):
-    '''Return the graph features, with knearest adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
+    """Return the graph features, with knearest adjacency.
+    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py
+    """
 
     atoms.wrap() # put atoms inside unit cell by wrapping their positions
     atom_numbers = atoms.get_atomic_numbers()
@@ -159,7 +161,6 @@ def get_graph_knearest(
             atom_positions = atoms.get_positions(wrap=True)
         else:
             atom_positions = atoms.get_positions(wrap=False)
-        keep_dists = []
         keep_edges = []
         keep_senders = []
         keep_receivers = []
