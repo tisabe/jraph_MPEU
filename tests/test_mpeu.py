@@ -103,7 +103,7 @@ class TestModelFunctions(unittest.TestCase):
     def test_raises_activation_error(self, config_field):
         """Test that an error is raised, when wrong string is used in
         config_field."""
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             self.config[config_field] = 'test'
             MPEU(self.config, True)
 

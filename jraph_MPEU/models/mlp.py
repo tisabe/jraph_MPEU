@@ -2,7 +2,9 @@
 
 from typing import Sequence
 import haiku as hk
+import jax
 import jax.numpy as jnp
+import jraph
 
 
 # Define the shifted softplus activation function.
@@ -23,6 +25,19 @@ def shifted_softplus(x: jnp.ndarray) -> jnp.ndarray:
     """
     return jnp.logaddexp(x, 0) - LOG2
 
+
+activation_dict = {
+    'shifted_softplus': shifted_softplus,
+    'softplus': jax.nn.softplus,
+    'swish': jax.nn.swish,
+    'relu': jax.nn.relu
+}
+
+
+aggregation_dict = {
+    'sum': jraph.segment_sum,
+    'mean': jraph.segment_mean
+}
 
 class MLP(hk.Module):
     """Define a custom multi-layer perceptron module, which includes dropout,

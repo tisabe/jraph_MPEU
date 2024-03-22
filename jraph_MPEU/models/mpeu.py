@@ -24,7 +24,8 @@ import numpy as np
 import ml_collections
 
 #from jraph_MPEU.utils import load_config
-from jraph_MPEU.models.mlp import MLP, shifted_softplus
+from jraph_MPEU.models.mlp import (
+    MLP, shifted_softplus, activation_dict, aggregation_dict)
 
 
 def _get_edge_embedding_fn(
@@ -448,35 +449,11 @@ class MPEU:
         self.use_batch_norm = config.use_batch_norm
         self.is_training = is_training
 
-        # figure out which activation function to use
-        if self.config.activation_name == 'shifted_softplus':
-            self.activation = shifted_softplus
-        elif self.config.activation_name == 'swish':
-            self.activation = jax.nn.swish
-        elif self.config.activation_name == 'relu':
-            self.activation = jax.nn.relu
-        else:
-            raise ValueError(f'Activation function \
-                "{self.config.activation_name}" is not known to GNN \
-                initializer')
-
-        if self.config.aggregation_message_type == 'sum':
-            self.aggregation_message_fn = jraph.segment_sum
-        elif self.config.aggregation_message_type == 'mean':
-            self.aggregation_message_fn = jraph.segment_mean
-        else:
-            raise ValueError(
-                f'Aggregation type {self.config.aggregation_message_type} '
-                f'not recognized')
-
-        if self.config.aggregation_readout_type == 'sum':
-            self.aggregation_readout_fn = jraph.segment_sum
-        elif self.config.aggregation_readout_type == 'mean':
-            self.aggregation_readout_fn = jraph.segment_mean
-        else:
-            raise ValueError(
-                f'Aggregation type {self.config.aggregation_readout_type} '
-                f'not recognized')
+        self.activation = activation_dict[self.config.activation_name]
+        self.aggregation_message_fn = aggregation_dict[
+            self.config.aggregation_message_type]
+        self.aggregation_readout_fn = aggregation_dict[
+            self.config.aggregation_readout_type]
 
     def __call__(self, graphs: jraph.GraphsTuple) -> jraph.GraphsTuple:
         """Call function to do forward pass of the GNN.

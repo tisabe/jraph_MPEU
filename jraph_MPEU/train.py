@@ -473,12 +473,13 @@ def init_state(
     optimizer = create_optimizer(config)
 
     # determine which loss function to use
-    if config.label_type == 'scalar':
-        loss_fn = loss_fn_mse
-        metric_names = 'RMSE/MAE'
-    else:
-        loss_fn = loss_fn_bce
-        metric_names = 'BCE/Acc.'
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            loss_fn = loss_fn_mse
+            metric_names = 'RMSE/MAE'
+        case _:
+            loss_fn = loss_fn_bce
+            metric_names = 'BCE/Acc.'
 
     updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
