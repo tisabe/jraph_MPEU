@@ -352,15 +352,18 @@ def _get_readout_global_fn(
                     dropout_rate=dropout_rate,
                     activation=activation,
                     activate_final=False)
-                return net(node_attributes)
+                out = net(node_attributes)
             else:
                 net = MLP(
                     'readout', [latent_size] * global_readout_mlp_layers + [1],
                     use_layer_norm=False, dropout_rate=dropout_rate,
                     activation=activation, activate_final=False)
-            return net(node_attributes)
+            out = net(node_attributes)
         else:
-            return node_attributes
+            out = node_attributes
+        if label_type == 'scalar_non_negative':
+            out = jax.nn.relu(out)
+        return out
     return readout_global_fn
 
 

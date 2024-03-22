@@ -7,6 +7,7 @@ answer is on paper to check we're getting the right answer.
 """
 import unittest
 
+from parameterized import parameterized
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -29,6 +30,32 @@ from jraph_MPEU.models.mpeu import (
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
+
+def _get_random_graph(rng, z_max) -> jraph.GraphsTuple:
+    """Return a random graphsTuple with n_node from 1 to 10 and intergers up to
+    z_max as node features."""
+    n_node = rng.integers(1, 10, (1,))
+    n_edge = rng.integers(1, 20, (1,))
+    graph = jraph.GraphsTuple(
+        nodes=rng.integers(0, z_max, (n_node[0],)),
+        edges=rng.random((n_edge[0], 3)),
+        senders=rng.integers(0, n_node[0], (n_edge[0],)),
+        receivers=rng.integers(0, n_node[0], (n_edge[0],)),
+        n_node=n_node,
+        n_edge=n_edge,
+        globals=None)
+    return graph
+
+
+def _get_random_graph_batch(rng, n_graphs, z_max) -> jraph.GraphsTuple:
+    """Return a batch of random graphs."""
+    graphs = []
+    for _ in range(n_graphs):
+        graph = _get_random_graph(rng, z_max)
+        graphs.append(graph)
+    return jraph.batch(graphs)
+
+
 class TestModelFunctions(unittest.TestCase):
     """Unit and integration test functions in models.py."""
     def setUp(self):
@@ -38,6 +65,7 @@ class TestModelFunctions(unittest.TestCase):
         total_n_edge = jnp.sum(n_edge)
         n_graph = n_node.shape[0]
         feature_dim = 10
+        self.np_rng = np.random.default_rng(seed=7)
 
         self.graphs = jraph.GraphsTuple(
             n_node=n_node,
@@ -67,6 +95,64 @@ class TestModelFunctions(unittest.TestCase):
         self.config.label_type = 'scalar'
         self.config.activation_name = 'shifted_softplus'
         self.activation_names = ['shifted_softplus', 'relu', 'swish']
+
+    @parameterized.expand([
+        'activation_name',
+        'aggregation_message_type',
+        'aggregation_readout_type'])
+    def test_raises_activation_error(self, config_field):
+        """Test that an error is raised, when wrong string is used in
+        config_field."""
+        with self.assertRaises(ValueError):
+            self.config[config_field] = 'test'
+            MPEU(self.config, True)
+
+    def test_build_extra_layer(self):
+        """Test building the MPEU with extra layer and scalar label type."""
+        n_graphs = 100
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+
+        self.config.hk_init = None
+        self.config.global_readout_mlp_layers = 2
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction = graph_pred.globals
+        self.assertTupleEqual(prediction.shape, (n_graphs, 1))
+
+    def test_mpeu_non_negative_output(self):
+        """Test that when the label type is 'scalar_non_negative', the output
+        of the MPEU is the same as before, but with ReLU on output."""
+        n_graphs = 100
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+
+        self.config.hk_init = None
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction = graph_pred.globals
+
+        # now create and predict with model with different label_type
+        self.config.label_type = 'scalar_non_negative'
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction_relu = graph_pred.globals
+
+        np.testing.assert_array_equal(prediction_relu, jax.nn.relu(prediction))
+
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.
