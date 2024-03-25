@@ -150,7 +150,7 @@ def plot_density(df, workdir, plot_name):
         data=df,
         ax=ax,
         cbar=True, cbar_kws={'label': 'Count'},
-        log_scale=True
+        log_scale=False if np.any(df['abs. error']==0) else True
     )
     ax.set_xlabel(r'Density $(g/cm^3)$', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
@@ -282,7 +282,7 @@ def main(argv):
             data=df_test,
             ax=ax,
             cbar=True, cbar_kws={'label': 'Count'},
-            log_scale=(False, True),
+            log_scale=False if np.any(df_test['abs. error']==0) else (False, True),
             bins=max(df_test['num_atoms'])
         )
         ax.set_xlabel('Number of atoms in unit cell', fontsize=FLAGS.font_size)

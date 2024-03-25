@@ -44,6 +44,7 @@ class TestInference(unittest.TestCase):
         """Test case: no dropout, scalar predictions"""
         latent_size = 1
         dataset = get_graph_dataset(100, latent_size)
+        dataset_copy = dataset[:]
         net = hk.transform_with_state(summing_gnn)
         params, state = net.init(jax.random.PRNGKey(42), dataset[0])
         predictions = get_predictions(dataset, net, params, state, 'scalar')
@@ -56,6 +57,15 @@ class TestInference(unittest.TestCase):
 
         np.testing.assert_allclose(
             predictions[0], predictions_expected, rtol=1e-6)
+        # test that the dataset was not modified in place
+        for graph, graph_copy in zip(dataset, dataset_copy):
+            np.testing.assert_array_equal(graph.nodes, graph_copy.nodes)
+            np.testing.assert_array_equal(graph.edges, graph_copy.edges)
+            np.testing.assert_array_equal(graph.globals, graph_copy.globals)
+
+    def test_get_results_df(self):
+        """Test getting the results dataframe."""
+        raise NotImplementedError("TODO: implement this test")
 
 
 if __name__ == '__main__':

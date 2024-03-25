@@ -24,7 +24,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/egap/mpeu/non_negative \
+--workdir=./results/aflow/egap/mpeu/non_negative_softplus \
 --config=jraph_MPEU_configs/aflow_egap_pbj.py \
 --config.num_train_steps_max=10_000_000 \
 --config.log_every_steps=10_00 \

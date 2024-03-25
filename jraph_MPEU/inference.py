@@ -3,6 +3,7 @@ model."""
 import os
 import json
 import glob
+from collections import defaultdict
 
 import jax
 import jax.numpy as jnp
@@ -16,7 +17,8 @@ from jraph_MPEU.input_pipeline import (
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, get_normalization_dict, scale_targets
+    get_valid_mask, load_config, get_normalization_dict, scale_targets,
+    load_norm_dict
 )
 from jraph_MPEU.models.loading import load_model
 
@@ -90,8 +92,10 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     label_str = config.label_str
     net, params, hk_state = load_model(workdir, is_training=mc_dropout)
 
-    graphs = []
-    labels = []
+    # we need to order the graphs and labels as dicts to be able to refer
+    # to their splits later
+    graphs_dict = {} # key: asedb_id, value corresponding graph
+    labels_dict = {} # key: asedb_id, value corresponding label
     ase_db = ase.db.connect(config.data_file)
     inference_df = pandas.DataFrame({})
     for i, (id_single, split) in enumerate(split_dict.items()):
@@ -107,9 +111,9 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         if config.num_edges_max is not None:
             if n_edge > config.num_edges_max:  # do not include graphs with too many edges
                 continue
-        graphs.append(graph)
+        graphs_dict[id_single] = graph
         label = row.key_value_pairs[label_str]
-        labels.append(label)
+        labels_dict[id_single] = label
         row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
         row_dict['asedb_id'] = row.id
         row_dict['n_edge'] = n_edge
@@ -124,28 +128,45 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     num_path = os.path.join(workdir, 'atomic_num_list.json')
     with open(num_path, 'r', encoding="utf-8") as num_file:
         num_list = json.load(num_file)
-
-    # convert to dict for atoms_to_nodes function
-    graphs_dict = dict(enumerate(graphs))
-    labels_dict = dict(enumerate(labels))
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
-    graphs_dict = {key: graph._replace(globals=[label])
-        for (key, graph), label in zip(graphs_dict.values(), labels_dict.values())}
-    pooling = config.aggregation_readout_type  # abbreviation
-    norm_dict = get_normalization_dict(
-        graphs_dict.values(), pooling)
+
+    # also save the graphs in lists corresponding to split
+    graphs_split = defaultdict(list)
+    for (key_label, label), (key_graph, graph) in zip(
+            labels_dict.items(), graphs_dict.items()):
+        assert key_label == key_graph  # make very sure that keys match
+        graph = graph._replace(globals=np.array([label]))
+        graphs_dict[key_graph] = graph
+        split = split_dict[key_graph]
+        graphs_split[split].append(graph)
+
+    # get and apply normalization to graph targets
+    norm_path = os.path.join(workdir, 'normalization.json')
+    norm_dict = {}
+    if not os.path.exists(norm_path):
+        match config.label_type:
+            case 'scalar':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], config.aggregation_readout_type)
+            case 'scalar_non_negative':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], 'scalar_non_negative')
+            case 'class'|'class_binary'|'class_multi':
+                norm_dict = {}
+    else:
+        norm_dict = load_norm_dict(norm_path)
     graphs = list(graphs_dict.values())
-    #labels = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(
         graphs, net, params, hk_state, config.label_type, mc_dropout,
         config.batch_size)
-    if config.label_type == 'scalar':
-        # scale the predictions using the std and mean
-        logging.debug(f'using {pooling} pooling function')
-        #preds = np.array(preds)*std + mean
-        preds = scale_targets(graphs, preds, norm_dict)
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            # scale the predictions using norm_dict
+            preds = scale_targets(graphs, preds, norm_dict)
+        case _:
+            pass
 
     if mc_dropout:
         preds = np.transpose(np.array(preds))
