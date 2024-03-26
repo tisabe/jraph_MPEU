@@ -449,6 +449,33 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     return loss, (accuracy, new_state)
 
 
+def loss_fn_nll(params, state, rng, graphs, net_apply):
+    """Negative log likelihood loss.
+    
+    net_apply has to output a dict with estimated mean (key: mu),
+    and estimated standard deviation (squared) for aleatoric uncertainty
+    (key: sigma).
+    TODO: use step value in state to interpolate between MSE and NLL loss.
+    Ref.: Jonas Busk et al 2022 Mach. Learn.: Sci. Technol. 3 015012"""
+    target = jnp.expand_dims(graphs.globals, 1)
+    graphs = replace_globals(graphs)
+
+    mask = get_valid_mask(graphs)
+    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    predictions = pred_graphs.globals
+    mu_hat = predictions['mu']
+    sigma_sq_hat = predictions['sigma']
+
+    sq_diff = jnp.square((predictions - target)*mask)
+    loss = jnp.sum(sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))  # eq. 3 in ref.
+    mean_loss = loss/jnp.sum(mask)
+
+    absolute_error = jnp.sum(jnp.abs((mu_hat - target)*mask))
+    mae = absolute_error /jnp.sum(mask)
+
+    return mean_loss, (mae, new_state)
+
+
 def init_state(
         config: ml_collections.ConfigDict,
         init_graphs: jraph.GraphsTuple,

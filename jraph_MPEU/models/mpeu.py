@@ -25,7 +25,7 @@ import ml_collections
 
 #from jraph_MPEU.utils import load_config
 from jraph_MPEU.models.mlp import (
-    MLP, shifted_softplus, activation_dict, aggregation_dict)
+    MLP, activation_dict, aggregation_dict)
 
 
 def _get_edge_embedding_fn(
