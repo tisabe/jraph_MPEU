@@ -39,6 +39,33 @@ def id_list_to_int_list(ids_list):
     return [int(ids.removeprefix('id')) for ids in ids_list]
 
 
+def plot_calibration(df):
+    """Plot the calibration curve for the estimated error 'prediction_std'.
+    This is done by binning the prediction_std and calculating the """
+    n_bins = 100
+    df['prediction_var'] = df['prediction_std']**2
+    df['squared_error'] = df['abs. error']**2
+    var_bins = pd.cut(df['prediction_var'], bins=n_bins)
+    df['var_bin'] = var_bins
+    df_grouped = df.groupby('var_bin')
+    df_mean = df_grouped.mean(numeric_only=True)
+    df_mean['RMV'] = df_mean['prediction_var'].apply(np.sqrt)
+    df_mean['RMSE'] = df_mean['squared_error'].apply(np.sqrt)
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        ax=ax,
+        x='RMV',
+        y='RMSE',
+        data=df_mean,
+        #hue='split'
+    )
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(FLAGS.directory + '/ensemble_calibration.png', bbox_inches='tight', dpi=600)
+
+
 def plot_prediction(df_ensemble, label_str):
     fig, ax = plt.subplots()
     sns.scatterplot(
@@ -70,16 +97,6 @@ def plot_stdev(df_ensemble, label_str):
         print(f'Pearson r^2 on {split} set: {pearson}')
 
     df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
-    # calculater cumulative distributions
-    '''
-    cum_dist_true = np.cumsum(np.histogram(
-        df_test['abs. error'], bins=100, density=True)[0])
-
-    cum_dist_obs = np.cumsum(np.histogram(
-        df_test['ensemble_std'], bins=100, density=True)[0])
-    plt.plot(cum_dist_true, cum_dist_obs)
-    plt.show()
-    '''
 
     fig, ax = plt.subplots()
     sns.scatterplot(
@@ -251,6 +268,7 @@ def main(_):
     if FLAGS.plot:
         plot_prediction(df_result, label_str)
         plot_stdev(df_result, label_str)
+        plot_calibration(df_result)
 
 
 if __name__ == "__main__":
