@@ -363,8 +363,8 @@ def _get_readout_global_fn(
         else:
             out = node_attributes
         if label_type == 'scalar_non_negative':
-            #out = jax.nn.relu(out)
-            out = jax.nn.softplus(out)
+            out = jax.nn.relu(out)
+            #out = jax.nn.softplus(out)
         return out
     return readout_global_fn
 
