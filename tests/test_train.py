@@ -36,6 +36,8 @@ class TestTrain(unittest.TestCase):
         """Test the negative log likelihood loss for uncertainty quantification."""
         n_node = jnp.array([1, 1, 1, 1, 1, 1])
         n_edge = jnp.array([1, 1, 1, 1, 1, 1])
+        #target = jnp.array([0, 0, 0, 0, 0, 0])
+        target = jnp.zeros((6))
 
         graphs = jraph.GraphsTuple(
             nodes=None,
@@ -44,13 +46,21 @@ class TestTrain(unittest.TestCase):
             n_edge=n_edge,
             receivers=jnp.array([0, 1, 2, 3, 4, 5]),
             senders=jnp.array([0, 1, 2, 3, 4, 5]),
-            globals=jnp.array([0, 1, 1, 0, 1, 1])
+            globals=target
         )
         # pad the graphs with two additional one-node, one-edge graphs
         graphs_padded = jraph.pad_with_graphs(graphs, 8, 8, 8)
+        mu_pred = jnp.ones((6,1))
+        sigma_pred = jnp.ones((6,1))*2.
+
+        mse_expected = 1/6*np.sum(np.square(jnp.expand_dims(target, 1)-mu_pred))
+        nll_expected = 1/6*np.sum(np.square(
+            jnp.expand_dims(target, 1)-mu_pred)/sigma_pred + np.log(sigma_pred))
+        mae_expected = np.mean(abs(jnp.expand_dims(target, 1) - mu_pred))
 
         def net_apply(params, state, rng, graph):
             """Dummy function that changes the global to fixed vector"""
+            del params, rng
             graph = jraph.GraphsTuple(
                 nodes=None,
                 edges=None,
@@ -58,15 +68,44 @@ class TestTrain(unittest.TestCase):
                 n_edge=n_edge,
                 receivers=jnp.array([0, 1, 2, 3, 4, 5]),
                 senders=jnp.array([0, 1, 2, 3, 4, 5]),
-                globals={'mu': jnp.array([[1]]), 'sigma': jnp.array([[2]])}
+                globals={
+                    'mu': mu_pred,
+                    'sigma': sigma_pred}
             )
+            graph = jraph.pad_with_graphs(graph, 8, 8, 8)
             return graph, state
-        # test parameters
         params = {}
-        state = {'step': 0, 'hk_state': None}
         rng = 1
+        interpolation_steps = 1_000_000
+        # At step 0 and step interpolation_steps, the loss should be equivalent to MSE.
+        # Since the target are always 0, and we predict mu 1, the MSE is exactly 6.
+        state = {'step': 0, 'hk_state': None}
         mean_loss, (mae, new_state) = train.loss_fn_nll(
-            params, state, rng, graphs, net_apply)
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, mse_expected)
+        self.assertEqual(mae, mae_expected)
+        self.assertEqual(state, new_state)
+
+        state['step'] = interpolation_steps
+        mean_loss, (mae, _) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, mse_expected)
+        self.assertEqual(mae, mae_expected)
+
+        # At step 1.5*interpolation_steps, the loss should be halway between
+        # the nll loss and MSE
+        state['step'] = int(interpolation_steps*1.5)
+        mean_loss, (mae, _) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, (mse_expected+nll_expected)/2)
+        self.assertEqual(mae, mae_expected)
+
+        # At step 2*interpolation_steps, the loss should be just the nll
+        state['step'] = int(interpolation_steps*2)
+        mean_loss, (mae, new_state) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, nll_expected)
+        self.assertEqual(mae, mae_expected)
 
     def test_cross_entropy(self):
         """Test the binary cross entropy loss function."""

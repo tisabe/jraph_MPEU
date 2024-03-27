@@ -470,8 +470,15 @@ def loss_fn_nll(params, state, rng, graphs, net_apply):
     mu_hat = predictions['mu']
     sigma_sq_hat = predictions['sigma']
 
-    sq_diff = jnp.square((mu_hat - target)*mask)
-    loss = jnp.sum(sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))  # eq. 3 in ref.
+    sq_diff = jnp.square(mu_hat - target)
+    nll_loss = jnp.sum((sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))*mask)  # eq. 3 in ref.
+    mse_loss = jnp.sum(sq_diff*mask)
+
+    # interpolate loss function based on step counter (eq. 4 in ref)
+    interpolation_steps = 1_000_000
+    step = state['step']
+    mse_factor = jnp.clip(2 - step/interpolation_steps, 0, 1)
+    loss = mse_factor*mse_loss + (1-mse_factor)*nll_loss
     mean_loss = loss/jnp.sum(mask)
 
     absolute_error = jnp.sum(jnp.abs((mu_hat - target)*mask))
