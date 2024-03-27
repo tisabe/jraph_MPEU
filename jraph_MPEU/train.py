@@ -69,9 +69,8 @@ class Updater:
         """Updates the state using some data and returns metrics."""
         rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
-        hk_state = state['hk_state']
-        (loss, (_, hk_state)), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, hk_state, rng, data, self._net_apply)
+        (loss, (_, new_state)), grad = jax.value_and_grad(
+            self._loss_fn, has_aux=True)(params, state, rng, data, self._net_apply)
 
         updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
@@ -81,7 +80,7 @@ class Updater:
             'rng': new_rng,
             'opt_state': opt_state,
             'params': params,
-            'hk_state': hk_state
+            'hk_state': new_state['hk_state']
         }
 
         metrics = {
@@ -245,7 +244,7 @@ class Evaluater:
         and MAE over batch"""
         state['rng'], new_rng = jax.random.split(state['rng'])
         (mean_loss, (mae, _)) = self._loss_fn(
-            state['params'], state['hk_state'], new_rng, graphs, self._net_apply)
+            state['params'], state, new_rng, graphs, self._net_apply)
         return [mean_loss, mae]
 
     def evaluate_split(
@@ -412,11 +411,12 @@ def create_optimizer(
 
 def loss_fn_mse(params, state, rng, graphs, net_apply):
     """Mean squared error loss function for regression."""
+    hk_state = state['hk_state']
     labels = graphs.globals
     graphs = replace_globals(graphs)
 
     mask = get_valid_mask(graphs)
-    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
     sq_diff = jnp.square((predictions - labels)*mask)
@@ -426,18 +426,20 @@ def loss_fn_mse(params, state, rng, graphs, net_apply):
     absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
     mae = absolute_error /jnp.sum(mask)
 
-    return mean_loss, (mae, new_state)
+    state['hk_state'] = new_state
+    return mean_loss, (mae, state)
 
 
 def loss_fn_bce(params, state, rng, graphs, net_apply):
     """Binary cross entropy loss function for classification."""
+    hk_state = state['hk_state']
     labels = graphs.globals
     graphs = replace_globals(graphs)
     targets = jax.nn.one_hot(labels, 2)
 
     # try get_valid_mask function instead
     mask = jraph.get_graph_padding_mask(graphs)
-    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     # compute class probabilities
     preds = jax.nn.log_softmax(pred_graphs.globals)
     # Cross entropy loss, note: we average only over valid (unmasked) graphs
@@ -446,7 +448,8 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     # Accuracy taking into account the mask.
     accuracy = jnp.sum(
         (jnp.argmax(pred_graphs.globals, axis=1) == labels) * mask)/jnp.sum(mask)
-    return loss, (accuracy, new_state)
+    state['hk_state'] = new_state
+    return loss, (accuracy, state)
 
 
 def loss_fn_nll(params, state, rng, graphs, net_apply):
@@ -457,23 +460,25 @@ def loss_fn_nll(params, state, rng, graphs, net_apply):
     (key: sigma).
     TODO: use step value in state to interpolate between MSE and NLL loss.
     Ref.: Jonas Busk et al 2022 Mach. Learn.: Sci. Technol. 3 015012"""
+    hk_state = state['hk_state']
     target = jnp.expand_dims(graphs.globals, 1)
     graphs = replace_globals(graphs)
 
     mask = get_valid_mask(graphs)
-    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
     mu_hat = predictions['mu']
     sigma_sq_hat = predictions['sigma']
 
-    sq_diff = jnp.square((predictions - target)*mask)
+    sq_diff = jnp.square((mu_hat - target)*mask)
     loss = jnp.sum(sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))  # eq. 3 in ref.
     mean_loss = loss/jnp.sum(mask)
 
     absolute_error = jnp.sum(jnp.abs((mu_hat - target)*mask))
     mae = absolute_error /jnp.sum(mask)
 
-    return mean_loss, (mae, new_state)
+    state['hk_state'] = new_state
+    return mean_loss, (mae, state)
 
 
 def init_state(

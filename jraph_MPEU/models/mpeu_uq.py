@@ -155,11 +155,10 @@ class MPEU_uq:
         # use global labels. We don't put the graph output labels here since
         # we don't want to carry around the right answer with our input to
         # the GNNs.
-        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
-
         graphs = graphs._replace(
             globals=jnp.zeros([graphs.n_node.shape[0], 1], dtype=np.float32))
 
+        dropout_rate = self.config.dropout_rate if self.is_training else 0.0
         # convert vector edges e_ij=r_i-r_j (displacement vectors) to distances
         norm_ij = jnp.sqrt(jnp.sum(graphs.edges**2, axis=1))
         graphs = graphs._replace(edges=norm_ij)

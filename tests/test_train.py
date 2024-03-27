@@ -13,6 +13,7 @@ import jax
 from absl import logging
 import jax.numpy as jnp
 import jraph
+import haiku as hk
 
 from jraph_MPEU import train
 from jraph_MPEU.input_pipeline import get_datasets
@@ -30,6 +31,42 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             datasets, _ = get_datasets(self.config, test_dir)
             self.datasets = datasets
+
+    def test_nll(self):
+        """Test the negative log likelihood loss for uncertainty quantification."""
+        n_node = jnp.array([1, 1, 1, 1, 1, 1])
+        n_edge = jnp.array([1, 1, 1, 1, 1, 1])
+
+        graphs = jraph.GraphsTuple(
+            nodes=None,
+            edges=None,
+            n_node=n_node,
+            n_edge=n_edge,
+            receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+            senders=jnp.array([0, 1, 2, 3, 4, 5]),
+            globals=jnp.array([0, 1, 1, 0, 1, 1])
+        )
+        # pad the graphs with two additional one-node, one-edge graphs
+        graphs_padded = jraph.pad_with_graphs(graphs, 8, 8, 8)
+
+        def net_apply(params, state, rng, graph):
+            """Dummy function that changes the global to fixed vector"""
+            graph = jraph.GraphsTuple(
+                nodes=None,
+                edges=None,
+                n_node=n_node,
+                n_edge=n_edge,
+                receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+                senders=jnp.array([0, 1, 2, 3, 4, 5]),
+                globals={'mu': jnp.array([[1]]), 'sigma': jnp.array([[2]])}
+            )
+            return graph, state
+        # test parameters
+        params = {}
+        state = {'step': 0, 'hk_state': None}
+        rng = 1
+        mean_loss, (mae, new_state) = train.loss_fn_nll(
+            params, state, rng, graphs, net_apply)
 
     def test_cross_entropy(self):
         """Test the binary cross entropy loss function."""
@@ -66,7 +103,7 @@ class TestTrain(unittest.TestCase):
             return graph, state
         # test parameters
         params = {}
-        state = 'state'
+        state = {'hk_state': None}
         rng = 1
 
         loss, (acc, new_state) = train.loss_fn_bce(
@@ -87,11 +124,10 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             _, state, _ = train.init_state(
                 self.config, init_graphs, test_dir)
-            opt_state = state['opt_state']
             # Ensure that the initialized state starts from step 0.
             self.assertEqual(state['step'], 0)
             self.assertIsInstance(state['rng'], type(jax.random.PRNGKey(0)))
-            self.assertIsInstance(opt_state, tuple)
+            self.assertIsInstance(state['opt_state'], tuple)
 
     def test_numerical_stability(self):
         """Test the minimum losses after 100 steps up to 5 decimal places.
