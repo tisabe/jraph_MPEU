@@ -265,7 +265,13 @@ class Evaluater:
             weights_list.append(batch_size - jraph.get_number_of_padding_with_graphs_graphs(batch))
             loss_list.append(self._evaluate_step(state, batch))
         averaged = np.average(loss_list, axis=0, weights=weights_list)
-        return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
+        match self._metric_names:
+            case 'RMSE/MAE':
+                return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
+            case 'NLL/MAE':
+                return np.array([averaged[0], float(self._loss_scalar)*averaged[1]])
+            case 'BCE/Acc.':
+                return np.array([averaged[0], averaged[1]])
 
     def evaluate_model(
             self,
@@ -461,16 +467,18 @@ def loss_fn_nll(params, state, rng, graphs, net_apply):
     TODO: use step value in state to interpolate between MSE and NLL loss.
     Ref.: Jonas Busk et al 2022 Mach. Learn.: Sci. Technol. 3 015012"""
     hk_state = state['hk_state']
-    target = jnp.expand_dims(graphs.globals, 1)
-    graphs = replace_globals(graphs)
+    target = jnp.expand_dims(graphs.globals, 1)  # shape (N, 1) N=batch_size
+    graphs = replace_globals(graphs)  # make sure no information leaks to model
 
-    mask = get_valid_mask(graphs)
+    mask = get_valid_mask(graphs)  # shape (N, 1) with 1's for valid graphs, 0's otherwise
     pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
-    mu_hat = predictions['mu']
-    sigma_sq_hat = predictions['sigma']
+    mu_hat = predictions['mu']  # shape (N, 1), predicted mean
+    sigma_sq_hat = predictions['sigma']  # shape (N, 1), predicted variance, non-negative, >1e-6
+    # avoid division by zero on the globals of padding graphs
+    sigma_sq_hat = jnp.where(mask, sigma_sq_hat, 1)
 
-    sq_diff = jnp.square(mu_hat - target)
+    sq_diff = jnp.square(mu_hat - target)  # shape (N, 1), squared difference
     nll_loss = jnp.sum((sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))*mask)  # eq. 3 in ref.
     mse_loss = jnp.sum(sq_diff*mask)
 
@@ -514,8 +522,12 @@ def init_state(
     # determine which loss function to use
     match config.label_type:
         case 'scalar'|'scalar_non_negative':
-            loss_fn = loss_fn_mse
-            metric_names = 'RMSE/MAE'
+            if config.model_str == 'MPEU_uq':
+                loss_fn = loss_fn_nll
+                metric_names = 'NLL/MAE'
+            else:
+                loss_fn = loss_fn_mse
+                metric_names = 'RMSE/MAE'
         case _:
             loss_fn = loss_fn_bce
             metric_names = 'BCE/Acc.'

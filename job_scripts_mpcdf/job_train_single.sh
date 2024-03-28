@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J non_negative
+#SBATCH -J mpeu_uq
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,11 +24,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/egap/mpeu/non_negative_softplus \
---config=jraph_MPEU_configs/aflow_egap_pbj.py \
---config.num_train_steps_max=10_000_000 \
---config.log_every_steps=10_00 \
---config.eval_every_steps=50_000 \
---config.early_stopping_steps=1_000_000 \
---config.checkpoint_every_steps=50_000 \
---config.label_type=scalar_non_negative
+--workdir=./results/qm9/U0/mpeu_uq \
+--config=jraph_MPEU_configs/default.py \
+--config.model_str=MPEU_uq \
+--rerun=True

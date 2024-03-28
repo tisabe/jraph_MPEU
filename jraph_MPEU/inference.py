@@ -23,7 +23,7 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models.loading import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, label_type,
+def get_predictions(dataset, net, params, hk_state, config,
     mc_dropout=False, batch_size=32):
     """Get predictions for a single dataset split.
 
@@ -33,14 +33,13 @@ def get_predictions(dataset, net, params, hk_state, label_type,
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
         hk_state: haiku state for batch norm in apply function
-        label_type: if the predictions are scalars for regression (value:
-            'scalar') or logits for classification (value: 'class')
+        config: model, training and data configuration
         mc_dropout: whether to use monte-carlo dropout to estimate the
             uncertainty of the model. If true, preds gets and extra dimension
             for the extra sampling of each graph
 
     Returns:
-        1-D numpy array of predictions from the dataset
+        1-D numpy array of predictions from the dataset (when mc_dropout=False)
     """
     n_samples = 10 if mc_dropout else 1
     # TODO: test this, especially that it does not modify dataset in place
@@ -51,7 +50,36 @@ def get_predictions(dataset, net, params, hk_state, label_type,
         pred_graphs, _ = net.apply(params, hk_state, rng, graphs)
         predictions = pred_graphs.globals
         return predictions
+    predictions = np.array([])
+    reader = DataReader(
+        data=dataset, batch_size=batch_size, repeat=False)
+
+    for graph_batch in reader:
+        key, subkey = jax.random.split(key)
+        # mask is used to index the batch, so squeeze the array
+        mask = np.squeeze(get_valid_mask(graph_batch))
+        valid_indices = np.nonzero(mask)
+        preds_batch = predict_batch(graph_batch, subkey, hk_state)
+        if isinstance(preds_batch, dict):
+            preds_batch = np.concatenate(
+                [preds_batch['mu'], preds_batch['sigma']], axis=1
+            )  # shape (N_batch, 2)
+            preds_batch = preds_batch[valid_indices]
+        elif config.label_type == 'class':
+            # turn logits into probabilities by applying softmax function
+            #print('Converted array: ', jnp.array(preds_batch))
+            preds_batch = jax.nn.softmax(jnp.array(preds_batch), axis=1)
+            # get only one probability p, the other one is just 1-p
+            # this corresponds to the predicted probability of being in the
+            # zeroth class
+            preds_batch = preds_batch[:, 0]
+            preds_batch = jnp.expand_dims(preds_batch, 1)  # shape (N_batch, 1)
+            preds_batch = preds_batch[valid_indices]
+        else:
+            preds_batch = preds_batch[valid_indices]  # shape (N_batch, 1)
+
     preds = []
+    # old version
     for _ in range(n_samples):
         reader = DataReader(
             data=dataset, batch_size=batch_size, repeat=False)
@@ -61,7 +89,7 @@ def get_predictions(dataset, net, params, hk_state, label_type,
 
             mask = get_valid_mask(graph)
             preds_batch = predict_batch(graph, subkey, hk_state)
-            if label_type == 'class':
+            if config.label_type == 'class':
                 # turn logits into probabilities by applying softmax function
                 #print('Converted array: ', jnp.array(preds_batch))
                 preds_batch = jax.nn.softmax(jnp.array(preds_batch), axis=1)
@@ -70,11 +98,17 @@ def get_predictions(dataset, net, params, hk_state, label_type,
                 # zeroth class
                 preds_batch = preds_batch[:, 0]
                 preds_batch = jnp.expand_dims(preds_batch, 1)
+            elif isinstance(preds_batch, dict):
+                # the prediction is a dict, it was predicted by the uncertainty
+                # quantification model, so the prediction has to be split up into
+                # predicted mean (mu), and predicted variance (sigma)
+                preds_batch = [preds_batch['mu'], preds_batch['sigma']]
 
             # get only the valid, unmasked predictions
             preds_valid = preds_batch[mask]
             preds_sample = np.concatenate([preds_sample, preds_valid], axis=0)
         preds.append(preds_sample)
+
     return preds
 
 
