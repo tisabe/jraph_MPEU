@@ -23,8 +23,8 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models.loading import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, config,
-    mc_dropout=False, batch_size=32):
+def get_predictions(dataset, net, params, hk_state, mc_dropout=False, 
+    label_type='scalar', batch_size=32):
     """Get predictions for a single dataset split.
 
     Args:
@@ -33,13 +33,14 @@ def get_predictions(dataset, net, params, hk_state, config,
             on a batch of graphs.
         params: haiku parameters used by the net.apply function
         hk_state: haiku state for batch norm in apply function
-        config: model, training and data configuration
         mc_dropout: whether to use monte-carlo dropout to estimate the
             uncertainty of the model. If true, preds gets and extra dimension
             for the extra sampling of each graph
+        label_type: string that describes the type of label
 
     Returns:
-        1-D numpy array of predictions from the dataset (when mc_dropout=False)
+        numpy array with shape (N, m, d), where N is the length of the dataset,
+        m is number of mc_dropout samples, d is feature length of prediction
     """
     n_samples = 10 if mc_dropout else 1
     # TODO: test this, especially that it does not modify dataset in place
@@ -50,66 +51,47 @@ def get_predictions(dataset, net, params, hk_state, config,
         pred_graphs, _ = net.apply(params, hk_state, rng, graphs)
         predictions = pred_graphs.globals
         return predictions
-    predictions = np.array([])
+    predictions = []
     reader = DataReader(
         data=dataset, batch_size=batch_size, repeat=False)
+    # for the following comments: N=number of datapoints, n=batch_size,
+    # n_valid=number of valid datapoints in batch, d=feature size,
+    # m=number of mc_dropout samples, 1 without mc_dropout
 
+    # new version
     for graph_batch in reader:
         key, subkey = jax.random.split(key)
         # mask is used to index the batch, so squeeze the array
-        mask = np.squeeze(get_valid_mask(graph_batch))
-        valid_indices = np.nonzero(mask)
-        preds_batch = predict_batch(graph_batch, subkey, hk_state)
-        if isinstance(preds_batch, dict):
-            preds_batch = np.concatenate(
-                [preds_batch['mu'], preds_batch['sigma']], axis=1
-            )  # shape (N_batch, 2)
-            preds_batch = preds_batch[valid_indices]
-        elif config.label_type == 'class':
-            # turn logits into probabilities by applying softmax function
-            #print('Converted array: ', jnp.array(preds_batch))
-            preds_batch = jax.nn.softmax(jnp.array(preds_batch), axis=1)
-            # get only one probability p, the other one is just 1-p
-            # this corresponds to the predicted probability of being in the
-            # zeroth class
-            preds_batch = preds_batch[:, 0]
-            preds_batch = jnp.expand_dims(preds_batch, 1)  # shape (N_batch, 1)
-            preds_batch = preds_batch[valid_indices]
-        else:
-            preds_batch = preds_batch[valid_indices]  # shape (N_batch, 1)
+        mask = np.squeeze(get_valid_mask(graph_batch))  # shape (n,)
+        valid_indices = np.nonzero(mask)  # shape (n_valid,)
+        preds_batch = []
+        for _ in range(n_samples):
+            subkey, pred_key = jax.random.split(subkey)
+            preds_sample = predict_batch(graph_batch, pred_key, hk_state)
+            if isinstance(preds_sample, dict):
+                preds_sample = np.concatenate(
+                    [preds_sample['mu'], preds_sample['sigma']], axis=1
+                )
+            # preds_sample shape: (n, 2) if uncertainty quantification or
+            # classification, (n, f) otherwise (f=1, for now)
+            # add additional axis for mc_dropout, shape (n, 1, d)
+            preds_sample = np.expand_dims(preds_sample, 1)
+            preds_batch.append(preds_sample)
+        preds_batch = np.concatenate(preds_batch, axis=1)  # shape (n, m, d)
+        preds_batch = preds_batch[valid_indices]  # shape (n_valid, m, d)
+        predictions.append(preds_batch)
 
-    preds = []
-    # old version
-    for _ in range(n_samples):
-        reader = DataReader(
-            data=dataset, batch_size=batch_size, repeat=False)
-        preds_sample = np.array([])
-        for graph in reader:
-            key, subkey = jax.random.split(key)
+    predictions = np.concatenate(predictions, 0)  # shape (N, m, d)
 
-            mask = get_valid_mask(graph)
-            preds_batch = predict_batch(graph, subkey, hk_state)
-            if config.label_type == 'class':
-                # turn logits into probabilities by applying softmax function
-                #print('Converted array: ', jnp.array(preds_batch))
-                preds_batch = jax.nn.softmax(jnp.array(preds_batch), axis=1)
-                # get only one probability p, the other one is just 1-p
-                # this corresponds to the predicted probability of being in the
-                # zeroth class
-                preds_batch = preds_batch[:, 0]
-                preds_batch = jnp.expand_dims(preds_batch, 1)
-            elif isinstance(preds_batch, dict):
-                # the prediction is a dict, it was predicted by the uncertainty
-                # quantification model, so the prediction has to be split up into
-                # predicted mean (mu), and predicted variance (sigma)
-                preds_batch = [preds_batch['mu'], preds_batch['sigma']]
+    if label_type=='class':
+        # compute softmax over the last dimension, and then get probability
+        # of the 0th class
+        predictions_exp = np.exp(predictions)
+        predictions = predictions_exp/np.sum(
+            predictions_exp, axis=2, keepdims=True)  # shape (N, m, 2)
+        predictions = np.expand_dims(predictions[:, :, 0], 2)  # shape (N, m, 1)
 
-            # get only the valid, unmasked predictions
-            preds_valid = preds_batch[mask]
-            preds_sample = np.concatenate([preds_sample, preds_valid], axis=0)
-        preds.append(preds_sample)
-
-    return preds
+    return predictions
 
 
 def get_results_df(workdir, limit=None, mc_dropout=False):
@@ -193,27 +175,47 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
 
     logging.info('Predicting on dataset.')
     preds = get_predictions(
-        graphs, net, params, hk_state, config.label_type, mc_dropout,
-        config.batch_size)
-    match config.label_type:
-        case 'scalar'|'scalar_non_negative':
+        graphs, net, params, hk_state, mc_dropout, config.label_type,
+        config.batch_size)  # shape (N, m, d)
+    match (config.label_type, config.model_str):
+        case ['scalar'|'scalar_non_negative', 'MPEU_uq']:
+            # scale the predicted mean (preds[:, :, 0])
+            # uncertainty (preds[:, :, 1]) independently, since the
+            # uncertainties should not have an offset
+            preds[:, :, 0] = scale_targets(
+                graphs, preds[:, :, 0], norm_dict)
+            std = norm_dict['std']
+            std = np.where(std==0, 1, std)
+            preds[:, :, 1] *= std
+        case ['scalar'|'scalar_non_negative', _]:
             # scale the predictions using norm_dict
             preds = scale_targets(graphs, preds, norm_dict)
         case _:
             pass
 
     if mc_dropout:
-        preds = np.transpose(np.array(preds))
-        print(np.shape(preds))
-        print(preds)
         preds_mean = np.mean(preds, axis=1)
         preds_std = np.std(preds, axis=1)
         inference_df['prediction_mean'] = preds_mean
         inference_df['prediction_std'] = preds_std
     else:
-        preds = preds[0]
         # add row with predictions to dataframe
-        inference_df['prediction'] = preds
+        inference_df['prediction'] = preds[:, 0, :]
+
+    # NOTE: for now, only works with scalar predictions, and uncertainties
+    match (mc_dropout, config.model_str):
+        case [False, 'MPEU_uq']:
+            inference_df['prediction'] = preds[:, 0, 0]
+            inference_df['prediction_uq'] = preds[:, 0, 1]
+        case [True, 'MPEU_uq']:
+            inference_df['prediction'] = np.mean(preds[:, :, 0], axis=1)
+            inference_df['prediction_uq'] = np.mean(preds[:, :, 1], axis=1)
+            inference_df['prediction_std'] = np.std(preds[:, :, 0], axis=1)
+        case [False, _]:
+            inference_df['prediction'] = preds[:, 0, :]
+        case [True, _]:
+            inference_df['prediction'] = np.mean(preds[:, :, 0], axis=1)
+            inference_df['prediction_std'] = np.std(preds[:, :, 0], axis=1)
 
     return inference_df
 
