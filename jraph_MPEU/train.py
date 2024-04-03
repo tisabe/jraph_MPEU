@@ -265,11 +265,12 @@ class Evaluater:
             weights_list.append(batch_size - jraph.get_number_of_padding_with_graphs_graphs(batch))
             loss_list.append(self._evaluate_step(state, batch))
         averaged = np.average(loss_list, axis=0, weights=weights_list)
+        # NOTE: this part only works for scalar loss at the moment
         match self._metric_names:
             case 'RMSE/MAE':
                 return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
             case 'NLL/MAE':
-                return np.array([averaged[0], float(self._loss_scalar)*averaged[1]])
+                return np.array([averaged[0], self._loss_scalar[0]*averaged[1]])
             case 'BCE/Acc.':
                 return np.array([averaged[0], averaged[1]])
 
@@ -617,10 +618,11 @@ def train_and_evaluate(
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
-    if config.label_type == 'scalar':
-        evaluater.set_loss_scalar(norm_dict['std'])
-    else:
-        evaluater.set_loss_scalar(1.0)
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            evaluater.set_loss_scalar(norm_dict['std'])
+        case _:
+            evaluater.set_loss_scalar(1.0)
 
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.

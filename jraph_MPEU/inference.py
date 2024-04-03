@@ -123,7 +123,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
                 break
         row = ase_db.get(id_single)
         graph = ase_row_to_jraph(row)
-        n_edge = int(graph.n_edge)
+        n_edge = int(graph.n_edge[0])
         if config.num_edges_max is not None:
             if n_edge > config.num_edges_max:  # do not include graphs with too many edges
                 continue
@@ -189,18 +189,10 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
             preds[:, :, 1] *= std
         case ['scalar'|'scalar_non_negative', _]:
             # scale the predictions using norm_dict
-            preds = scale_targets(graphs, preds, norm_dict)
+            for i in range(preds.shape[1]):  # account for mc_dropout sampling
+                preds[:, i, :] = scale_targets(graphs, preds[:, i, :], norm_dict)
         case _:
             pass
-
-    if mc_dropout:
-        preds_mean = np.mean(preds, axis=1)
-        preds_std = np.std(preds, axis=1)
-        inference_df['prediction_mean'] = preds_mean
-        inference_df['prediction_std'] = preds_std
-    else:
-        # add row with predictions to dataframe
-        inference_df['prediction'] = preds[:, 0, :]
 
     # NOTE: for now, only works with scalar predictions, and uncertainties
     match (mc_dropout, config.model_str):

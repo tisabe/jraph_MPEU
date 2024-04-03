@@ -3,6 +3,7 @@
 Most tests consist of running model training for some steps and then looking at
 the resulting metrics and checkpoints.
 """
+import tempfile
 import unittest
 
 from parameterized import parameterized
@@ -11,7 +12,10 @@ import jax
 import jraph
 import haiku as hk
 
-from jraph_MPEU.inference import get_predictions
+from jraph_MPEU.inference import get_predictions, get_results_df
+from jraph_MPEU.train import train_and_evaluate
+from jraph_MPEU.utils import save_config
+from jraph_MPEU_configs import default_test as cfg
 
 
 def summing_gnn(graphs):
@@ -111,11 +115,52 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(graph.nodes, graph_copy.nodes)
             np.testing.assert_array_equal(graph.edges, graph_copy.edges)
             np.testing.assert_array_equal(graph.globals, graph_copy.globals)
+    @parameterized.expand([
+        ('MPEU_uq', False),
+        ('MPEU_uq', True),
+        ('MPEU', False),
+        ('MPEU', True),
+    ])
+    def test_get_results_df(self, model_str, mc_dropout):
+        """Test getting the results dataframe. This is an integration test,
+        because we call train_and_evaluate to generate all the files and model.
+        """
+        config = cfg.get_config()
+        # Training hyperparameters
+        config.num_train_steps_max = 100
+        config.log_every_steps = 10
+        config.eval_every_steps = 10
+        config.checkpoint_every_steps = 10
+        config.latent_size = 16
+        # data selection parameters
+        config.limit_data = 100
+        n = config.limit_data
 
-    @unittest.skip("Implement df_results test later")
-    def test_get_results_df(self):
-        """Test getting the results dataframe."""
-        raise NotImplementedError("TODO: implement this test")
+        config.model_str = model_str
+        config.label_type = 'scalar'
+        config.dropout_rate = 0.5 if mc_dropout else 0
+
+        with tempfile.TemporaryDirectory() as test_dir:
+            _ = train_and_evaluate(config, test_dir)
+
+            df = get_results_df(test_dir, limit=None, mc_dropout=mc_dropout)
+            match (mc_dropout, config.model_str):
+                case [False, 'MPEU_uq']:
+                    self.assertTupleEqual(
+                        df['prediction'].to_numpy().shape, (n,))
+                    np.testing.assert_array_less([0]*n, df['prediction_uq'])
+                case [True, 'MPEU_uq']:
+                    self.assertTupleEqual(
+                        df['prediction'].to_numpy().shape, (n,))
+                    np.testing.assert_array_less([0]*n, df['prediction_uq'])
+                    np.testing.assert_array_less([0]*n, df['prediction_std'])
+                case [False, _]:
+                    self.assertTupleEqual(
+                        df['prediction'].to_numpy().shape, (n,))
+                case [True, _]:
+                    self.assertTupleEqual(
+                        df['prediction'].to_numpy().shape, (n,))
+                    np.testing.assert_array_less([0]*n, df['prediction_std'])
 
 
 if __name__ == '__main__':

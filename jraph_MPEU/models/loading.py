@@ -4,6 +4,7 @@ which model is chosen."""
 
 import pickle
 
+from absl import logging
 import haiku as hk
 import ml_collections
 
@@ -23,7 +24,7 @@ def load_model(workdir, is_training):
     config = load_config(workdir)
     # load the model params
     params = best_state['state']['params']
-    print(f'Loaded best state at step {best_state["state"]["step"]}')
+    logging.info(f'Loaded best state at step {best_state["state"]["step"]}')
     match config.model_str:
         case 'GCN':
             net_fn = GCN(config, is_training)
@@ -43,7 +44,7 @@ def load_model(workdir, is_training):
         hk_state = best_state['state']['hk_state']
         net = hk.transform_with_state(net_fn)
     except KeyError:
-        print('Loaded old stateless function. Converting to stateful.')
+        logging.info('Loaded old stateless function. Converting to stateful.')
         hk_state = {}
         net = hk.with_empty_state(hk.transform(net_fn))
     return net, params, hk_state
