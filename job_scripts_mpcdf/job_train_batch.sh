@@ -26,8 +26,8 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow/egap_pbj_val_ensemble/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/aflow_egap_pbj.py \
+--workdir=./results/qm9/U0/uq_ensemble/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/default.py \
 --config.seed_weights=${SLURM_ARRAY_TASK_ID} \
 --config.shuffle_val_seed=${SLURM_ARRAY_TASK_ID} \
---split_file=./results/aflow/egap_pbj_val_ensemble/splits.json
+--config.model_str=MPEU_uq \

@@ -274,6 +274,15 @@ def main(argv):
     df_test = df_test.sort_values(by='abs. error', axis='index')
     print(df_test[-3:][col_to_print])
 
+    if 'prediction_uq' in df_test:
+        sns.scatterplot(
+            x='abs. error',
+            y='prediction_uq',
+            data=df,
+            hue='split'
+        )
+        plt.show()
+
     if FLAGS.plot in ('all', 'natoms'):
         fig, ax = plt.subplots()
         sns.histplot(

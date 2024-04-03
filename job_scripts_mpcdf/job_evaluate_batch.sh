@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=695,423,195,657,63,112,356,698,401,210        # indices are inclusive
+#SBATCH --array=1-10        # indices are inclusive
 # Standard output and error:
 #SBATCH -o ./output_slurm/eval_%A_%a.out
 #SBATCH -e ./output_slurm/eval_%A_%a.err 
@@ -26,5 +26,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/plotting/error_analysis.py \
---file=./results/aflow/egap_rand_search/id${SLURM_ARRAY_TASK_ID} \
+--file=./results/qm9/U0/uq_ensemble/id${SLURM_ARRAY_TASK_ID} \
 --plot=None
