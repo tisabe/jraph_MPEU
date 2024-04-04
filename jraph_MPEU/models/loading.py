@@ -3,6 +3,7 @@ inference script respectively. The model string in the passed config determines
 which model is chosen."""
 
 import pickle
+import os
 
 from absl import logging
 import haiku as hk
@@ -48,6 +49,20 @@ def load_model(workdir, is_training):
         hk_state = {}
         net = hk.with_empty_state(hk.transform(net_fn))
     return net, params, hk_state
+
+
+def load_ensemble(directory):
+    """Load an ensemble of models."""
+    models = []
+    with os.scandir(directory) as dirs:
+        for entry in dirs:
+            if entry.is_dir():
+                workdir = entry.path
+                state_dir = workdir+'/checkpoints/best_state.pkl'
+                if os.path.exists(state_dir):
+                    net, params, hk_state = load_model(workdir, is_training=False)
+                    models.append((net, params, hk_state))
+    return models
 
 
 def create_model(config: ml_collections.ConfigDict, is_training=True):

@@ -11,6 +11,7 @@ import numpy as np
 from absl import logging
 import ase.db
 import pandas
+from tqdm import tqdm
 
 from jraph_MPEU.input_pipeline import (
     DataReader, load_split_dict, ase_row_to_jraph,
@@ -23,7 +24,7 @@ from jraph_MPEU.utils import (
 from jraph_MPEU.models.loading import load_model
 
 
-def get_predictions(dataset, net, params, hk_state, mc_dropout=False, 
+def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
     label_type='scalar', batch_size=32):
     """Get predictions for a single dataset split.
 
@@ -92,6 +93,27 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
         predictions = np.expand_dims(predictions[:, :, 0], 2)  # shape (N, m, 1)
 
     return predictions
+
+
+def get_predictions_ensemble(dataset, models, label_type, batch_size=32):
+    """Get predictions on dataset from an ensemble of models.
+    Args:
+        dataset: list of jraph.GraphsTuple
+        models: list of tuples, each with (net, params, hk_state) as returned
+            by models.loading.load_ensemble
+        label_type: string that describes the type of label
+
+    Returns:
+        numpy array with shape (N, m, d), where N is the length of the dataset,
+        m is number of ensemble models, d is feature length of prediction
+    """
+    predictions_ensemble = []
+    for (net, params, hk_state) in tqdm(models):
+        predictions_single = get_predictions(
+            dataset, net, params, hk_state, False, label_type, batch_size)
+        predictions_ensemble.append(predictions_single)
+    predictions_ensemble = np.concatenate(predictions_ensemble, axis=1)
+    return predictions_ensemble
 
 
 def get_results_df(workdir, limit=None, mc_dropout=False):

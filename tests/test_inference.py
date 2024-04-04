@@ -12,7 +12,8 @@ import jax
 import jraph
 import haiku as hk
 
-from jraph_MPEU.inference import get_predictions, get_results_df
+from jraph_MPEU.inference import (
+    get_predictions, get_predictions_ensemble, get_results_df)
 from jraph_MPEU.train import train_and_evaluate
 from jraph_MPEU.utils import save_config
 from jraph_MPEU_configs import default_test as cfg
@@ -115,6 +116,20 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(graph.nodes, graph_copy.nodes)
             np.testing.assert_array_equal(graph.edges, graph_copy.edges)
             np.testing.assert_array_equal(graph.globals, graph_copy.globals)
+
+    def test_get_predictions_ensemble(self):
+        """Test the ensemble prediction function."""
+        latent_size = 1
+        n_ensemble = 5
+        dataset = get_graph_dataset(100, latent_size)
+        net = hk.transform_with_state(summing_gnn)
+        params, state = net.init(jax.random.PRNGKey(42), dataset[0])
+        models = [(net, params, state)]*n_ensemble
+        predictions = get_predictions_ensemble(
+            dataset, models, 'scalar', 32)
+        self.assertTupleEqual(
+            predictions.shape, (len(dataset), n_ensemble, 1))
+
     @parameterized.expand([
         ('MPEU_uq', False),
         ('MPEU_uq', True),
