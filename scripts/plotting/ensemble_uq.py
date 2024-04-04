@@ -10,6 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.isotonic import IsotonicRegression
 import numpy as np
+from scipy import stats
 
 
 FLAGS = flags.FLAGS
@@ -59,16 +60,19 @@ def get_predictions_df(directory):
     return df
 
 
-def plot_calibration(df):
-    """Plot the calibration curve for the estimated error 'prediction_std'.
+def plot_error_calibration(df):
+    """Plot the error calibration curve for the estimated error 'prediction_std'.
     This is done by binning the prediction_std and calculating the """
     n_bins = 10
-    var_bins = pd.qcut(df['total_sigma_recal'], q=n_bins)
+    var_bins = pd.qcut(df['total_sigma_recal'], q=n_bins, duplicates='drop')
     df['var_bin'] = var_bins
     df_grouped = df.groupby('var_bin')
     df_mean = df_grouped.mean(numeric_only=True)
     df_mean['RMV'] = df_mean['total_sigma_recal'].apply(np.sqrt)
     df_mean['RMSE'] = df_mean['squared_error'].apply(np.sqrt)
+    # calculate expected normalized calibration error (ENCE)
+    ence = np.mean(np.abs(df_mean['RMV']-df_mean['RMSE'])/df_mean['RMV'])
+    print('ENCE: ', ence)
     fig, ax = plt.subplots()
     sns.scatterplot(
         ax=ax,
@@ -83,14 +87,39 @@ def plot_calibration(df):
     plt.yscale('log')
     plt.tight_layout()
     plt.show()
-    #fig.savefig(FLAGS.directory + '/ensemble_calibration.png', bbox_inches='tight', dpi=600)
+    fig.savefig(FLAGS.directory + '/error_calibration.png', bbox_inches='tight', dpi=600)
 
+
+def plot_quantile_calibration(df):
+    """Plot the quantile calibration by plotting the predicted quantile 
+    versus the empirical quantile."""
+    quantile_pred = stats.percentileofscore(
+        df['total_sigma_recal'], df['total_sigma_recal'])
+    quantile_true = stats.percentileofscore(
+        df['squared_error'], df['squared_error'])
+    print(quantile_pred)
+    print(quantile_true)
+    fig, ax = plt.subplots()
+    ax.scatter(quantile_pred, quantile_true)
+    x_ref = np.linspace(*ax.get_xlim())
+    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(FLAGS.directory + '/quantile_calibration.png', bbox_inches='tight', dpi=600)
+
+
+def print_sharpness(df):
+    """Print out sharpness metrics Root-mean-variation (RMV) and coefficient of variation
+    (CV) of the predicted uncertainties in df."""
+    rmv = np.sqrt(np.mean(df['total_sigma_recal']))
+    print("RMV: ", rmv)
+    cv = np.std(np.sqrt(df['total_sigma_recal']))/np.mean(np.sqrt(df['total_sigma_recal']))
+    print("CV: ", cv)
 
 
 def main(_):
     """Call functions defined in this module. And make pretty plots."""
     df = get_predictions_df(FLAGS.directory)
-    print(df.describe())
     cols = df.keys().to_list()
     cols_mu = [col for col in cols if 'mu_id' in col]
     cols_sigma = [col for col in cols if 'sigma_id' in col]
@@ -119,8 +148,12 @@ def main(_):
     plt.show()"""
 
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
+    print("MAE: ", np.mean(np.abs(df_test['target'] - df_test['mu_mean'])))
+    print("RMSE: ", np.sqrt(np.mean(df_test['squared_error'])))
 
-    plot_calibration(df_test)
+    plot_error_calibration(df_test)
+    plot_quantile_calibration(df_test)
+    print_sharpness(df_test)
 
 
 if __name__ == "__main__":
