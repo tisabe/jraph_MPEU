@@ -125,10 +125,20 @@ class TestInference(unittest.TestCase):
         net = hk.transform_with_state(summing_gnn)
         params, state = net.init(jax.random.PRNGKey(42), dataset[0])
         models = [(net, params, state)]*n_ensemble
+        predictions_expected = []
+        for graph in dataset:
+            prediction_expected = np.sum(graph.nodes)
+            predictions_expected.append(prediction_expected)
+        predictions_expected = np.array(predictions_expected)
+        predictions_expected = predictions_expected.reshape((-1, 1, 1))
+        predictions_expected = np.repeat(predictions_expected, n_ensemble, axis=1)
+
         predictions = get_predictions_ensemble(
             dataset, models, 'scalar', 32)
         self.assertTupleEqual(
             predictions.shape, (len(dataset), n_ensemble, 1))
+        np.testing.assert_allclose(
+            predictions, predictions_expected, rtol=1e-6)
 
     @parameterized.expand([
         ('MPEU_uq', False),

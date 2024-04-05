@@ -2,6 +2,7 @@
 
 import os
 import json
+import pickle
 
 import pandas as pd
 from tqdm import tqdm
@@ -135,6 +136,10 @@ def main(_):
     df_val = df.loc[lambda df_temp: df_temp['split'] == 'validation']
     model = IsotonicRegression(y_min=0)
     model.fit(df_val['total_sigma'], df_val['squared_error'])
+
+    model_path = os.path.join(FLAGS.directory, 'recal_model.pkl')
+    with open(model_path, 'wb') as model_file:
+        pickle.dump(model, model_file)
 
     df['total_sigma_recal'] = model.transform(df['total_sigma'])
     """sns.scatterplot(
