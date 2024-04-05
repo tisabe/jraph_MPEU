@@ -14,7 +14,10 @@ import jraph
 import matplotlib.pyplot as plt
 
 from jraph_MPEU.models.loading import load_ensemble
-from jraph_MPEU.inference import get_predictions_ensemble
+from jraph_MPEU.inference import (
+    get_predictions_ensemble,
+    get_predictions_graph_ensemble
+)
 from jraph_MPEU.input_pipeline import (
     get_graph_knearest,
     get_graph_cutoff,
@@ -82,13 +85,9 @@ def get_deformations(
     return atoms_list
 
 
-def main(args):
-    """Main function to get atoms and predict with model."""
-    workdir = args.folder
-
+def plot_length_scaling(workdir):
+    """Plot model uncertainty for varying length scale."""
     config = load_config(workdir)
-    print('Loading model.')
-    #net, params, hk_state = load_model(workdir, is_training=False)
     models = load_ensemble(workdir)
     with open(os.path.join(workdir, 'atomic_num_list.json'), 'r', encoding='utf-8') as list_file:
         num_list = json.load(list_file)
@@ -102,8 +101,7 @@ def main(args):
         'aflow:09e8e3c8f41716e4',
         'aflow:20a474bdfc8057ac',
         'aflow:6454e4f00b068452',
-        'aflow:13398b3b86de2c68'
-        ]
+        'aflow:13398b3b86de2c68']
     """ids = [
         'mp-149', 'mp-165', 'mp-1',
         'mp-1105', 'mp-1265', 'mp-69',
@@ -170,6 +168,40 @@ def main(args):
     plt.legend()
     plt.show()
     fig.savefig(workdir + '/deform_cell.png', bbox_inches='tight', dpi=600)
+
+
+def displace_atom(atoms, vector, index):
+    """Displace one atom at index in atoms by vector."""
+    pos = atoms.get_positions()
+    pos[index] += vector
+    atoms.set_positions(pos)
+    return atoms
+
+
+def get_displacements(workdir):
+    config = load_config(workdir)
+    models = load_ensemble(workdir)
+    file = config.data_file
+    ase_db = ase.db.connect(file)
+    db_id = 1
+    row = ase_db.get(db_id)
+    cutoff_type = row['cutoff_type']
+    cutoff_val = row['cutoff_val']
+    atoms = row.toatoms()
+    formula = atoms.get_chemical_formula()
+    print("Formula: ", formula)
+    graph = get_graph_type(atoms, cutoff_type, cutoff_val)
+    preds = get_predictions_graph_ensemble([graph, graph], models)
+    print(preds)
+
+
+def main(args):
+    """Main function to get atoms and predict with model."""
+    workdir = args.folder
+
+    #plot_length_scaling(workdir)
+    get_displacements(workdir)
+
     return 0
 
 if __name__ == "__main__":

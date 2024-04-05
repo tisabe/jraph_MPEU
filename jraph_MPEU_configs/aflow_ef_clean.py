@@ -12,7 +12,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.seed_datareader = 42
     config.seed_weights = 42
 
-    config.data_file = 'aflow/graphs_all_12knn.db'
+    config.data_file = 'databases/aflow/graphs_12knn_vec.db'
     config.label_str = 'enthalpy_formation_atom'
     #config.label_str = 'Egap'
     config.init_lr = 1e-4

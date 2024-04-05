@@ -7,6 +7,7 @@ from collections import defaultdict
 
 import jax
 import jax.numpy as jnp
+import jraph
 import numpy as np
 from absl import logging
 import ase.db
@@ -22,6 +23,43 @@ from jraph_MPEU.utils import (
     load_norm_dict
 )
 from jraph_MPEU.models.loading import load_model
+
+
+def get_predictions_graph(dataset, net, params, hk_state,
+    mc_dropout=False, batch_size=32):
+    """Get whole graph predictions for a single dataset of graphs.
+    
+    Returns a nested list with length of len(dataset),
+    each item is a list of graphs with length 1 if mc_dopout=False,
+    length 10 otherwise.
+    """
+    n_samples = 10 if mc_dropout else 1
+    key = jax.random.PRNGKey(42)
+
+    graphs_all = []
+    @jax.jit
+    def predict_batch(graphs, rng, hk_state):
+        graphs_pred, _ = net.apply(params, hk_state, rng, graphs)
+        return graphs_pred
+    if len(dataset) > 1:
+        reader = DataReader(
+            data=dataset, batch_size=batch_size, repeat=False)
+    else:
+        reader = iter(dataset)
+    for graph_batch in reader:
+        key, subkey = jax.random.split(key)
+        graphs_sample = []
+        for _ in range(n_samples):
+            subkey, pred_key = jax.random.split(subkey)
+            graphs_pred = predict_batch(graph_batch, pred_key, hk_state)
+            if len(dataset) > 1:
+                graphs_pred = jraph.unpad_with_graphs(graphs_pred)
+                graphs = jraph.unbatch(graphs_pred)
+            else:
+                graphs = graphs_pred
+            graphs_sample += graphs
+        graphs_all.append(graphs_sample)
+    return graphs_all
 
 
 def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
@@ -44,7 +82,6 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
         m is number of mc_dropout samples, d is feature length of prediction
     """
     n_samples = 10 if mc_dropout else 1
-    # TODO: test this, especially that it does not modify dataset in place
     key = jax.random.PRNGKey(42)
 
     @jax.jit
@@ -113,6 +150,16 @@ def get_predictions_ensemble(dataset, models, label_type, batch_size=32):
             dataset, net, params, hk_state, False, label_type, batch_size)
         predictions_ensemble.append(predictions_single)
     predictions_ensemble = np.concatenate(predictions_ensemble, axis=1)
+    return predictions_ensemble
+
+
+def get_predictions_graph_ensemble(dataset, models, batch_size=32):
+    predictions_ensemble = []
+    for (net, params, hk_state) in tqdm(models):
+        predictions_single = get_predictions_graph(
+            dataset, net, params, hk_state, False, batch_size)
+        predictions_single = [pred[0] for pred in predictions_single]
+        predictions_ensemble.append(predictions_single)
     return predictions_ensemble
 
 

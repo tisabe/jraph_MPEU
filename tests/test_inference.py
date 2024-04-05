@@ -13,9 +13,9 @@ import jraph
 import haiku as hk
 
 from jraph_MPEU.inference import (
-    get_predictions, get_predictions_ensemble, get_results_df)
+    get_predictions, get_predictions_ensemble, get_results_df,
+    get_predictions_graph)
 from jraph_MPEU.train import train_and_evaluate
-from jraph_MPEU.utils import save_config
 from jraph_MPEU_configs import default_test as cfg
 
 
@@ -186,6 +186,24 @@ class TestInference(unittest.TestCase):
                     self.assertTupleEqual(
                         df['prediction'].to_numpy().shape, (n,))
                     np.testing.assert_array_less([0]*n, df['prediction_std'])
+
+    def test_get_predictions_graph(self):
+        """Test getting full graph predictions (globals, nodes and edges)."""
+        latent_size = 1
+        dataset = get_graph_dataset(100, latent_size)
+        net = hk.transform_with_state(summing_gnn)
+
+        params, state = net.init(jax.random.PRNGKey(42), dataset[0])
+        predictions = get_predictions_graph(dataset, net, params, state,
+            mc_dropout=False)
+        nodes_expected = [graph.nodes for graph in dataset]
+        nodes = []
+        for graph_list in predictions:
+            for graph in graph_list:
+                nodes.append(graph.nodes)
+        nodes_expected = np.concatenate(nodes_expected, axis=0)
+        nodes = np.concatenate(nodes, axis=0)
+        np.testing.assert_allclose(nodes, nodes_expected)
 
 
 if __name__ == '__main__':

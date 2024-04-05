@@ -487,7 +487,8 @@ def loss_fn_nll(params, state, rng, graphs, net_apply):
     interpolation_steps = 1_000_000
     step = state['step']
     mse_factor = jnp.clip(2 - step/interpolation_steps, 0, 1)
-    loss = mse_factor*mse_loss + (1-mse_factor)*nll_loss
+    #loss = mse_factor*mse_loss + (1-mse_factor)*nll_loss
+    loss = nll_loss
     mean_loss = loss/jnp.sum(mask)
 
     absolute_error = jnp.sum(jnp.abs((mu_hat - target)*mask))

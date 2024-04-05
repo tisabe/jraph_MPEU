@@ -26,8 +26,9 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/qm9/U0/uq_ensemble/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/default.py \
+--workdir=./results/aflow/ef/mpeu/uq_nll/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/aflow_ef_clean.py \
 --config.seed_weights=${SLURM_ARRAY_TASK_ID} \
 --config.seed_datareader=${SLURM_ARRAY_TASK_ID} \
 --config.model_str=MPEU_uq \
+--config.early_stopping_steps=2000000
