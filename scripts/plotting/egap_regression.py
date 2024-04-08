@@ -93,8 +93,12 @@ def main(argv):
     ))
 
     df_test_ins = df_test.loc[lambda df_temp: df_temp['class_pred'] == 1]
-    mean_abs_err_test = df_test_ins.mean(0, numeric_only=True)['abs. error']
+    mean_abs_err_test = df_test_ins['abs. error'].mean()
+    mse_test = (df_test_ins['abs. error']**2).mean()
+    mdae_test = df_test_ins['abs. error'].median()
+    print(f"RMSE (test split, predicted insulators): {np.sqrt(mse_test)}")
     print(f"MAE (test split, predicted insulators): {mean_abs_err_test}")
+    print(f"MdAE (test split, predicted insulators): {mdae_test}")
 
 
 if __name__ == "__main__":
