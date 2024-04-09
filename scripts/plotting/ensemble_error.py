@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import sklearn.metrics
 import sklearn.feature_selection
+from scipy.stats import spearmanr
 
 
 FLAGS = flags.FLAGS
@@ -95,6 +96,8 @@ def plot_stdev(df_ensemble, label_str):
         print(f'Uncertainty R^2 on {split} set: {r2_split}')
         pearson = df_split[['abs. error', 'prediction_std']].corr()
         print(f'Pearson r^2 on {split} set: {pearson}')
+        spr = spearmanr(df_split['abs. error'], df_split['prediction_std'])
+        print(f'Spearman r on {split} set: {spr.statistic}')
 
     df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
 

@@ -155,6 +155,9 @@ def main(_):
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
     print("MAE: ", np.mean(np.abs(df_test['target'] - df_test['mu_mean'])))
     print("RMSE: ", np.sqrt(np.mean(df_test['squared_error'])))
+    print("Spearman correlation: ", stats.spearmanr(
+        df_test['squared_error'], df_test['total_sigma']
+    ))
 
     plot_error_calibration(df_test)
     plot_quantile_calibration(df_test)
