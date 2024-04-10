@@ -215,7 +215,7 @@ def main(_):
         # loop over the best models and get their result dataframes
         for i, model_id in enumerate(id_list_best):
             workdir = FLAGS.directory + model_id
-            df_single = pd.read_csv(workdir + '/result.csv', index_col='auid')
+            df_single = pd.read_csv(workdir + '/result.csv', index_col='asedb_id')
             if i == 0:
                 # save information about all structures from the first result.csv
                 # in df_ensemble
