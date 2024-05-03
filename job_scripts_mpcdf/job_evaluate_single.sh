@@ -24,4 +24,4 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/plotting/error_analysis.py \
---file=results/qm9/U0/mpeu_uq/ --label=U0 --plot=nothing
+--file=results/aflow_x_mp/ef/infer_aflow/ --label=ef --plot=nothing

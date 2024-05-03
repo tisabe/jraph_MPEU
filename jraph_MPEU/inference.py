@@ -213,6 +213,9 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     num_path = os.path.join(workdir, 'atomic_num_list.json')
     with open(num_path, 'r', encoding="utf-8") as num_file:
         num_list = json.load(num_file)
+    num_list = list(range(100))  # TODO: this is only a hack to make inference
+    # across databases easier, this should be reverted in the future
+    # aflow_x_mp
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     # also save the graphs in lists corresponding to split

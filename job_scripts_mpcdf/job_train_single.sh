@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J mpeu_uq
+#SBATCH -J mpeu_mp
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,7 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/qm9/U0/mpeu_uq \
---config=jraph_MPEU_configs/default.py \
---config.model_str=MPEU_uq \
---rerun=True
+--workdir=./results/aflow_x_mp/ef/train_mp \
+--config=jraph_MPEU_configs/default_mp.py
