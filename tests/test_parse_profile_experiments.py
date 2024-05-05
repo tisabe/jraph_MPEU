@@ -75,7 +75,7 @@ sample_err_file_cancelled_nothing_else = '\nCANCELLED DUE TO TIME LIMIT'
 
 PATHS_TEXT_FILE = '/home/dts/Documents/hu/jraph_MPEU/tests/data/fake_profile_paths.txt'
 
-class UnitTests(unittest.TestCase):
+class ParseProfileExperiments(unittest.TestCase):
     """Unit and integration test functions in models.py."""
 
     def setUp(self):
@@ -135,13 +135,18 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(data_dict['step_1000000_update_time'], 0.003449098623037338)
 
     def test_update_dict_with_batching_method_size(self):
-        """Test updating the dict with a batching method."""
-        parent_path = 'tests/data/mpnn/aflow/dynamic/64/gpu_a100/iteration_5'
+        """Test updating the dict with a batching method.
+        
+        
+        schnet/qm9/static/round_True/16/gpu_a100/iteration_5
+        """
+        parent_path = 'tests/data/mpnn/aflow/dynamic/round_True/64/gpu_a100/iteration_5'
         data_dict = {}
         data_dict = self.profiling_parser_object.update_dict_with_batching_method_size(
             parent_path, data_dict)
         self.assertEqual(data_dict['batching_type'], 'dynamic')
         self.assertEqual(data_dict['iteration'], 5)
+        self.assertEqual(data_dict['batching_round_to_64'], 'True')
         self.assertEqual(data_dict['computing_type'], 'gpu_a100')
         self.assertEqual(data_dict['batch_size'], 64)
         self.assertEqual(data_dict['model'], 'mpnn')
@@ -239,7 +244,7 @@ class UnitTests(unittest.TestCase):
             # Now open the CSV and count how many lines are there.
             df = pd.read_csv(csv_file_name)
 
-            self.assertEqual(len(df.columns), 36)
+            self.assertEqual(len(df.columns), 19)
 
     def test_write_all_path_data(self):
         """Test writing data for a submission path as a row to csv and db."""
@@ -304,6 +309,29 @@ class UnitTests(unittest.TestCase):
                 df['step_1000000_update_time'].values[0],
                 0.0026955132026672364, 10
             )
+
+    def test_get_recompile_and_timing_info_failed(self):
+        # Write the sample text to file:
+        failing_err_file = 'tests/data/profiling_err_file_failing.err'
+
+        # Now test reading the file.
+        data_dict = {}
+        data_dict = self.profiling_parser_object.get_recompile_and_timing_info(
+            failing_err_file, data_dict)
+        self.assertEqual(data_dict['recompilation_counter'], 1)
+        self.assertEqual(data_dict['experiment_completed'], 1)
+        # Test that we were able to get MAE/RMSE info
+        print(data_dict)
+        self.assertEqual(data_dict['step_1000000_train_rmse'], 0.47112376)
+        self.assertEqual(data_dict['step_1000000_train_mae'], 0.34495229)
+        self.assertEqual(data_dict['step_1000000_val_rmse'], 0.466972)
+        self.assertEqual(data_dict['step_1000000_test_rmse'], 0.46532637)
+        self.assertEqual(data_dict['step_1000000_batching_time'], 0.0005979892456531525)
+        self.assertEqual(data_dict['step_1000000_update_time'], 0.0026955132026672364)
+
+        self.assertTrue(np.isnan(data_dict['step_200000_train_rmse']))
+
+
 
 if __name__ == '__main__':
     unittest.main()

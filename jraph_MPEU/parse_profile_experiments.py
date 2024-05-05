@@ -264,15 +264,15 @@ class ProfilingParser():
                     step_num = split_line[-4]
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
-                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
-                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_val_rmse'] = rmse                    
                 elif 'RMSE/MAE test' in line:
                     # Grab the test loss
-                    rmse = float(line.replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_test_rmse'] = rmse
                 elif 'Mean batching time' in line:
                     # Grab the training loss
@@ -306,7 +306,7 @@ class ProfilingParser():
         data_dict['iteration'] = int(settings_list[-1].split('_')[-1])
         data_dict['computing_type'] = settings_list[-2]
         data_dict['batch_size'] = int(settings_list[-3])
-        data_dict['batching_round_to_64'] = settings_list[-4]
+        data_dict['batching_round_to_64'] = settings_list[-4].split('_')[-1]
         data_dict['batching_type'] = settings_list[-5]
         data_dict['dataset'] = settings_list[-6]
         data_dict['model'] = settings_list[-7]
