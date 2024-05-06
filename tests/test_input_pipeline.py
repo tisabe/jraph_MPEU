@@ -54,7 +54,8 @@ class TestPipelineFunctions(unittest.TestCase):
         config.num_edges_max = None
         config.seed = 42
         config.aggregation_readout_type = 'mean'
-        num_rows = 20  # number of rows to write
+        config.label_type = 'scalar'
+        num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
 
@@ -67,6 +68,11 @@ class TestPipelineFunctions(unittest.TestCase):
             self.assertFalse(os.path.exists(path_num))
             # create and connect to temporary database
             database = ase.db.connect(config.data_file)
+            test_split_dict = {
+                'train': [1, 2, 3, 4, 5],
+                'validation': [6, 7, 8],
+                'test': [9, 10]}
+            save_split_dict(test_split_dict, test_dir)
             for label_value in label_values:
                 # example structure
                 h2_atom = Atoms(
@@ -74,17 +80,22 @@ class TestPipelineFunctions(unittest.TestCase):
                 key_value_pairs = {config.label_str: label_value}
                 data = {
                     'senders': [0],
-                    'receivers': [1],
+                    'receivers': [0],
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
             graphs_split, mean, std = get_datasets(
                 config, test_dir
             )
-            mean_expected = np.mean(label_values)
-            std_expected = np.std(label_values)
+            # calculate expected metrics using only training labels
+            mean_expected = np.mean(
+                label_values[np.array(test_split_dict['train'])-1])
+            std_expected = np.std(
+                label_values[np.array(test_split_dict['train'])-1])
             self.assertAlmostEqual(mean, mean_expected)
             self.assertAlmostEqual(std, std_expected)
+            self.assertTrue(mean is not None)
+            self.assertTrue(std is not None)
 
             # check that the splits.json and atomic_num_list.json file was created
             self.assertTrue(os.path.exists(path_split))
@@ -95,9 +106,9 @@ class TestPipelineFunctions(unittest.TestCase):
             self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
-                'train': [5., 14., 9., 7., 16., 11., 3., 0., 15., 12.],
-                'validation': [18., 8., 1., 13., 4., 17.],
-                'test': [19., 2., 6., 10.]
+                'train': [0, 1, 2, 3, 4],
+                'validation': [5, 6, 7],
+                'test': [8, 9]
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():

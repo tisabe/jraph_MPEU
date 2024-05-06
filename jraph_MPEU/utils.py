@@ -165,10 +165,8 @@ def normalize_targets(inputs, outputs, aggregation_type):
         n_atoms[i] = inputs[i].n_node[0]
 
     if aggregation_type == 'sum':
-        print("calculating scaled targets with sum")
         scaled_targets = np.array(outputs)/n_atoms
     elif aggregation_type == 'mean':
-        print("calculating scaled targets with mean")
         scaled_targets = outputs
     else:
         raise Exception(f"Unrecognized readout type: {aggregation_type}")
@@ -176,10 +174,32 @@ def normalize_targets(inputs, outputs, aggregation_type):
     std = np.std(scaled_targets)
 
     if aggregation_type == 'sum':
-        print("returning sum normalized labels")
         return (outputs - (mean*n_atoms))/std, mean, std
     else:
         return (scaled_targets - mean)/std, mean, std
+
+
+def get_normalization_metrics(graphs, aggregation_type):
+    """Wrapper for normalize_targets, when input is only graphs with globals."""
+    labels = [graph.globals for graph in graphs]
+    _, mean, std = normalize_targets(graphs, labels, aggregation_type)
+    return mean, std
+
+
+def normalize_graphs(graphs, mean, std, aggregation_type):
+    """Return graphs with normalized global values."""
+    labels = []
+    for graph in graphs:
+        label = np.array(graph.globals)
+        if aggregation_type == 'sum':
+            label = (label - (mean*graph.n_node[0]))/std
+        elif aggregation_type == 'mean':
+            label = (label - mean)/std
+        else:
+            raise Exception(f"Unrecognized readout type: {aggregation_type}")
+        labels.append(label[0])
+    graphs = add_labels_to_graphs(graphs, labels)
+    return graphs
 
 
 def scale_targets(inputs, outputs, mean, std, aggregation_type):

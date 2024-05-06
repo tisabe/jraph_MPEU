@@ -21,8 +21,6 @@ flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
-flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
 
 
 def main(argv):
@@ -62,7 +60,7 @@ def main(argv):
         split_dict[str(asedb_id)] = split
     #print(split_dict)
 
-    with open(os.path.join(workdir, 'splits_test.json'), 'w') as splits_file:
+    with open(os.path.join(workdir, 'splits_ins.json'), 'w') as splits_file:
         json.dump(split_dict, splits_file, indent=4, separators=(',', ': '))
 
 

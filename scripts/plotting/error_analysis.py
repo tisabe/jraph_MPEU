@@ -39,7 +39,7 @@ def plot_regression(df, workdir, config, plot_name):
 
     # Add the joint and marginal histogram plots
     g.plot_joint(
-        sns.histplot, discrete=(False, False), #bins=(100, 100),
+        sns.histplot, discrete=(False, False), bins=(50, 50),
     )
     g.plot_marginals(sns.histplot, element="step", color=None)
     g.ax_marg_x.set_xlabel('Count', fontsize=FLAGS.font_size)
@@ -92,50 +92,48 @@ def plot_dft_type(df, workdir, plot_name):
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
-def plot_space_groups(df, workdir, plot_name):
-    # group the spacegoups into crystal systems
-    bins = [0, 2, 15, 74, 142, 167, 194, 230]
-    labels = [
-        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
-        'Trigonal', 'Hexagonal', 'Cubic']
-    df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
-
-    col = df['crystal system']
-    print(Counter(col))
-
+def plot_space_groups(df, workdir, plot_name, counts):
     fig, ax = plt.subplots()
     sns.boxplot(
         x='crystal system', # plot error vs space group
         y='abs. error',
         data=df,
-        hue='split',
-        ax=ax
+        #hue='split',
+        ax=ax,
+        color='deepskyblue'
     )
     plt.legend([], [], frameon=False)
-    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
     plt.xticks(rotation=90)
-    ax.set_xlabel('Crystal system', fontsize=FLAGS.font_size)
+    ax.set_xlabel('', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
     ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    # write counts at the top of the plot
+    bottom, top = ax.get_ylim()
+    #ax.set_ylim(top=top*1)
+    for xpos, xlabel in zip(ax.get_xticks(), ax.get_xticklabels()):
+        #print(xtick)
+        ax.text(
+            xpos, top*0.8, counts[xlabel.get_text()],
+            horizontalalignment='center', fontsize=FLAGS.font_size*0.8,
+            bbox=dict(boxstyle="square", ec='black', fc='white'))
     plt.yscale('log')
+    plt.xticks(rotation=60)
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def plot_bandgap_type(df, workdir, plot_name):
-    col = df['Egap_type']
-    print(Counter(col))
-
     fig, ax = plt.subplots()
     sns.boxplot(
         x='Egap_type', # plot error vs bandgap type
         y='abs. error',
         data=df,
         ax=ax,
-        hue='split'
+        color='deepskyblue'
     )
-    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='grey', linestyle='--')
+    plt.axhline(y=df['abs. error'].median(), alpha=0.8, color='red', linestyle='--')
     plt.xticks(rotation=90)
     ax.set_xlabel('AFLOW band gap-type label', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
@@ -165,15 +163,12 @@ def plot_density(df, workdir, plot_name):
 
 
 def plot_ldau(df, workdir, plot_name):
-    col = df['ldau_type']
-    print(Counter(col))
-
     fig, ax = plt.subplots()
     sns.boxplot(
         x='ldau_type', # plot error vs ldau type
         y='abs. error',
         data=df,
-        hue='split',
+        color='deepskyblue',
         ax=ax
     )
     ax.set_xlabel('AFLOW LDAU-type label', fontsize=FLAGS.font_size)
@@ -198,15 +193,15 @@ def main(argv):
     if FLAGS.label == 'egap':
         PREDICT_LABEL = r'Predicted $E_{BG}$ (eV)'
         CALCULATE_LABEL = r'Calculated $E_{BG}$ (eV)'
-        ABS_ERROR_LABEL = 'MAE (eV)'
+        ABS_ERROR_LABEL = 'Abs. error (eV)'
     elif FLAGS.label == 'energy':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
-        ABS_ERROR_LABEL = 'MAE (eV)'
+        ABS_ERROR_LABEL = 'Abs. error (eV)'
     else:
         PREDICT_LABEL = r'Predicted $E_{F}$ (eV/atom)'
         CALCULATE_LABEL = r'Calculated $E_{F}$ (eV/atom)'
-        ABS_ERROR_LABEL = 'MAE (eV/atom)'
+        ABS_ERROR_LABEL = 'Abs. error (eV/atom)'
     workdir = FLAGS.file
     df_path = workdir + '/result.csv'
     config = load_config(workdir)
@@ -225,14 +220,26 @@ def main(argv):
     df['abs. error'] = abs(df['prediction'] - df[config.label_str])
     df['num_atoms'] = df['numbers'].apply(len)
     df['num_species'] = df['numbers'].apply(lambda num_list: len(set(num_list)))
-    try:
+
+    # group the spacegoups into crystal systems
+    bins = [0, 2, 15, 74, 142, 167, 194, 230]
+    labels = [
+        'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
+        'Trigonal', 'Hexagonal', 'Cubic']
+    if 'spacegroup_relax' in df.columns:
+        df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
+    else:
+        print('Skipping spacegroup conversion.')
+    
+    if 'Egap_type' in df.columns:
         df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
-    except KeyError:
+    else:
         print("Egap_type not found in properties, continuing without.")
-    try:
+    if 'dft_type' in df.columns:
         df['dft_type'] = df['dft_type'].apply(lambda dft: dft.strip(" '[]"))
-    except KeyError:
+    else:
         print("dft_type not found in properties, continuing without.")
+
     # get dataframe with only split data
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     mean_abs_err_train = df_train.mean(0, numeric_only=True)['abs. error']
@@ -261,6 +268,7 @@ def main(argv):
     std_target = df.std(0, numeric_only=True)[config.label_str]
     print(f'Target mean: {mean_target}, std: {std_target} for {config.label_str}')
     """
+    """
     fig, ax = plt.subplots()
     sns.histplot(
         x=config.label_str, y='prediction', data=df_test, ax=ax,
@@ -281,7 +289,7 @@ def main(argv):
         x='num_species',
         y='abs. error',
         data=df_test,
-        hue='split',
+        color='deepskyblue',
         ax=ax,
     )
     plt.legend([], [], frameon=False)
@@ -313,14 +321,29 @@ def main(argv):
     plot_regression(df_test, workdir, config, '/regression_test.png')
     #plot_regression(df_train, workdir, config, '/regression_train.png')
     #plot_regression(df_val, workdir, config, '/regression_val.png')
+    """
+    if 'spacegroup_relax' in df.columns:
+        col = df_train['crystal system']
+        counts = dict(Counter(col))
+        print(counts)
+        plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
+        plt.pie(counts.values(), labels=counts.keys())
+        plt.show()
+    else:
+        print('Skipping spacegroup plots.')
 
-    plot_space_groups(df_test, workdir, '/error_vs_crystal.png')
+    if 'Egap_type' in df.columns:
+        col = df_train['Egap_type']
+        print(Counter(col))
+        plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
 
-    plot_bandgap_type(df, workdir, '/error_vs_egap_type.png')
-    
-    plot_density(df_test, workdir, '/error_vs_density.png')
+    if 'density' in df.columns:
+        plot_density(df_test, workdir, '/error_vs_density.png')
 
-    plot_ldau(df, workdir, '/error_vs_ldau.png')
+    if 'ldau_type' in df.columns:
+        col = df_train['ldau_type']
+        print(Counter(col))
+        plot_ldau(df, workdir, '/error_vs_ldau.png')
 
 
 if __name__ == "__main__":

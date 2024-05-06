@@ -35,7 +35,10 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )
+from jraph_MPEU.inference import get_results_df
 
+# maximum loss, if training batch loss exceeds this, stop training
+_MAX_TRAIN_LOSS = 1e10
 
 class Updater:
     """A stateless abstraction around an init_fn/update_fn pair.
@@ -201,18 +204,18 @@ class Evaluater:
         self._eval_every_n = eval_every_n
         self._metric_names = metric_names
         self._loss_scalar = 1.0
-        # load loss curve if metrics file exists in checkpoint_dir
+        # Load loss curve if metrics file exists in checkpoint_dir.
         metrics_path = os.path.join(self._checkpoint_dir, 'metrics.pkl')
         best_state_path = os.path.join(
             self._checkpoint_dir,
             'best_state.pkl')
         if os.path.exists(metrics_path):
-            # load metrics, if they have been saved before
+            # Load metrics, if they have been saved before.
             logging.info('Loading metrics from %s', metrics_path)
             with open(metrics_path, 'rb') as metrics_file:
                 self._metrics_dict = pickle.load(metrics_file)
             self._loaded_metrics = True
-            # load best state and lowest loss
+            # Load best state and lowest loss.
             with open(best_state_path, 'rb') as state_file:
                 best_state_dict = pickle.load(state_file)
                 self.best_state = best_state_dict['state']
@@ -440,6 +443,7 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     # try get_valid_mask function instead
     mask = jraph.get_graph_padding_mask(graphs)
     pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    print(jnp.shape(pred_graphs.globals))
     # compute class probabilities
     preds = jax.nn.log_softmax(pred_graphs.globals)
     # Cross entropy loss, note: we average only over valid (unmasked) graphs
@@ -581,7 +585,7 @@ def train_and_evaluate(
     # time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
-        # logging.info(f'step: {step}')
+        # Perform a training step. Get next training graphs.
         start_loop_time = time.time()
         graphs = next(train_reader)
         # Update the weights after a gradient step and report the
@@ -590,19 +594,25 @@ def train_and_evaluate(
         after_getting_graphs = time.time()
         state, loss_metrics = updater.update(state, graphs)
         # logging.info(state['opt_state'])
-        # logging.info('Type of state opt state: %s' % type(state['step']))
-        state['step'].block_until_ready() 
+        logging.info('Type of state opt state: %s' % type(state['opt_state']))
+        state['opt_state'].block_until_ready() 
         after_running_update = time.time()
-        # logging.info('Time to get batch: %f' % (after_getting_graphs-start_loop_time))
-        # logging.info('Time to run update: %f' % (after_running_update-after_getting_graphs))
-        train_reader._timing_measurements_batching.append(
-            after_getting_graphs-start_loop_time)
-        train_reader._update_measurements.append(
-            after_running_update-start_loop_time)        
+
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
+
+        # catch a NaN or too high loss, stop training if it happens
+        if (np.isnan(loss_metrics["loss"]) or
+                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+            logging.info('Invalid loss, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                with open(workdir + '/ABORTED_EARLY', 'w'):
+                    pass
+            break
+
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
@@ -629,10 +639,23 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
+<<<<<<< HEAD
     mean_batching_time = np.mean(train_reader._timing_measurements_batching)
     logging.info(f'Mean batching time: {mean_batching_time}')
 
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
+=======
+    # after training is finished, evaluate model and save predictions in
+    # dataframe
+    df_path = workdir + '/result.csv'
+    if not os.path.exists(df_path):
+        logging.info('Evaluating model and generating dataframe.')
+        if config.dropout_rate == 0:
+            results_df = get_results_df(workdir)
+        else:
+            results_df = get_results_df(workdir, mc_dropout=True)
+        results_df.to_csv(df_path, index=False)
+>>>>>>> dd2ae0be42a955ae2e63c253ab91d5f51bc66e49
 
     return evaluater, lowest_val_loss

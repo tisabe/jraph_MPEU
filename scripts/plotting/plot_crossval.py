@@ -13,6 +13,11 @@ def min_of_previous(array):
     return [min(array[:i]) for i in range(len(array))]
 
 
+def split_list(list_a, chunk_size):
+    # split list_a into even chunks of chunk_size elements
+    for i in range(0, len(list_a), chunk_size):
+        yield list_a[i:i + chunk_size]
+
 
 def main(args):
     # plot learning curves
@@ -49,13 +54,21 @@ def main(args):
             step = [int(row[0]) for row in metrics if int(row[0]) < args.max_step]
             min_step_rmse = step[np.argmin(loss_rmse)]
             min_step_mae = step[np.argmin(loss_mae)]
+            activation_name_convert = {
+                'shifted_softplus': 'SSP', 'relu': 'relu', 'swish': 'swish'}
             row_dict = {
+                'batch_size': int(config_dict['batch_size']),
                 'mp_steps': int(config_dict['message_passing_steps']),
                 'latent_size': int(config_dict['latent_size']),
                 'init_lr': config_dict['init_lr'],
                 'decay_rate': config_dict['decay_rate'],
                 'dropout_rate': config_dict['dropout_rate'],
+                'global_readout_mlp_layers': int(config_dict['global_readout_mlp_layers']),
+                'mlp_depth': int(config_dict['mlp_depth']),
+                'activation_fn': activation_name_convert[
+                    config_dict['activation_name']],
                 'seed': config_dict['seed'],
+                'layer_norm': config_dict['use_layer_norm'],
                 'mae': min_mae,
                 'rmse': min_rmse,
                 'min_step_mae': min_step_mae,
@@ -74,12 +87,12 @@ def main(args):
     # print the best 5 configs
     df_copy = df.copy()
     df_copy = df_copy.sort_values(by='rmse', axis='index')
-    for i in range(5):
+    for i in range(10):
         print(f'{i}. minimum rmse configuration: \n', df_copy.iloc[i])
 
     # print the worst 5 configs
     df_copy = df_copy.sort_values(by='rmse', axis='index', ascending=False)
-    for i in range(5):
+    for i in range(2):
         print(f'{i}. maximum rmse configuration: \n', df_copy.iloc[i])
     """
     for i in range(10):
@@ -96,8 +109,8 @@ def main(args):
     plt.legend()
     plt.show()
     """
-    # drop the worst 10 configs
-    for i in range(10):
+    # drop the worst n configs
+    for i in range(args.drop_n):
         i_max = df['rmse'].idxmax()
         df = df.drop([i_max])
 
@@ -113,27 +126,42 @@ def main(args):
     col_to_label = {
         'latent_size': 'Latent size', 'mp_steps': 'MP steps',
         'init_lr': 'Learning rate', 'decay_rate': 'LR decay rate',
-        'dropout_rate': 'Dropout rate', 'seed': 'Split seed'}
+        'dropout_rate': 'Dropout rate', 'seed': 'Split seed',
+        'batch_size': 'Batch size', 'layer_norm': 'Layer norm',
+        'global_readout_mlp_layers': 'Readout layers',
+        'mlp_depth': 'MLP depth', 'activation_fn': 'Activation'}
     df = df.astype({'latent_size': 'int32'})
     df = df.astype({'mp_steps': 'int32'})
     df = df.astype({'seed': 'int32'})
-    fig, ax = plt.subplots(1, len(box_xnames), figsize=(16, 8), sharey=True)
-    for i, name in enumerate(box_xnames):
-        sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
-        sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
-        ax[i].set_xlabel(col_to_label[name], fontsize=22)
-        if i == 0:
-            ax[i].set_ylabel('RMSE (eV/atom)', fontsize=22)
-        else:
-            ax[i].set_ylabel('')
-        ax[i].tick_params(axis='both', which='both', labelsize=18)
-    #plt.yscale('log')
+    n_subplots_max = args.n_plots  # maximum number of subplots in a single large plot
+    count = 0  # count up plots for saving them in different files
+    for box_xnames_split in split_list(box_xnames, n_subplots_max):
+        fig, ax = plt.subplots(
+            1, len(box_xnames_split), figsize=(len(box_xnames_split)*4, 8),
+            sharey=True)
+        for i, name in enumerate(box_xnames_split):
+            sns.boxplot(ax=ax[i], x=name, y='rmse', data=df, color='C0')
+            sns.swarmplot(ax=ax[i], x=name, y='rmse', data=df, color='.25')
+            ax[i].set_xlabel(col_to_label[name], fontsize=22)
+            if i == 0:
+                ax[i].set_ylabel(f'RMSE ({args.unit})', fontsize=22)
+            else:
+                ax[i].set_ylabel('')
+            ax[i].tick_params(axis='both', which='both', labelsize=18)
+            ax[i].xaxis.labelpad = 15
+        #plt.yscale('log')
+        plt.rc('font', size=16)
+        plt.tight_layout()
+        plt.show()
+        fig.savefig(
+            args.file+f'/grid_search_{count}.png', bbox_inches='tight',
+            dpi=600)
+        count += 1
+
+    sns.scatterplot(data=df, x='rmse', y='mae')
     plt.rc('font', size=16)
     plt.tight_layout()
     plt.show()
-    fig.savefig(args.file+'/grid_search.png', bbox_inches='tight', dpi=600)
-
-
     return 0
 
 
@@ -148,5 +176,19 @@ if __name__ == "__main__":
         default=100000000,  # an arbitrary large number...
         help='maximum number of steps to take the mse/mae minimum from'
     )
+    parser.add_argument(
+        '-drop_n', type=int, dest='drop_n',
+        default=0,
+        help='Number of worst values to drop, for clearer visualization'
+    )
+    parser.add_argument(
+        '-n_plots', type=int, dest='n_plots',
+        default=5,
+        help='Number of subplots in a single box plot frame.'
+    )
+    parser.add_argument(
+        '-unit', type=str, dest='unit',
+        default='eV/atom',
+        help='unit string')
     args_main = parser.parse_args()
     main(args_main)

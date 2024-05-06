@@ -29,10 +29,16 @@ import functools
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
+<<<<<<< HEAD
     normalize_targets_dict,
     add_labels_to_graphs,
     load_config,
     pad_graph_to_nearest_power_of_two
+=======
+    get_normalization_metrics,
+    normalize_graphs,
+    load_config
+>>>>>>> dd2ae0be42a955ae2e63c253ab91d5f51bc66e49
 )
 
 
@@ -484,14 +490,16 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=seed-42)  # seed-42 as seed is 42 by default, but default random state should be 0
+            random_state=seed-42)
+    # seed-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
         test_set) = sklearn.model_selection.train_test_split(
             val_and_test_set,
             test_size=test_frac/(test_frac+val_frac),
-            random_state=1)   # seed-41 as seed is 42 by default, but default random state should be 1
+            random_state=1)
+    # seed-41 as seed is 42 by default, but default random state should be 1
     split_dict = {'train':train_set, 'validation':val_set, 'test':test_set}
     return split_dict
 
@@ -609,17 +617,6 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    # convert labels depending on which type is set in config
-    if config.label_type == 'scalar':
-        labels_dict, mean, std = normalize_targets_dict(
-            graphs_dict, labels_dict, config.aggregation_readout_type)
-        logging.info(f'Mean: {mean}, Std: {std}')
-    elif config.label_type == 'class':
-        labels_dict = {key: cut_egap(value, config.egap_cutoff) \
-            for key, value in labels_dict.items()}
-        mean = None
-        std = None
-
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
         graphs_dict[id_single] = graph._replace(globals=np.array([label]))
 
@@ -642,4 +639,22 @@ def get_datasets(config, workdir):
             # append graph from graph_list using the id in split_dict
             graphs_split[key].append(graphs_dict[id_single])
 
+    # get normalization metrics from train data
+    if config.label_type == 'scalar':
+        mean, std = get_normalization_metrics(
+            graphs_split['train'], config.aggregation_readout_type)
+        logging.info(f'Mean: {mean}, Std: {std}')
+    elif config.label_type == 'class':
+        mean, std = None, None
+    else:
+        raise ValueError(f'{config.label_type} not recognized as label type.')
+
+    for split, graphs_list in graphs_split.items():
+        if config.label_type == 'scalar':
+            graphs_split[split] = normalize_graphs(
+                graphs_list, mean, std, config.aggregation_readout_type)
+        elif config.label_type == 'class':
+            for i, graph in enumerate(graphs_list):
+                label = cut_egap(graph.globals[0], config.egap_cutoff)
+                graphs_list[i] = graph._replace(globals=np.array([label]))
     return graphs_split, mean, std

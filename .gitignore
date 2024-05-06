@@ -21,3 +21,7 @@ scripts/figs*
 core.*
 *.lprof
 *.nsys-rep
+.ipynb_checkpoints/
+Lib/*
+*.cfg
+scripts*
