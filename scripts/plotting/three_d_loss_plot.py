@@ -136,34 +136,70 @@ if __name__ == "__main__":
     print(z)
     # fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 
-    ls = LightSource(270, 45)
+    # ls = LightSource(270, 45)
     # To use a custom hillshading mode, override the built-in shading and pass
     # in the rgb colors of the shaded surface calculated from "shade".
     # rgb = ls.shade(z, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
     # surf = ax.plot_surface(x, y, z, rstride=1, cstride=1, # facecolors=rgb,
     #                     linewidth=0, antialiased=False, shade=False)
 
-    ax.plot_surface(x, y, z, alpha=0.3, linewidth=0, antialiased=False)
-    ax.scatter3D(
-        mp_step_list,
-        latent_size_list,
-        val_list, alpha=0.6, s=40, marker='o')
+    print(np.min(z))
 
-
-    # ax1.grid(False)
+    # ###patch start###
+    # from mpl_toolkits.mplot3d.axis3d import Axis
+    # if not hasattr(Axis, "_get_coord_info_old"):
+    #     def _get_coord_info_new(self, renderer):
+    #         mins, maxs, centers, deltas, tc, highs = self._get_coord_info_old(renderer)
+    #         mins += deltas / 4
+    #         maxs -= deltas / 4
+    #         return mins, maxs, centers, deltas, tc, highs
+    #     Axis._get_coord_info_old = Axis._get_coord_info  
+    #     Axis._get_coord_info = _get_coord_info_new
+    # ###patch end###
+        
     ax.xaxis.pane.set_edgecolor('black')
     ax.yaxis.pane.set_edgecolor('black')
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
 
+    # ax.set_xticks([2, 3, 4, 5], minor=False, rotation=70)
+    # ax.set_yticks([128, 256, 384, 512], minor=False, rotation=70)
+    # ax.set_zticks([0.47, 0.5, 0.53], minor=False)
+
+
+
+
+    # plt.rcParams['grid.linewidth'] = 1   # change linwidth
+
+
     ax.set_xticks([2, 3, 4, 5], minor=False)
     ax.set_yticks([128, 256, 384, 512], minor=False)
-    # ax.set_zticks([0.54, 0.55, 0.56], minor=False)
+    # ax.tick_params(axis='x', labelrotation=45)
+    # ax.tick_params(axis='y', labelrotation=10)
 
+    ax.set_zticks([0.47, 0.5, 0.53], minor=False)
     ax.set_xlim([2, 5])
     ax.set_ylim([128, 512])
-    # ax.set_zlim([0.54, 0.56])
+    ax.set_zlim([0.47, 0.53])
+
+    ax.yaxis.set_tick_params(labelsize=7)
+    ax.xaxis.set_tick_params(labelsize=7)
+    ax.zaxis.set_tick_params(labelsize=7)
+
+    eps_x= 0.0000000006
+    # eps_y= -0.005
+    eps_y= 0.0000000006
+
+    eps_z= 0.0000000006
+
+
+    # ax.axes.set_xlim3d(left=2+10*eps_x, right=5.0-10*eps_x) 
+    # ax.axes.set_ylim3d(bottom=128+eps_y, top=512-eps_y) 
+    # ax.axes.set_zlim3d(bottom=0.47+eps_z/100, top=0.53-eps_z/100)     
+    # ax.axes.set_xlim3d(left=2.02, right=4.98) 
+    # ax.axes.set_ylim3d(bottom=128, top=512) 
+    # ax.axes.set_zlim3d(bottom=0.47, top=0.53) 
 
     # plt.ylim([128, 512])
     # plt.xlim([2, 5])
@@ -172,17 +208,39 @@ if __name__ == "__main__":
     matplotlib.rc('font',family='serif')
     matplotlib.rc('axes',labelsize=32)
 
-    ax.xaxis._axinfo['tick']['inward_factor'] = 0
-    ax.xaxis._axinfo['tick']['outward_factor'] = 0.4
-    ax.yaxis._axinfo['tick']['inward_factor'] = 0
-    ax.yaxis._axinfo['tick']['outward_factor'] = 0.4
-    ax.zaxis._axinfo['tick']['inward_factor'] = 0
-    ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
-    ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
+    # ax.xaxis._axinfo['tick']['inward_factor'] = 0
+    # ax.xaxis._axinfo['tick']['outward_factor'] = 0.4
+    # ax.yaxis._axinfo['tick']['inward_factor'] = 0
+    # ax.yaxis._axinfo['tick']['outward_factor'] = 0.4
+    # ax.zaxis._axinfo['tick']['inward_factor'] = 0
+    # ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
+    # ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
 
-    ax.set_xlabel('MP Steps', fontsize=10)
-    ax.set_ylabel('Latent Size', fontsize=10)
-    ax.set_zlabel('RMSE (eV/atom)', fontsize=10)
+    ax.set_xlabel('MP Steps', fontsize=9)
+    ax.set_ylabel('Latent Size', fontsize=9)
+    ax.set_zlabel('RMSE (eV/atom)', fontsize=9)
 
+    # ax.yaxis._axinfo["grid"].update({"linewidth":0.05, "color" : "black"})
+    # ax.xaxis._axinfo["grid"].update({"linewidth":0.05, "color" : "black"})
+    # ax.zaxis._axinfo["grid"].update({"linewidth":0.05, "color" : "black"})
+
+    # ax.yaxis._axinfo["grid"].update({"color" : "black"})
+    # ax.xaxis._axinfo["grid"].update({"color" : "black"})
+    # ax.zaxis._axinfo["grid"].update({"color" : "black"})
+
+    ax.scatter3D(
+        mp_step_list,
+        latent_size_list,
+        val_list, alpha=0.6, s=40, marker='o', color='tab:blue')
+    ax.plot_surface(x, y, z, alpha=0.3, linewidth=0.001, antialiased=False, edgecolors='tab:blue')
+
+
+    # az -57, ele 13
+    # -65 16
+    fig.subplots_adjust(left=0, right=0.9, bottom=0.11, top=0.88, wspace=0.2, hspace=0.2)
+    ax.view_init(elev=12, azim=-65)
+    plt.tight_layout()
+
+    plt.savefig("/home/dts/Documents/hu/3d_scatter_plane_best_new.png", bbox_inches='tight', dpi=600)
     plt.show()
 
