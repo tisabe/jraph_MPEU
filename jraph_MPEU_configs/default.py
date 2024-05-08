@@ -39,6 +39,8 @@ def get_config() -> ml_collections.ConfigDict():
     # data split settings
     config.data_file = 'databases/QM9/graphs_fc_vec.db'
     config.label_str = 'U0' # string to determine which label is used from the dataset
+    config.globals_strs = None # string or list of strings that are keys in 
+    # ase.db, whose values are added as globals to graphs
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
 

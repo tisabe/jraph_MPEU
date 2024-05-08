@@ -212,19 +212,29 @@ def get_graph_knearest(
     )
 
 
-def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
+def ase_row_to_jraph(row: ase.db.row.AtomsRow, globals_strs=None) -> jraph.GraphsTuple:
     """Return the ASE row as a graph."""
     senders = row.data['senders']
     receivers = row.data['receivers']
     edges = row.data['edges']
     atoms = row.toatoms()
     nodes = atoms.get_atomic_numbers()
+    if isinstance(globals_strs, list):
+        graph_globals = []
+        for global_str in globals_strs:
+            graph_globals.append(row[global_str])
+        graph_globals = np.asarray(graph_globals)
+    elif isinstance(globals_strs, str):
+        graph_globals = [row[globals_strs]]
+    else:
+        graph_globals = None
+
 
     graph = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
         n_edge=np.asarray([len(senders)]),
         nodes=nodes, edges=edges,
-        globals=None,
+        globals=np.asarray(graph_globals),
         senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph
@@ -234,7 +244,8 @@ def asedb_to_graphslist(
         label_str: str,
         selection: str = None,
         num_edges_max: int = None,
-        limit: int = None
+        limit: int = None,
+        globals_strs = None
     ) -> Tuple[Sequence[jraph.GraphsTuple], list]:
     """Return a list of graphs, by loading rows from local ase database at file.
 
@@ -265,7 +276,7 @@ def asedb_to_graphslist(
     logging.info(f'Number of entries selected: {count}')
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
-        graph = ase_row_to_jraph(row)
+        graph = ase_row_to_jraph(row, globals_strs)
         n_edge = graph.n_edge[0]
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
@@ -509,7 +520,8 @@ def get_datasets(config, workdir):
             label_str=config.label_str,
             selection=config.selection,
             num_edges_max=config.num_edges_max,
-            limit=config.limit_data)
+            limit=config.limit_data,
+            globals_strs=config.globals_strs)
         # transform graphs list into graphs dict, same for labels
         graphs_dict = {}
         labels_dict = {}
@@ -525,7 +537,7 @@ def get_datasets(config, workdir):
         ase_db = ase.db.connect(config.data_file)
         for id_single in split_dict.keys():
             row = ase_db.get(id_single)
-            graph = ase_row_to_jraph(row)
+            graph = ase_row_to_jraph(row, config.globals_strs)
             #graphs_list.append(graph)
             graphs_dict[id_single] = graph
             label = row.key_value_pairs[config.label_str]
@@ -552,9 +564,6 @@ def get_datasets(config, workdir):
             # save num list here
             with open(num_path, 'w+', encoding="utf-8") as num_file:
                 json.dump(num_list, num_file)
-    num_list = list(range(100))  # TODO: this is only a hack to make inference
-    # across databases easier, this should be reverted in the future
-    # aflow_x_mp
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     num_classes = len(num_list)

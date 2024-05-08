@@ -248,6 +248,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.aggregation_readout_type = 'mean'
         config.label_type = 'scalar'
         config.shuffle_val_seed = -1
+        config.globals_strs = None
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
@@ -350,6 +351,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'scalar'
+        config.globals_strs = None
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
@@ -443,6 +445,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'class'
+        config.globals_strs = None
         config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
@@ -615,15 +618,25 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
+        globals_strs = 'gap'
         database = ase.db.connect(self.test_db)
         row = database.get(1)
         atomic_numbers = row.toatoms().get_atomic_numbers()
-        graph = ase_row_to_jraph(row)
+        graph = ase_row_to_jraph(row, globals_strs)
         nodes = graph.nodes
         self.assertIsInstance(
             graph, jraph.GraphsTuple, f"{graph} is not a graph")
         np.testing.assert_array_equal(
             atomic_numbers, nodes, "Atomic numbers are not equal")
+        self.assertTupleEqual(graph.globals.shape, (1,))
+
+        globals_strs = ['gap', 'lumo']
+        graph = ase_row_to_jraph(row, globals_strs)
+        self.assertTupleEqual(graph.globals.shape, (2,))
+
+        globals_strs = None
+        graph = ase_row_to_jraph(row, globals_strs)
+        self.assertEqual(graph.globals, None)
 
     def test_dbs_raw(self):
         """Test the raw ase databases without graph features."""
