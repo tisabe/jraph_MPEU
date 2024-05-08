@@ -25,9 +25,18 @@ def main(_):
     df = df[(df['dft_type']=="['PAW_PBE']") | (df['dft_type'].isna())]
     df = df[(df['ef']>-10) & (df['ef']<70)]
 
+    print("Total value counts: ")
+    print(df.value_counts(subset='struct_hash'))
+
     # separate into aflow and mp data
     df_aflow = df[df['auid'].notna()]
     df_mp = df[df['auid'].isna()]
+
+    print("AFLOW value counts: ")
+    print(df_aflow.value_counts(subset='struct_hash'))
+    print("MP value counts: ")
+    print(df_mp.value_counts(subset='struct_hash'))
+
 
     n_total = df['struct_hash'].nunique()
     n_aflow = df_aflow['struct_hash'].nunique()
@@ -37,19 +46,31 @@ def main(_):
     print("# unique structures in MP: ", n_mp)
     print("# structures overlapping: ", n_aflow+n_mp-n_total)
 
-    fig, ax = plt.subplots()
-    sns.histplot(data=df, x='ef', ax=ax, hue='database')
-    fig.savefig('databases/hist.png', bbox_inches='tight', dpi=600)
-    plt.show()
+    fontsize = 18
+    ticksize = 16
+
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    gfg = sns.histplot(data=df, x='ef', ax=ax[0], hue='database', palette=['red', 'green'])
+    ax[0].legend(labels=['Materials Project', 'AFLOW'])
+    ax[0].set_xlabel('Number of atoms in unit cell', fontsize=fontsize)
+    ax[0].set_ylabel('Count', fontsize=fontsize)
+    ax[0].tick_params(which='both', labelsize=ticksize)
+    plt.setp(gfg.get_legend().get_texts(), fontsize=fontsize-2)
 
     structs_all = set(df['struct_hash'].to_list())
     structs_aflow = set(df_aflow['struct_hash'].to_list())
     structs_mp = set(df_mp['struct_hash'].to_list())
     structs_shared = structs_aflow & structs_mp
     df_shared = df[df['struct_hash'].isin(structs_shared)]
+    print("# entries in shared set from AFLOW: ", sum(df_shared['auid'].notna()))
+    print("# entries in shared set from MP: ", sum(df_shared['auid'].isna()))
 
-    fig, ax = plt.subplots()
-    sns.histplot(data=df_shared, x='ef', ax=ax, hue='database')
+    sns.histplot(data=df_shared, x='ef', ax=ax[1], hue='database', palette=['red', 'green'])
+    ax[1].get_legend().remove()
+    ax[1].set_xlabel(r'E$_f$ (eV/atom)', fontsize=fontsize)
+    ax[1].set_ylabel('Count', fontsize=fontsize)
+    ax[1].tick_params(which='both', labelsize=ticksize)
+    plt.tight_layout()
     fig.savefig('databases/hist_shared.png', bbox_inches='tight', dpi=600)
     plt.show()
 

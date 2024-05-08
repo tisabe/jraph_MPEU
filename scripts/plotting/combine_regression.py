@@ -103,7 +103,7 @@ def main(argv):
     ax[0, 0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[0, 0].set(
         ylabel=r'AFLOW model $E_f$ (eV/atom)',
-        xlabel=r'AFLOW DFT $E_f$ (eV/atom)')
+        xlabel=r'AFLOW target $E_f$ (eV/atom)')
     ax[0, 0].text(0.05, 0.9, "MAE: 30 meV/atom", transform=ax[0, 0].transAxes)
 
     sns.histplot(data=df_mp_to_mp, x='delta_e', y='prediction',
@@ -111,7 +111,7 @@ def main(argv):
     ax[1, 1].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[1, 1].set(
         ylabel=r'MP model $E_f$ (eV/atom)',
-        xlabel=r'MP DFT $E_f$ (eV/atom)')
+        xlabel=r'MP target $E_f$ (eV/atom)')
     ax[1, 1].text(0.05, 0.9, "MAE: 23 meV/atom", transform=ax[1, 1].transAxes)
 
     sns.histplot(data=df_aflow_to_mp, x='delta_e', y='prediction',
@@ -119,7 +119,7 @@ def main(argv):
     ax[0, 1].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[0, 1].set(
         ylabel=r'AFLOW model $E_f$ (eV/atom)',
-        xlabel=r'MP DFT $E_f$ (eV/atom)')
+        xlabel=r'MP target $E_f$ (eV/atom)')
     ax[0, 1].text(0.05, 0.9, "MAE: 578 meV/atom", transform=ax[0, 1].transAxes)
 
     sns.histplot(data=df_mp_to_aflow, x='enthalpy_formation_atom', y='prediction',
@@ -127,7 +127,7 @@ def main(argv):
     ax[1, 0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[1, 0].set(
         ylabel=r'MP model $E_f$ (eV/atom)',
-        xlabel=r'AFLOW DFT $E_f$ (eV/atom)')
+        xlabel=r'AFLOW target $E_f$ (eV/atom)')
     ax[1, 0].text(0.05, 0.9, "MAE: 238 meV/atom", transform=ax[1, 0].transAxes)
 
     for i in ax.flatten():

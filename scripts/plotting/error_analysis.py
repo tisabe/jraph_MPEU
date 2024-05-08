@@ -2,7 +2,6 @@
 using different metrics such as atomic numbers, number of species etc.
 """
 import os
-from collections import Counter
 
 from absl import app
 from absl import flags
@@ -98,9 +97,9 @@ def plot_regression(df, workdir, label_str, plot_name):
         g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
     elif FLAGS.label == 'U0':
         pass
-    else:
-        g.ax_joint.set_xticks([-4, -2, 0, 2])
-        g.ax_joint.set_yticks([-4, -2, 0, 2])
+    elif FLAGS.label == 'ef':
+        g.ax_joint.set_xticks([-4, -2, 0, 2, 4])
+        g.ax_joint.set_yticks([-4, -2, 0, 2, 4])
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
@@ -225,13 +224,22 @@ def main(argv):
     labels = [
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
-    if 'spacegroup_relax' in df.columns:
+
+    if 'spacegroup_pmg' in df.columns:
+        print('Found pymatgen spacegroups...')
+        df['crystal system'] = pd.cut(df['spacegroup_pmg'], bins, labels=labels)
+    elif 'spacegroup_relax' in df.columns:
         df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
     else:
         print('Skipping spacegroup conversion.')
 
     if 'Egap_type' in df.columns:
-        df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
+        def replace_fn(gap):
+            if isinstance(gap, str):
+                return gap.replace('_spin-polarized', '')
+            else:
+                return gap
+        df['Egap_type'] = df['Egap_type'].apply(replace_fn)
     else:
         print("Egap_type not found in properties, continuing without.")
     if 'dft_type' in df.columns:
@@ -306,19 +314,17 @@ def main(argv):
             df_test, workdir, config.label_str, '/regression_test.png')
     if FLAGS.plot in ('all', 'spacegroup'):
         if 'spacegroup_relax' in df.columns:
-            col = df_train['crystal system']
-            counts = dict(Counter(col))
+            counts = df_train['crystal system'].value_counts(dropna=False)
             print(counts)
             plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
-            plt.pie(counts.values(), labels=counts.keys())
+            plt.pie(counts.values, labels=counts.index.to_list())
             plt.show()
         else:
             print('Skipping spacegroup plots.')
     if FLAGS.plot in ('all', 'hist'):
         if 'Egap_type' in df.columns:
             plot_error_hist(df_test, workdir, '/error_hist.png', 'Egap_type')
-            col = df_train['Egap_type']
-            print(Counter(col))
+            print(df_train['Egap_type'].value_counts(dropna=False))
         else:
             plot_error_hist(df_test, workdir, '/error_hist.png', None)
     if FLAGS.plot in ('all', 'density'):
@@ -328,8 +334,7 @@ def main(argv):
             print('Skipping density plots.')
     if FLAGS.plot in ('all', 'ldau'):
         if 'ldau_type' in df.columns:
-            col = df_train['ldau_type']
-            print(Counter(col))
+            print(df_train['ldau_type'].value_counts(dropna=False))
             plot_ldau(df, workdir, '/error_vs_ldau.png')
         else:
             print('Skipping DFT+U plots.')
