@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 import ase.db
 import numpy as np
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupKFold, KFold
 
 from jraph_MPEU.input_pipeline import(
     ase_row_to_jraph
@@ -61,7 +61,7 @@ class AsedbDataset():
         and meta data."""
         graph = ase_row_to_jraph(row, self._globals_strs)
         target = row[self._target]
-        graph_out = graph._replace(globals=np.asarray(target.reshape((1, -1))))
+        graph_out = graph._replace(globals=np.asarray(target).reshape((1, -1)))
         meta_data = row.key_value_pairs
         meta_data['formula'] = row['formula']
         meta_data['asedb_id'] = row.id
@@ -73,19 +73,21 @@ class AsedbDataset():
         with Pool(processes=n_workers) as pool:
             self._data = pool.map(self._get_row_tuple, self._data_raw)
 
-    def _split(self, n_folds=10, i_fold=0):
-        self._kfold_test = GroupKFold(n_splits=n_folds)
-        groups = None
+    def _split(self, n_folds=10, i_fold=0, groups=None):
+        if groups is None:
+            self._cv_test = KFold(n_splits=n_folds)
+        else:
+            self._cv_test = GroupKFold(n_splits=n_folds)
         for i, (train_val_index, test_index) in enumerate(
-                self._kfold_test.split(X=self._data, y=None, groups=groups)):
+                self._cv_test.split(X=self._data, y=None, groups=groups)):
             if i==i_fold:
                 self._train_val_index = train_val_index
                 self._test_index = test_index
 
     def _normalize(self):
-        raise NotImplementedError
+        train_data = [self._data[i] for i in self._train_val_index]
 
     def _download(self):
-        """Download the dataset to disk, of corresponding file was not found
+        """Download the dataset to disk, if corresponding file was not found
         in self.root."""
         raise NotImplementedError
