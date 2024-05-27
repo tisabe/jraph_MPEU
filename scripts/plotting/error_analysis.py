@@ -141,6 +141,27 @@ def plot_space_groups(df, workdir, plot_name, counts):
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
+def spacegroup_scatter(df, workdir, plot_name):
+    """Plot mean error over number of entries in specific spacegroup."""
+    pmg_str = 'spacegroup_pmg'
+    sg_col = pmg_str if pmg_str in df.columns else 'spacegroup_relax'
+    df_grouped = df.groupby(sg_col).aggregate(
+        {'abs. error': 'mean', sg_col: 'count'})
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x=sg_col,
+        y='abs. error',
+        data=df_grouped,
+        ax=ax
+    )
+    ax.set_xlabel(
+        'Number of training examples per spacegroup', fontsize=FLAGS.font_size)
+    ax.set_ylabel('MAE (Training split)', fontsize=FLAGS.font_size)
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_density(df, workdir, plot_name):
     fig, ax = plt.subplots()
     sns.histplot(
@@ -273,6 +294,27 @@ def main(argv):
     median_err = df_test.median(0, numeric_only=True)['abs. error']
     print(f'Median error on test set: {median_err}')
 
+    if 'source_file' in df.columns:
+        source_files = set(df_test['source_file'].to_list())
+        for name in source_files:
+            df_test_db = df_test.loc[
+                lambda df_temp: df_temp['source_file'] == name]
+            mae_db = np.mean(df_test_db['abs. error'])
+            print(f'MAE for db {name}: {mae_db}')
+        if FLAGS.plot in ('all', 'scatter_dbs'):
+            fig, ax = plt.subplots()
+            sns.scatterplot(
+                x=config.label_str,
+                y='prediction',
+                data=df_test,
+                ax=ax,
+                hue='source_file'
+            )
+            plt.tight_layout()
+            plt.show()
+            fig.savefig(
+                workdir+'/regression_test_dbs.png', bbox_inches='tight', dpi=600)
+
     # print rows with highest errors
     if 'auid' in df_test.columns:
         col_to_print = ['auid', 'prediction', config.label_str, 'abs. error',
@@ -321,6 +363,8 @@ def main(argv):
             plt.show()
         else:
             print('Skipping spacegroup plots.')
+    if FLAGS.plot in ('all', 'sg_scatter'):
+        spacegroup_scatter(df_train, workdir, '/sg_scatter.png')
     if FLAGS.plot in ('all', 'hist'):
         if 'Egap_type' in df.columns:
             plot_error_hist(df_test, workdir, '/error_hist.png', 'Egap_type')

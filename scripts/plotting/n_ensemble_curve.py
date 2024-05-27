@@ -146,9 +146,10 @@ def main(_):
         df_curve = get_ensemble_curve_df(directory, FLAGS.n_best)
         df_curves = pd.concat([df_curves, df_curve], axis=0, ignore_index=True)
 
-    metrics = ['RMSE', 'MAE', 'MdAE']
+    #metrics = ['RMSE', 'MAE', 'MdAE']
+    """metrics = ['MAE']
     fig, axes = plt.subplots(
-        len(metrics), 1, figsize=(8, len(metrics)*5), sharex=True)
+        len(metrics), 1, figsize=(6.4, len(metrics)*2.4), sharex=True)
     for ax, metric in zip(axes, metrics):
         g = sns.lineplot(
             data=df_curves, x='n_best', y=metric+'_test', hue='dir', ax=ax,
@@ -156,7 +157,15 @@ def main(_):
         ax.set_xlabel('Size of ensemble', fontsize=FLAGS.font_size)
         ax.set_ylabel(f'{metric} ({FLAGS.unit})', fontsize=FLAGS.font_size)
         ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    plt.tight_layout()
+    plt.tight_layout()"""
+    fig, ax = plt.subplots()
+    g = sns.lineplot(
+        data=df_curves, x='n_best', y='MAE_test', hue='dir', ax=ax,
+        style='dir'
+    )
+    ax.set_xlabel('Size of ensemble', fontsize=FLAGS.font_size)
+    ax.set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
     folders = [
         os.path.basename(os.path.normpath(directory)) for directory in FLAGS.dirs]
     dir_to_label_dict = {
@@ -167,11 +176,8 @@ def main(_):
         'ef_pbj_ensemble': 'Reference ensemble',
     }
     new_labels = [dir_to_label_dict[folder] for folder in folders]
-    sns.move_legend(axes[0], 'best', title=None, labels=new_labels,
+    sns.move_legend(ax, 'best', title=None, labels=new_labels,
         fontsize=FLAGS.font_size-5)
-    for i in range(len(metrics)):
-        if i != 0:
-            axes[i].get_legend().remove()
     plt.show()
     fig.savefig(
         FLAGS.dirs[0]+'/n_ensemble_curve.png', bbox_inches='tight', dpi=600)
