@@ -212,29 +212,40 @@ def get_graph_knearest(
     )
 
 
-def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
+def ase_row_to_jraph(row: ase.db.row.AtomsRow, use_mace: bool=False) -> jraph.GraphsTuple:
     """Return the ASE row as a graph."""
     senders = row.data['senders']
     receivers = row.data['receivers']
     edges = row.data['edges']
-    atoms = row.toatoms()
-    nodes = atoms.get_atomic_numbers()
-
-    graph = jraph.GraphsTuple(
-        n_node=np.asarray([len(nodes)]),
-        n_edge=np.asarray([len(senders)]),
-        nodes=nodes, edges=edges,
-        globals=None,
-        senders=np.asarray(senders), receivers=np.asarray(receivers))
-
+    if use_mace:
+        nodes = row.data['mace_small']
+        graph = jraph.GraphsTuple(
+            n_node=np.asarray([len(nodes)]),
+            n_edge=np.asarray([len(senders)]),
+            nodes=nodes,
+            edges=edges,
+            globals=None,
+            senders=np.asarray(senders), receivers=np.asarray(receivers))
+    else:
+        atoms = row.toatoms()
+        nodes = atoms.get_atomic_numbers()
+        graph = jraph.GraphsTuple(
+            n_node=np.asarray([len(nodes)]),
+            n_edge=np.asarray([len(senders)]),
+            nodes=nodes,
+            edges=edges,
+            globals=None,
+            senders=np.asarray(senders), receivers=np.asarray(receivers))
     return graph
+
 
 def asedb_to_graphslist(
         file: str,
         label_str: str,
         selection: str = None,
         num_edges_max: int = None,
-        limit: int = None
+        limit: int = None,
+        use_mace: bool = False
     ) -> Tuple[Sequence[jraph.GraphsTuple], list]:
     """Return a list of graphs, by loading rows from local ase database at file.
 
@@ -265,7 +276,7 @@ def asedb_to_graphslist(
     logging.info(f'Number of entries selected: {count}')
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
-        graph = ase_row_to_jraph(row)
+        graph = ase_row_to_jraph(row, use_mace)
         n_edge = graph.n_edge[0]
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
@@ -502,6 +513,11 @@ def get_datasets(config, workdir):
     # If the file with splits is present, load it and pull the data using the
     # ids in the split file
     split_path = os.path.join(workdir, 'splits.json')
+    if 'use_mace' in config:
+        use_mace = config.use_mace
+    else:
+        use_mace = False
+
     if not os.path.exists(split_path):
         logging.info(f'Did not find split file at {split_path}. Pulling data.')
         graphs_list, labels_list, ids = asedb_to_graphslist(
@@ -509,7 +525,8 @@ def get_datasets(config, workdir):
             label_str=config.label_str,
             selection=config.selection,
             num_edges_max=config.num_edges_max,
-            limit=config.limit_data)
+            limit=config.limit_data,
+            use_mace=use_mace)
         # transform graphs list into graphs dict, same for labels
         graphs_dict = {}
         labels_dict = {}
@@ -525,7 +542,7 @@ def get_datasets(config, workdir):
         ase_db = ase.db.connect(config.data_file)
         for id_single in split_dict.keys():
             row = ase_db.get(id_single)
-            graph = ase_row_to_jraph(row)
+            graph = ase_row_to_jraph(row, use_mace=use_mace)
             #graphs_list.append(graph)
             graphs_dict[id_single] = graph
             label = row.key_value_pairs[config.label_str]
@@ -534,31 +551,32 @@ def get_datasets(config, workdir):
     # In either path, the list ids has been created at this point. ids contains
     # the asedb row.id of each graph that has been pulled.
 
-    # Convert the atomic numbers in nodes to classes and set number of classes.
-    num_path = os.path.join(workdir, 'atomic_num_list.json')
-    if not os.path.exists(num_path):
-        num_list = get_atom_num_list(graphs_dict)
-        # save num list here
-        with open(num_path, 'w+', encoding="utf-8") as num_file:
-            json.dump(num_list, num_file)
-    else:
-        with open(num_path, 'r', encoding="utf-8") as num_file:
-            num_list = json.load(num_file)
-        # the list might be empty from a failed previous run,
-        # if so, generate new list
-        if len(num_list) == 0:
-            os.remove(num_path)
+    if not use_mace:
+        # Convert the atomic numbers in nodes to classes and set number of classes.
+        num_path = os.path.join(workdir, 'atomic_num_list.json')
+        if not os.path.exists(num_path):
             num_list = get_atom_num_list(graphs_dict)
             # save num list here
             with open(num_path, 'w+', encoding="utf-8") as num_file:
                 json.dump(num_list, num_file)
-    num_list = list(range(100))  # TODO: this is only a hack to make inference
-    # across databases easier, this should be reverted in the future
-    # aflow_x_mp
-    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
+        else:
+            with open(num_path, 'r', encoding="utf-8") as num_file:
+                num_list = json.load(num_file)
+            # the list might be empty from a failed previous run,
+            # if so, generate new list
+            if len(num_list) == 0:
+                os.remove(num_path)
+                num_list = get_atom_num_list(graphs_dict)
+                # save num list here
+                with open(num_path, 'w+', encoding="utf-8") as num_file:
+                    json.dump(num_list, num_file)
+        num_list = list(range(100))  # TODO: this is only a hack to make inference
+        # across databases easier, this should be reverted in the future
+        # aflow_x_mp
+        graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
-    num_classes = len(num_list)
-    config.max_atomic_number = num_classes
+        num_classes = len(num_list)
+        config.max_atomic_number = num_classes
 
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
         graphs_dict[id_single] = graph._replace(globals=np.array([label]))

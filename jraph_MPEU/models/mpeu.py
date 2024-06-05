@@ -72,7 +72,7 @@ def _get_edge_embedding_fn(
 
 def _get_node_embedding_fn(
         latent_size: int, max_atomic_number: int, use_layer_norm,
-        use_batch_norm, activation, hk_init=None, is_training=True):
+        use_batch_norm, activation, hk_init=None, is_training=True, use_mace=False):
     """Return the node embedding function.
 
     We take the node atomic number and one hot encode the number. At this point
@@ -109,14 +109,16 @@ def _get_node_embedding_fn(
             activate_final=False,
             is_training=is_training
         )
-        nodes = jax.nn.one_hot(nodes, max_atomic_number)
+        if not use_mace:
+            nodes = jax.nn.one_hot(nodes, max_atomic_number)
+
         return net(nodes)
     return node_embedding_fn
 
 
 def _get_embedder(
         latent_size, k_max, delta, mu_min, max_atomic_number, hk_init,
-        use_layer_norm, use_batch_norm, activation, is_training
+        use_layer_norm, use_batch_norm, activation, is_training, use_mace
     ):
     """Return embedding function, with hyperparameters defined in config.
 
@@ -130,7 +132,7 @@ def _get_embedder(
             latent_size, k_max, delta, mu_min),
         embed_node_fn=_get_node_embedding_fn(
             latent_size, max_atomic_number, use_layer_norm, use_batch_norm, activation,
-            hk_init, is_training),
+            hk_init, is_training, use_mace),
         embed_global_fn=None)
     return embedder
 
@@ -487,7 +489,7 @@ class MPEU:
             self.config.latent_size, self.config.k_max, self.config.delta,
             self.config.mu_min, self.config.max_atomic_number,
             self.config.hk_init, self.use_layer_norm, self.use_batch_norm,
-            self.activation, self.is_training
+            self.activation, self.is_training, self.config.use_mace
         )
         # Embed the graph with embedder functions (nodes and edges get
         # embedded).

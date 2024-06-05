@@ -68,6 +68,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.mu_min = 0.0
     # Node embedding parameters
     config.max_atomic_number = 5
+    config.use_mace = False
     # Regularization parameters
     config.use_layer_norm = False
     config.use_batch_norm = False

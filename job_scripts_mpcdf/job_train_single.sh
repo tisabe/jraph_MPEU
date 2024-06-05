@@ -24,7 +24,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow_x_mp/ef/train_combined \
---config=jraph_MPEU_configs/default_mp.py \
---config.label_str=ef_atom \
---config.data_file=databases/aflow_x_matproj/graphs_12knn_vec.db
+--workdir=./results/aflow/ef/mpeu/mace_small \
+--config=jraph_MPEU_configs/aflow_ef_clean.py \
+--config.data_file=databases/aflow/graphs_12knn_mace.db \
+--config.use_mace=True
