@@ -592,9 +592,6 @@ def train_and_evaluate(
     datasets, norm_dict = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
 
-    # save the config in txt for later inspection
-    save_config(config, workdir)
-
     # initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],

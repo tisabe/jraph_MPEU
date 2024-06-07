@@ -455,14 +455,17 @@ def lists_to_split_dict(split_lists):
     return split_dict
 
 
-def save_split_dict(split_lists, workdir):
+def save_split_dict(split_lists, workdir, database_path=None):
     """Save the split_lists in json file at workdir.
+    The additional parameter 'database_path' can be used to more easily
+    troubleshoot the split file. The parameter will be added to the saved dict.
 
     The split_lists has signature:
     {'split1': [1, 2,...], 'split2': [11, 21...]}, ... and this is turned into
     the signature {1: 'split1', 2: 'split1',... 11: 'split2',...}.
     This format is more practical when doing the inference after training."""
     split_dict = lists_to_split_dict(split_lists)
+    split_dict['database_path'] = database_path
 
     with open(os.path.join(workdir, 'splits.json'), 'w', encoding="utf-8") as splits_file:
         json.dump(split_dict, splits_file, indent=4, separators=(',', ': '))
@@ -474,6 +477,7 @@ def load_split_dict(workdir):
     The keys are integer ids and the values are splitnames as strings."""
     with open(os.path.join(workdir, 'splits.json'), 'r', encoding="utf-8") as splits_file:
         splits_dict = json.load(splits_file, parse_int=True)
+    splits_dict.pop('database_path', None)
     return {int(k): v for k, v in splits_dict.items()}
 
 
@@ -570,7 +574,7 @@ def get_datasets(config, workdir):
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
             config.test_frac, seed_test=config.seed_splits
         )
-        save_split_dict(split_lists, workdir)
+        save_split_dict(split_lists, workdir, database_path=config.data_file)
     else:
         # If it did exist, convert split_dict to split_lists
         split_lists = split_dict_to_lists(split_dict)
@@ -580,7 +584,7 @@ def get_datasets(config, workdir):
             split_lists['train'], split_lists['validation'] = shuffle_train_val_data(
                 split_lists['train'], split_lists['validation'], config.shuffle_val_seed)
             # overwrite split.json with new split ids
-            save_split_dict(split_lists, workdir)
+            save_split_dict(split_lists, workdir, database_path=config.data_file)
 
     graphs_split = {}  # dict with the graphs list divided into splits
     for key, id_list in split_lists.items():

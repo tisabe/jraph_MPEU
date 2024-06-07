@@ -463,7 +463,10 @@ class TestPipelineFunctions(unittest.TestCase):
             'validation': [6, 7, 8],
             'test': [9]}
         with tempfile.TemporaryDirectory() as test_dir:
-            save_split_dict(test_dict, test_dir)
+            save_split_dict(test_dict, test_dir, database_path='test')
+            with open(os.path.join(test_dir, 'splits.json'), 'r', encoding="utf-8") as splits_file:
+                splits_dict = json.load(splits_file)
+                self.assertEqual(splits_dict['database_path'], 'test')
             dict_loaded = load_split_dict(test_dir)
         # the loaded dict now has signature
         # {1: 'split1', 2: 'split1',... 11: 'split2',...}.
