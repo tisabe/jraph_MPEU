@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J eval
+#SBATCH -J eval_mp_co
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,4 +24,4 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/plotting/error_analysis.py \
---file=results/aflow_x_mp/ef/train_combined/ --label=ef --plot=nothing
+--file=results/aflow_x_mp/ef/mp_infer_combined/ --label=ef --plot=nothing

@@ -5,7 +5,7 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J mpeu_mp
+#SBATCH -J egap_aflow
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -24,7 +24,5 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/main.py \
---workdir=./results/aflow_x_mp/ef/train_combined \
---config=jraph_MPEU_configs/default_mp.py \
---config.label_str=ef_atom \
---config.data_file=databases/aflow_x_matproj/graphs_12knn_vec.db
+--workdir=./results/aflow_x_mp/egap_all/train_aflow \
+--config=jraph_MPEU_configs/default_mp.py

@@ -10,58 +10,16 @@ import pandas as pd
 import numpy as np
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
-    define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
-
+flags.DEFINE_string('dir', 'results/aflow_x_mp/egap_all/', 'Directory \
+                    that contains workdirs of the four training/eval runs.')
+flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
+    define the plot label. e.g. "ef" or "egap"')
 
 PREDICT_LABEL = ''
 CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
-
-
-def plot_regression(df, workdir, label_str, plot_name):
-    """Plot the regression using joint plot with marginal histograms."""
-    if FLAGS.label == 'egap':
-        xlim = [-0.5, 12.5]
-        ylim = [-0.5, 12.5]
-    elif FLAGS.label == 'U0':
-        xlim = None
-        ylim = None
-    else:
-        xlim = None
-        ylim = None
-    g = sns.JointGrid(
-        data=df, x=label_str, y='prediction', marginal_ticks=False,
-        height=5, xlim=xlim, ylim=ylim
-    )
-
-    # Add the joint and marginal histogram plots
-    g.plot_joint(
-        sns.histplot, discrete=(False, False), bins=(50, 50),
-    )
-    g.plot_marginals(sns.histplot, element="step", color=None)
-    g.ax_marg_x.set_xlabel('Count', fontsize=FLAGS.font_size)
-    g.ax_marg_y.set_ylabel('Count', fontsize=FLAGS.font_size)
-    g.ax_joint.tick_params(which='both', labelsize=FLAGS.tick_size)
-    g.ax_joint.set_xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
-    g.ax_joint.set_ylabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    if FLAGS.label == 'egap':
-        g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
-        g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
-    elif FLAGS.label == 'U0':
-        pass
-    else:
-        g.ax_joint.set_xticks([-4, -2, 0, 2])
-        g.ax_joint.set_yticks([-4, -2, 0, 2])
-    x_ref = np.linspace(*g.ax_joint.get_xlim())
-    g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
-    #plt.xlabel(PREDICT_LABEL, fontsize=FLAGS.font_size)
-    plt.tight_layout()
-    plt.show()
-    g.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
 def main(argv):
@@ -69,72 +27,138 @@ def main(argv):
     logging.set_verbosity(logging.INFO)
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
-    # set correct axis labels
-    global PREDICT_LABEL
-    global CALCULATE_LABEL
-    global ABS_ERROR_LABEL
-    if FLAGS.label == 'egap':
-        PREDICT_LABEL = r'Predicted $E_g$ (eV)'
-        CALCULATE_LABEL = r'Calculated $E_g$ (eV)'
-        ABS_ERROR_LABEL = 'Abs. error (eV)'
-    elif FLAGS.label == 'U0':
-        PREDICT_LABEL = r'Predicted $U_0$ (eV)'
-        CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
-        ABS_ERROR_LABEL = 'Abs. error (eV)'
-    else:
-        PREDICT_LABEL = r'Predicted $E_f$ (eV/atom)'
-        CALCULATE_LABEL = r'Calculated $E_f$ (eV/atom)'
-        ABS_ERROR_LABEL = 'Abs. error (eV/atom)'
 
-    df_aflow_to_aflow = pd.read_csv('results/aflow_x_mp/ef/train_aflow/result.csv')
-    df_mp_to_mp = pd.read_csv('results/aflow_x_mp/ef/train_mp/result.csv')
-    df_aflow_to_mp = pd.read_csv('results/aflow_x_mp/ef/infer_mp/result.csv')
-    df_mp_to_aflow = pd.read_csv('results/aflow_x_mp/ef/infer_aflow/result.csv')
+    match FLAGS.label:
+        case 'ef':
+            aflow_label_str = 'enthalpy_formation_atom'
+            mp_label_str = 'delta_e'
+            combi_label_str = 'ef_atom'
+            unit_mae = 'meV/atom'
+            unit_axis = 'eV/atom'
+            mul = 1000 # multipier to from fit units to display units
+            symbol = '$E_f$'
+        case 'egap':
+            aflow_label_str = 'Egap'
+            mp_label_str = 'band_gap'
+            combi_label_str = 'band_gap'
+            unit_mae = 'meV'
+            unit_axis = 'eV'
+            mul = 1000 # multipier to from fit units to display units
+            symbol = '$E_g$'
 
+    # workdirs are named after training/testing combinations,
+    # i.e. workdir with train on x and test on y is called 'x_infer_y'
+    data_names = ['aflow', 'mp', 'combined']
+    label_names = {
+        'aflow': aflow_label_str,
+        'mp': mp_label_str,
+        'combined': combi_label_str
+    }
+    axis_label_dict = {
+        'aflow': 'AFLOW',
+        'mp': 'MP',
+        'combined': 'Combined'
+    }
+    fig, ax = plt.subplots(
+        len(data_names), len(data_names), sharex=True, sharey=True,
+        figsize=(3*len(data_names), 3*len(data_names)))
+    for i, train_name in enumerate(data_names):
+        for j, test_name in enumerate(data_names):
+            df_dir = FLAGS.dir \
+                + train_name + '_infer_' + test_name + '/result.csv'
+            df = pd.read_csv(df_dir)
+            df = df.loc[lambda df_temp: df_temp['split'] == 'test']
+            label_str = label_names[test_name]
+            residuals = df['prediction'] - df[label_str]
+            mae = abs(residuals).mean()
+
+            sns.histplot(data=df, x=label_str, y='prediction',
+                ax=ax[i, j], bins=(50, 50))
+            ax[i, j].set_xlim(-6, 4)
+            ax[i, j].set_ylim(-6, 4)
+            x_ref = np.linspace(*ax[i, j].get_xlim())
+            ax[i, j].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+            ax[i, j].set(
+                ylabel=fr'{axis_label_dict[train_name]} model {symbol} ({unit_axis})',
+                xlabel=fr'{axis_label_dict[test_name]} target {symbol} ({unit_axis})')
+            ax[i, j].text(0.05, 0.9, f"MAE: {mae*mul:.0f} {unit_mae}",
+                transform=ax[i, j].transAxes)
+    for i in ax.flatten():
+        i.set_aspect('equal')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(
+        FLAGS.dir+'combined_regression_new.png',
+        bbox_inches='tight', dpi=600)
+    exit()
+
+
+    df_aflow_to_aflow = pd.read_csv(FLAGS.dir+'train_aflow/result.csv')
+    df_mp_to_mp = pd.read_csv(FLAGS.dir+'train_mp/result.csv')
+    df_aflow_to_mp = pd.read_csv(FLAGS.dir+'infer_mp/result.csv')
+    df_mp_to_aflow = pd.read_csv(FLAGS.dir+'infer_aflow/result.csv')
+
+    # filter to only include test split
     df_aflow_to_aflow = df_aflow_to_aflow.loc[lambda df_temp: df_temp['split'] == 'test']
     df_mp_to_mp = df_mp_to_mp.loc[lambda df_temp: df_temp['split'] == 'test']
     df_aflow_to_mp = df_aflow_to_mp.loc[lambda df_temp: df_temp['split'] == 'test']
     df_mp_to_aflow = df_mp_to_aflow.loc[lambda df_temp: df_temp['split'] == 'test']
 
+    # calculate MAEs
+    mae_af_to_af = df_aflow_to_aflow['prediction'] - df_aflow_to_aflow[aflow_label_str]
+    mae_af_to_af = abs(mae_af_to_af).mean()
+    mae_mp_to_mp = df_mp_to_mp['prediction'] - df_mp_to_mp[mp_label_str]
+    mae_mp_to_mp = abs(mae_mp_to_mp).mean()
+    mae_af_to_mp = df_aflow_to_mp['prediction'] - df_aflow_to_mp[mp_label_str]
+    mae_af_to_mp = abs(mae_af_to_mp).mean()
+    mae_mp_to_af = df_mp_to_aflow['prediction'] - df_mp_to_aflow[aflow_label_str]
+    mae_mp_to_af = abs(mae_mp_to_af).mean()
+
     fig, ax = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(6, 6))
-    sns.histplot(data=df_aflow_to_aflow, x='enthalpy_formation_atom', y='prediction',
+    sns.histplot(data=df_aflow_to_aflow, x=aflow_label_str, y='prediction',
         ax=ax[0, 0], bins=(50, 50))
     x_ref = np.linspace(*ax[0, 0].get_xlim())
     ax[0, 0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[0, 0].set(
-        ylabel=r'AFLOW model $E_f$ (eV/atom)',
-        xlabel=r'AFLOW target $E_f$ (eV/atom)')
-    ax[0, 0].text(0.05, 0.9, "MAE: 30 meV/atom", transform=ax[0, 0].transAxes)
+        ylabel=fr'AFLOW model {symbol} ({unit_axis})',
+        xlabel=fr'AFLOW target {symbol} ({unit_axis})')
+    ax[0, 0].text(0.05, 0.9, f"MAE: {mae_af_to_af*mul:.0f} {unit_mae}",
+        transform=ax[0, 0].transAxes)
 
-    sns.histplot(data=df_mp_to_mp, x='delta_e', y='prediction',
+    sns.histplot(data=df_mp_to_mp, x=mp_label_str, y='prediction',
         ax=ax[1, 1], bins=(50, 50))
     ax[1, 1].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[1, 1].set(
-        ylabel=r'MP model $E_f$ (eV/atom)',
-        xlabel=r'MP target $E_f$ (eV/atom)')
-    ax[1, 1].text(0.05, 0.9, "MAE: 23 meV/atom", transform=ax[1, 1].transAxes)
+        ylabel=fr'MP model {symbol} ({unit_axis})',
+        xlabel=fr'MP target {symbol} ({unit_axis})')
+    ax[1, 1].text(0.05, 0.9, f"MAE: {mae_mp_to_mp*mul:.0f} {unit_mae}",
+        transform=ax[1, 1].transAxes)
 
-    sns.histplot(data=df_aflow_to_mp, x='delta_e', y='prediction',
+    sns.histplot(data=df_aflow_to_mp, x=mp_label_str, y='prediction',
         ax=ax[0, 1], bins=(50, 50))
     ax[0, 1].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[0, 1].set(
-        ylabel=r'AFLOW model $E_f$ (eV/atom)',
-        xlabel=r'MP target $E_f$ (eV/atom)')
-    ax[0, 1].text(0.05, 0.9, "MAE: 578 meV/atom", transform=ax[0, 1].transAxes)
+        ylabel=fr'AFLOW model {symbol} ({unit_axis})',
+        xlabel=fr'MP target {symbol} ({unit_axis})')
+    ax[0, 1].text(0.05, 0.9, f"MAE: {mae_af_to_mp*mul:.0f} {unit_mae}",
+        transform=ax[0, 1].transAxes)
 
-    sns.histplot(data=df_mp_to_aflow, x='enthalpy_formation_atom', y='prediction',
+    sns.histplot(data=df_mp_to_aflow, x=aflow_label_str, y='prediction',
         ax=ax[1, 0], bins=(50, 50))
     ax[1, 0].plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     ax[1, 0].set(
-        ylabel=r'MP model $E_f$ (eV/atom)',
-        xlabel=r'AFLOW target $E_f$ (eV/atom)')
-    ax[1, 0].text(0.05, 0.9, "MAE: 238 meV/atom", transform=ax[1, 0].transAxes)
+        ylabel=fr'MP model {symbol} ({unit_axis})',
+        xlabel=fr'AFLOW target {symbol} ({unit_axis})')
+    ax[1, 0].text(0.05, 0.9, f"MAE: {mae_mp_to_af*mul:.0f} {unit_mae}",
+        transform=ax[1, 0].transAxes)
 
     for i in ax.flatten():
         i.set_aspect('equal')
     plt.tight_layout()
     plt.show()
-    fig.savefig('databases/combined_regression.png', bbox_inches='tight', dpi=600)
+    fig.savefig(
+        FLAGS.dir+'combined_regression.png',
+        bbox_inches='tight', dpi=600)
 
 
 if __name__ == "__main__":

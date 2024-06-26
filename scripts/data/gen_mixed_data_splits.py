@@ -11,6 +11,8 @@ from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('out_path', 'databases/data_summary.csv', 'Where csv is saved')
+flags.DEFINE_string('task', 'ef', "Type of task, 'ef' for formation energies\
+    'egap' for all electronic band gaps, 'egap_ins' for only non-zero bandgaps.")
 
 
 def main(_):
@@ -23,7 +25,22 @@ def main(_):
 
     # filter data, limit range
     df = df[(df['dft_type']=="['PAW_PBE']") | (df['dft_type'].isna())]
-    df = df[(df['ef']>-10) & (df['ef']<70)]
+
+    match FLAGS.task:
+        case 'ef':
+            label = 'ef'
+            df = df[(df['ef']>-10) & (df['ef']<70)]
+            x_label = r'E$_f$ (eV/atom)'
+        case 'egap':
+            label = 'gap'
+            x_label = r'E$_g$ (eV)'
+        case 'egap_ins':
+            label = 'gap'
+            df = df[df['gap'] > 0]
+            x_label = r'E$_g$ (eV)'
+        case _ :
+            raise ValueError(f'Invalid task: {FLAGS.task}')
+
 
     print("Total value counts: ")
     print(df.value_counts(subset='struct_hash'))
@@ -50,7 +67,7 @@ def main(_):
     ticksize = 16
 
     fig, ax = plt.subplots(2, 1, sharex=True)
-    gfg = sns.histplot(data=df, x='ef', ax=ax[0], hue='database', palette=['red', 'green'])
+    gfg = sns.histplot(data=df, x=label, ax=ax[0], hue='database', palette=['red', 'green'])
     ax[0].legend(labels=['Materials Project', 'AFLOW'])
     ax[0].set_xlabel('Number of atoms in unit cell', fontsize=fontsize)
     ax[0].set_ylabel('Count', fontsize=fontsize)
@@ -65,13 +82,13 @@ def main(_):
     print("# entries in shared set from AFLOW: ", sum(df_shared['auid'].notna()))
     print("# entries in shared set from MP: ", sum(df_shared['auid'].isna()))
 
-    sns.histplot(data=df_shared, x='ef', ax=ax[1], hue='database', palette=['red', 'green'])
+    sns.histplot(data=df_shared, x=label, ax=ax[1], hue='database', palette=['red', 'green'])
     ax[1].get_legend().remove()
-    ax[1].set_xlabel(r'E$_f$ (eV/atom)', fontsize=fontsize)
+    ax[1].set_xlabel(x_label, fontsize=fontsize)
     ax[1].set_ylabel('Count', fontsize=fontsize)
     ax[1].tick_params(which='both', labelsize=ticksize)
     plt.tight_layout()
-    fig.savefig('databases/hist_shared.png', bbox_inches='tight', dpi=600)
+    fig.savefig(f'databases/hist_shared_{FLAGS.task}.png', bbox_inches='tight', dpi=600)
     plt.show()
 
     kfold = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
@@ -122,9 +139,9 @@ def main(_):
                 case "databases/matproj/mp2018_graphs.db":
                     mp_split[asedb_id] = "test"
 
-        with open("databases/aflow_split.json", 'w', encoding="utf-8") as splits_file:
+        with open(f"databases/{FLAGS.task}_splits/aflow_split.json", 'w', encoding="utf-8") as splits_file:
             json.dump(aflow_split, splits_file, indent=4, separators=(',', ': '))
-        with open("databases/mp_split.json", 'w', encoding="utf-8") as splits_file:
+        with open(f"databases/{FLAGS.task}_splits/mp_split.json", 'w', encoding="utf-8") as splits_file:
             json.dump(mp_split, splits_file, indent=4, separators=(',', ': '))
         break
 
