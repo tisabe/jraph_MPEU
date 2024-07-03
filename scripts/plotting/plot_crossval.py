@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import haiku as hk
 
 
 FLAGS = flags.FLAGS
@@ -22,6 +21,7 @@ flags.DEFINE_integer('drop_n', 0,
 flags.DEFINE_integer('n_plots', 5,
     'Number of subplots in a single box plot frame.')
 flags.DEFINE_integer('fontsize', 18, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 flags.DEFINE_string('unit', 'eV', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "eV/atom" or "eV"')
 flags.DEFINE_boolean('plot_num_params', False, 'If number of params vs. error \
@@ -85,6 +85,8 @@ def main(_):
     finish_condition = {
         "stopped_early": [], "aborted_early": [], "time_elapsed": [],
         "unknown": [], "reached_max_steps": []}
+    if FLAGS.plot_num_params:
+        import haiku as hk
     for dirname in os.listdir(FLAGS.directory):
         workdir = FLAGS.directory + '/' + dirname
         try:
@@ -160,21 +162,67 @@ def main(_):
     print(f"Aborted early: {finish_condition['aborted_early']}")
     print(f"Time elapsed: {finish_condition['time_elapsed']}")
     print(f"Unkown: {finish_condition['unknown']}")
+    df_path = FLAGS.directory + '/result_crossval.csv'
+    df.to_csv(df_path, index=False)
 
-    fig, ax = plt.subplots()
-    sns.scatterplot(df, x='rmse_validation', y='rmse_test', ax=ax)
-    x_ref = np.linspace(*ax.get_xlim())
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    # sort by validation rmse and add a label for best 10 models
+    df = df.sort_values(by='rmse_validation', axis='index')
+    rmse_cut = df['rmse_validation'].iloc[10]
+    print('Tenth best rmse: ', rmse_cut)
+    df['in_ensemble'] = df['rmse_validation'] < rmse_cut
+    # sort descencing, to put better points in front
+    df = df.sort_values(by='rmse_validation', axis='index', ascending=False)
+    df_best = df[df['rmse_validation'] < rmse_cut]
+    df_other = df[df['rmse_validation'] >= rmse_cut]
+
+    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12.8, 4.8))
+    ax1.scatter(
+        x=df_other['rmse_validation'], y=df_other['rmse_test'],
+        alpha=0.3, label='NAS models')
+    ax1.scatter(
+        x=df_best['rmse_validation'], y=df_best['rmse_test'],
+        label='NAS models, top 10')
+    ax1.set_ylim([.3, .7])
+    ax1.set_xlim([.3, .7])
+    ax1.set_xticks([.3, .4, .5, .6, .7])
+    ax1.set_yticks([.3, .4, .5, .6, .7])
+    ax1.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax1.set_ylabel('Test RMSE (eV)', fontsize=FLAGS.fontsize)
+    ax1.set_xlabel('Validation RMSE (eV)', fontsize=FLAGS.fontsize)
+
+    ax2.scatter(
+        x=df_other['mae_validation'], y=df_other['mae_test'],
+        alpha=0.3, label='NAS models')
+    ax2.scatter(
+        x=df_best['mae_validation'], y=df_best['mae_test'],
+        label='NAS models, top 10')
+    ax2.set_ylim([.15, .35])
+    ax2.set_xlim([.15, .35])
+    ax2.set_xticks([.15, .2, .25, .3, .35])
+    ax2.set_yticks([.15, .2, .25, .3, .35])
+    ax2.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax2.set_ylabel('Test MAE (eV)', fontsize=FLAGS.fontsize)
+    ax2.set_xlabel('Validation MAE (eV)', fontsize=FLAGS.fontsize)
+    ax2.yaxis.tick_right()
+    ax2.yaxis.set_label_position("right")
+    # if plotting the egap NAS, manually add point of the ensemble and ref. model
+    if FLAGS.directory=='results/aflow/egap_rand_search/':
+        ax1.scatter(x=0.434, y=0.379, s=200, marker='*', label='Ensemble')
+        ax2.scatter(x=0.183, y=0.168, s=200, marker='*', label='Ensemble')
+
+        ax1.scatter(x=0.506, y=0.399, label='Ref. MPEU')
+        ax2.scatter(x=0.209, y=0.180, label='Ref. MPEU')
+
+    x_ref = np.linspace(*ax1.get_xlim())
+    ax1.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    x_ref = np.linspace(*ax2.get_xlim())
+    ax2.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    ax1.legend(fontsize=FLAGS.fontsize)
+
     plt.show()
     fig.savefig(
-        FLAGS.directory + '/val_test_rmse.png', bbox_inches='tight', dpi=600)
-    fig, ax = plt.subplots()
-    sns.scatterplot(df, x='mae_validation', y='mae_test', ax=ax)
-    x_ref = np.linspace(*ax.get_xlim())
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    plt.show()
-    fig.savefig(
-        FLAGS.directory + '/val_test_mae.png', bbox_inches='tight', dpi=600)
+        FLAGS.directory + '/val_test_both.png', bbox_inches='tight', dpi=600)
+
     exit()
 
     # print list of best 10 configs

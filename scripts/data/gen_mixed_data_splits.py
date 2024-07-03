@@ -87,6 +87,9 @@ def main(_):
     ax[1].set_xlabel(x_label, fontsize=fontsize)
     ax[1].set_ylabel('Count', fontsize=fontsize)
     ax[1].tick_params(which='both', labelsize=ticksize)
+
+    ax[1].set_xlim([-5, 2])
+    ax[1].set_xticks([-5, -4, -3, -2, -1, 0, 1, 2])
     plt.tight_layout()
     fig.savefig(f'databases/hist_shared_{FLAGS.task}.png', bbox_inches='tight', dpi=600)
     plt.show()

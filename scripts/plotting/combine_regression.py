@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+flags.DEFINE_integer('font_size', 13, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 13, 'font size to use in labels')
 flags.DEFINE_string('dir', 'results/aflow_x_mp/egap_all/', 'Directory \
                     that contains workdirs of the four training/eval runs.')
 flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
@@ -25,6 +25,7 @@ ABS_ERROR_LABEL = ''
 def main(argv):
     """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
+    plt.rcParams.update({'font.size': FLAGS.font_size})
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
@@ -83,12 +84,15 @@ def main(argv):
                 xlabel=fr'{axis_label_dict[test_name]} target {symbol} ({unit_axis})')
             ax[i, j].text(0.05, 0.9, f"MAE: {mae*mul:.0f} {unit_mae}",
                 transform=ax[i, j].transAxes)
+            if FLAGS.label=='ef':
+                ax[i, j].set_xticks([-6, -4, -2, 0, 2, 4])
+                ax[i, j].set_yticks([-6, -4, -2, 0, 2, 4])
     for i in ax.flatten():
         i.set_aspect('equal')
     plt.tight_layout()
     plt.show()
     fig.savefig(
-        FLAGS.dir+'combined_regression_new.png',
+        FLAGS.dir+f'combined_regression_{FLAGS.label}.png',
         bbox_inches='tight', dpi=600)
     exit()
 
