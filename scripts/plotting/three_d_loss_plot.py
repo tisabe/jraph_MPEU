@@ -27,42 +27,55 @@ if __name__ == "__main__":
     mp_step_list = []
     latent_size_list = []
     val_list = []
-
+    total_list = []
     for mp_step in [2, 3, 4, 5]:
         for latent_size in [128, 256, 512]:
-            print(mp_step)
-            print(latent_size)
+            # print(mp_step)
+            # print(latent_size)
             val_scores = df[(df['mp_steps'] == mp_step) & (df['latent_size'] == latent_size)]['validation_rmse_curve']
-            print(val_scores)
+            # print(val_scores)
+            total_list.append(val_scores.to_list())
             median_val_score = np.min(val_scores.to_numpy())
-            print(f'ls: {latent_size}, mp: {mp_step} and val: {median_val_score}')
+            # print(f'ls: {latent_size}, mp: {mp_step} and val: {median_val_score}')
             mp_step_list.append(mp_step)
             latent_size_list.append(latent_size)
+            if len(val_list) >= 1:
+                if median_val_score < min(val_list):
+                    print(f'new low score found {median_val_score}')
+                    print(f'latent_size is {latent_size} and mp_step {mp_step}')
             val_list.append(median_val_score)
 
 
     x = mp_step_list
     y = latent_size_list
     z = np.array(val_list)
+
+    print(z)
+    print(f'min val score is {min(z)}')
+    print(f'min val score is {max(z)}')
+
+    print(np.mean([x for xs in total_list for x in xs]))
+    print(np.median([x for xs in total_list for x in xs]))
+
     # # z = np.array([[86.51636997377514], [171.84934697576574], [43.856065618121605], [86.18586512549301], [171.5167689712402], [43.51999269076107], [86.84880916468161], [172.18796731660453], [44.184118900059254], [87.18213956945152], [172.5187509122458], [44.5231263691537]])
     
-    # x = np.reshape(x, (4, 3))
-    # y = np.reshape(y, (4, 3))
-    # z = np.reshape(z, (4, 3))
+    x = np.reshape(x, (4, 3))
+    y = np.reshape(y, (4, 3))
+    z = np.reshape(z, (4, 3))
 
-    # import matplotlib.tri as mtri
+    import matplotlib.tri as mtri
 
-    # fig = plt.figure(figsize=(4, 3))
+    fig = plt.figure(figsize=(4, 3))
 
-    # # Plot the surface.  The triangles in parameter space determine which x, y, z
-    # # points are connected by an edge.
-    # ax = fig.add_subplot(1, 1, 1, projection='3d')
+    # Plot the surface.  The triangles in parameter space determine which x, y, z
+    # points are connected by an edge.
+    ax = fig.add_subplot(1, 1, 1, projection='3d')
 
-    # print(x)
-    # print(y)
-    # print(z)
+    print(x)
+    print(y)
+    print(z)
 
-    # print(np.min(z))
+    print(np.min(z))
         
     # ax.xaxis.pane.set_edgecolor('black')
     # ax.yaxis.pane.set_edgecolor('black')
@@ -71,63 +84,68 @@ if __name__ == "__main__":
     # ax.zaxis.pane.fill = False
 
 
-    # ax.set_xticks([2, 3, 4, 5], minor=False)
-    # ax.set_yticks([128, 256, 384, 512], minor=False)
+    ax.set_xticks([2, 3, 4, 5], minor=False)
+    ax.set_yticks([128, 256, 384, 512], minor=False)
 
-    # ax.set_zticks([0.47, 0.5, 0.53], minor=False)
-    # ax.set_xlim([2, 5])
-    # ax.set_ylim([128, 512])
-    # ax.set_zlim([0.47, 0.53])
+    ax.set_zticks([0.47, 0.5, 0.53], minor=False)
+    ax.set_xlim([2, 5])
+    ax.set_ylim([128, 512])
+    ax.set_zlim([0.47, 0.53])
 
-    # ax.yaxis.set_tick_params(labelsize=7)
-    # ax.xaxis.set_tick_params(labelsize=7)
-    # ax.zaxis.set_tick_params(labelsize=7)
+    ax.yaxis.set_tick_params(labelsize=7)
+    ax.xaxis.set_tick_params(labelsize=7)
+    ax.zaxis.set_tick_params(labelsize=7)
 
-    # eps_x= 0.0000000006
-    # eps_y= 0.0000000006
+    eps_x= 0.0000000006
+    eps_y= 0.0000000006
 
-    # eps_z= 0.0000000006
+    eps_z= 0.0000000006
 
-    # matplotlib.rc('font',size=28)
-    # matplotlib.rc('font',family='serif')
-    # matplotlib.rc('axes',labelsize=32)
+    matplotlib.rc('font',size=28)
+    matplotlib.rc('font',family='serif')
+    matplotlib.rc('axes',labelsize=32)
 
-    # ax.set_xlabel('MP Steps', fontsize=9)
-    # ax.set_ylabel('Latent Size', fontsize=9)
-    # ax.set_zlabel('RMSE (eV/atom)', fontsize=9)
+    ax.set_xlabel('Message Passing Steps', fontsize=10)
+    ax.set_ylabel('Latent Size', fontsize=10)
+    ax.set_zlabel('RMSE (eV/atom)', fontsize=10)
 
-    # ax.scatter3D(
-    #     mp_step_list,
-    #     latent_size_list,
-    #     val_list, alpha=0.6, s=40, marker='o', color='tab:blue')
-    # ax.plot_surface(x, y, z, alpha=0.3, linewidth=0.01, antialiased=False, edgecolors='tab:blue')
+    ax.scatter3D(
+        mp_step_list,
+        latent_size_list,
+        val_list, alpha=0.6, s=40, marker='o', color='tab:blue')
+    ax.plot_surface(x, y, z, alpha=0.3, linewidth=0.01, antialiased=False, edgecolors='tab:blue')
 
-    # ax.grid(False)
-    # fig.subplots_adjust(left=0, right=0.9, bottom=0.11, top=0.88, wspace=0.2, hspace=0.2)
-    # ax.view_init(elev=10, azim=-78)
-    # plt.tight_layout()
+    ax.grid(False)
+    fig.subplots_adjust(left=0, right=0.9, bottom=0.11, top=0.88, wspace=0.2, hspace=0.2)
+    ax.view_init(elev=10, azim=-78)
+    plt.tight_layout()
 
-    # plt.savefig("/home/dts/Documents/hu/3d_scatter_plane_best_new.png", bbox_inches='tight', dpi=600)
+    plt.savefig("/home/dts/Documents/hu/3d_scatter_plane_best_new.png", bbox_inches='tight', dpi=600)
+    plt.show()
+
+    # plt.figure()
+
+    # total_list = []
+    # for latent_size in [128, 256, 512]:
+    #     print(mp_step)
+    #     print(latent_size)
+    #     val_scores_df = df[df['latent_size'] == latent_size]
+    #     val_scores_list = []
+    #     for mp_step in [2, 3, 4, 5]:
+    #         val_scores = val_scores_df[df['mp_steps'] == mp_step]['validation_rmse_curve']
+    #         print(val_scores)
+    #         median_val_score = np.min(val_scores.to_numpy())
+    #         val_scores_list.append(median_val_score)
+    #         total_list.append(val_scores.to_list())
+    #     print(len(val_scores_list))
+    #     plt.plot(np.array([2,3,4,5]), val_scores_list, '--')
+    # plt.xlabel('MP Steps')
+    # plt.ylabel('Validation RMSE (eV/atom)')
+    # plt.legend(['128, 256, 512'])
     # plt.show()
 
-    plt.figure()
 
-    for latent_size in [128, 256, 512]:
-        print(mp_step)
-        print(latent_size)
-        val_scores_df = df[df['latent_size'] == latent_size]
-        val_scores_list = []
-        for mp_step in [2, 3, 4, 5]:
-            val_scores = val_scores_df[df['mp_steps'] == mp_step]['validation_rmse_curve']
-            print(val_scores)
-            median_val_score = np.min(val_scores.to_numpy())
-            val_scores_list.append(median_val_score)
-        print(len(val_scores_list))
-        plt.plot(np.array([2,3,4,5]), val_scores_list, '--')
-    plt.xlabel('MP Steps')
-    plt.ylabel('Validation RMSE (eV/atom)')
-    plt.legend(['128, 256, 512'])
-    plt.show()
+    # print(np.mean([x for xs in total_list for x in xs]))
 
     # for mp_step in [2, 3, 4, 5]:
     #     print(mp_step)
