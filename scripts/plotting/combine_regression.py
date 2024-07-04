@@ -63,7 +63,7 @@ def main(argv):
     fig, ax = plt.subplots(
         len(data_names), len(data_names), sharex=True, sharey=True,
         figsize=(3*len(data_names), 3*len(data_names)))
-    for i, train_name in enumerate(data_names):
+    for i, train_name in enumerate(reversed(data_names)):
         for j, test_name in enumerate(data_names):
             df_dir = FLAGS.dir \
                 + train_name + '_infer_' + test_name + '/result.csv'
