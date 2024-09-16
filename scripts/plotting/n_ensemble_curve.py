@@ -169,15 +169,16 @@ def main(_):
     folders = [
         os.path.basename(os.path.normpath(directory)) for directory in FLAGS.dirs]
     dir_to_label_dict = {
-        'egap_rand_search': 'Random search',
-        'egap_pbj_ensemble': 'Reference ensemble',
-        'egap_pbj_val_ensemble': 'Bootstrap reference ensemble',
-        'ef_rand_search': 'Random search',
-        'ef_pbj_ensemble': 'Reference ensemble',
+        'egap_rand_search': 'Random-search ensemble',
+        'egap_pbj_ensemble': 'Ensemble of reference models',
+        'egap_pbj_val_ensemble': 'Bootstrapped ensemble',
+        'ef_rand_search': 'Random-search ensemble',
+        'ef_pbj_ensemble': 'Ensemble of reference models',
     }
     new_labels = [dir_to_label_dict[folder] for folder in folders]
     sns.move_legend(ax, 'best', title=None, labels=new_labels,
-        fontsize=FLAGS.font_size-5)
+        fontsize=FLAGS.font_size-2)
+    plt.tight_layout()
     plt.show()
     fig.savefig(
         FLAGS.dirs[0]+'/n_ensemble_curve.png', bbox_inches='tight', dpi=600)
