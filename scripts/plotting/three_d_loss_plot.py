@@ -216,7 +216,7 @@ if __name__ == "__main__":
     # ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
     # ax.zaxis._axinfo['tick']['outward_factor'] = 0.4
 
-    ax.set_xlabel('MP Steps', fontsize=9)
+    ax.set_xlabel('Message Passing$\n$ Steps', fontsize=9)
     ax.set_ylabel('Latent Size', fontsize=9)
     ax.set_zlabel('RMSE (eV/atom)', fontsize=9)
 
@@ -241,6 +241,6 @@ if __name__ == "__main__":
     ax.view_init(elev=12, azim=-65)
     plt.tight_layout()
 
-    plt.savefig("/home/dts/Documents/hu/3d_scatter_plane_best_new.png", bbox_inches='tight', dpi=600)
+    plt.savefig("/home/dts/Documents/hu/3d_scatter_plane_best_new.png", bbox_inches='tight', dpi=800)
     plt.show()
 
