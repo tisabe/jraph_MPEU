@@ -37,6 +37,9 @@ flags.DEFINE_list(
 flags.DEFINE_string(
     'experiment_dir', 'None',
     'Directory for experiments.')
+flags.DEFINE_string(
+    'number_of_training_steps', 'None',
+    'How many training steps to run.')
 
 
 JOB_SCRIPT = """#!/bin/bash -l
@@ -69,7 +72,7 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
     config.eval_every_steps = 100_000
-    config.num_train_steps_max = 100_000
+    config.num_train_steps_max = <number_of_training_steps>
     config.log_every_steps = 100_000
     config.checkpoint_every_steps = 100_000
     config.limit_data = None
@@ -112,7 +115,7 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
     config.eval_every_steps = 100_000
-    config.num_train_steps_max = 100_000
+    config.num_train_steps_max = <number_of_training_steps>
     config.log_every_steps = 100_000
     config.checkpoint_every_steps = 100_000
     config.limit_data = None
@@ -130,7 +133,7 @@ def get_config() -> ml_collections.ConfigDict():
 """
 
 def create_config_file_path(
-        setting, folder_name):
+        setting, folder_name, number_of_training_steps):
     if setting['batching_method'] == 'dynamic':
         dynamic_batch = True
     else:
@@ -153,6 +156,8 @@ def create_config_file_path(
         '<compute_device>',
         "\'" + str(setting['computing_type'].replace(':', '_') + "\'")
     )
+    config = config.replace(
+        '<number_of_training_steps>', number_of_training_steps)
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"
         label_str = "\'enthalpy_formation_atom\'"
@@ -258,14 +263,14 @@ def get_settings_list(
 
 
 def create_folder_and_files_for_setting(
-            settings_list, base_dir, job_list_path):
+            settings_list, base_dir, job_list_path, number_of_training_steps):
     job_path_list = []
 
     for setting in settings_list:
         folder_name = create_folder_for_setting(
             base_dir, setting)
         config_file_path = create_config_file_path(
-            setting, folder_name)
+            setting, folder_name, number_of_training_steps)
         job_script_path = create_job_script(
             setting, config_file_path, folder_name)
         job_path_list.append(str(job_script_path))
@@ -282,6 +287,7 @@ def main(argv):
     batch_size_list = FLAGS.batch_size
     batching_method_list = FLAGS.batching_method
     computing_type_list = FLAGS.computing_type
+    number_of_training_steps = FLAGS.number_of_training_steps
 
     settings_list = get_settings_list(
         network_type_list, dataset_list,
@@ -292,7 +298,7 @@ def main(argv):
     experiment_dir = FLAGS.experiment_dir
     job_list_path = Path(experiment_dir) / "profiling_jobs_list.txt"
     create_folder_and_files_for_setting(
-        settings_list, experiment_dir, job_list_path)
+        settings_list, experiment_dir, job_list_path, number_of_training_steps)
 
 
 if __name__ == '__main__':
