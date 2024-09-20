@@ -282,12 +282,24 @@ def create_folder_and_files_for_setting(
 
 def main(argv):
     network_type_list = FLAGS.network_type
+    print(f'network types to use: {network_type_list}')
     dataset_list = FLAGS.dataset
+    print(f'Dataset to use: {dataset_list}')
+
     static_round_to_multiple_list = FLAGS.static_round_to_multiple
+    print(f'Round to multiple boolean list: {static_round_to_multiple_list}')
+
     batch_size_list = FLAGS.batch_size
+    print(f'Batch size list to use: {batch_size_list}')
+
     batching_method_list = FLAGS.batching_method
+    print(f'batching methods to use: {batching_method_list}')
+
     computing_type_list = FLAGS.computing_type
+    print(f'Computing types to use: {computing_type_list}')
+
     number_of_training_steps = FLAGS.number_of_training_steps
+    print(f'Number of training steps to run: {number_of_training_steps}')
 
     settings_list = get_settings_list(
         network_type_list, dataset_list,
