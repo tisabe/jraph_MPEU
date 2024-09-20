@@ -16,7 +16,7 @@ with ase.db.connect("databases/aflow_x_matproj/graphs_12knn_vec.db") as db_out:
         spg = analyzer.get_space_group_number()
         db_out.write(
             atoms, row.key_value_pairs, row.data, old_id=row.id,
-            source_file="databases/aflow_x_matproj/graphs_12knn_vec.db",
+            source_file="databases/aflow/graphs_12knn_vec.db",
             band_gap=row.Egap, ef_atom=row.enthalpy_formation_atom)
     for row in tqdm(db_mp.select()):
         atoms = row.toatoms()

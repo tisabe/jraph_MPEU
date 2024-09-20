@@ -419,7 +419,7 @@ def create_optimizer(
 def loss_fn_mse(params, state, rng, graphs, net_apply):
     """Mean squared error loss function for regression."""
     hk_state = state['hk_state']
-    labels = graphs.globals
+    labels = graphs.globals['target']
     graphs = replace_globals(graphs)
 
     mask = get_valid_mask(graphs)
