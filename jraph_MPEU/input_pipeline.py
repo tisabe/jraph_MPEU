@@ -219,12 +219,19 @@ def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
     edges = row.data['edges']
     atoms = row.toatoms()
     nodes = atoms.get_atomic_numbers()
-
+    global_data_source = row['source_file']
+    if 'aflow' in global_data_source:
+        global_input = [0, 1]  # Data not standardized anywhere downstream, probably not a problem.
+    elif 'matproj' in global_data_source:
+        global_input = [1, 0]
+    else:
+        raise ValueError(
+            f'Cannot tell if data is from AFLOW or MP, source: {global_data_source}')
     graph = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
         n_edge=np.asarray([len(senders)]),
         nodes=nodes, edges=edges,
-        globals=None,
+        globals=[global_input],  # List we think is better due to the way jraph handles this data.
         senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph
@@ -256,6 +263,7 @@ def asedb_to_graphslist(
     """
     graphs = []
     labels = []
+    global_input = []
     ids = []
     ase_db = ase.db.connect(file)
     if limit is None:
@@ -565,7 +573,11 @@ def get_datasets(config, workdir):
     config.max_atomic_number = num_classes
 
     for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
-        graphs_dict[id_single] = graph._replace(globals=np.array([label]))
+        graphs_dict[id_single] = graph._replace(
+            globals= {
+                'target': np.array([label]),
+                'global_input_features': np.array(graph.globals)  # Deleted the extra square parantheses.
+            })
 
     if not os.path.exists(split_path):
         logging.debug('Generating splits and saving split file.')

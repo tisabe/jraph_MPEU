@@ -510,7 +510,8 @@ def init_state(
     # Create and initialize network.
     logging.info('Initializing network.')
     rng, init_rng = jax.random.split(rng)
-    init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
+    # This line might just be a safety feature. Might actually do something, let's find out.
+    # init_graphs = replace_globals(init_graphs) # initialize globals in graph to zero
 
     net_fn_eval = create_model(config, is_training=False)
     net_eval = hk.transform_with_state(net_fn_eval)
@@ -602,7 +603,9 @@ def train_and_evaluate(
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
     # the right answer. The model's not using them now anyway.
-    init_graphs = replace_globals(init_graphs)
+    # This is very likely a safety feature and not needed, commented out for now.
+    # init_graphs = replace_globals(init_graphs)
+
     # Create the training state.
     updater, state, evaluater = init_state(config, init_graphs, workdir)
 

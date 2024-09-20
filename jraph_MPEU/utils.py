@@ -123,7 +123,7 @@ def get_normalization_dict(graphs, normalization_type):
       dict with values for normalization (e.g. mean, standard deviation of 
       features)
     """
-    targets = np.array([graph.globals for graph in graphs])
+    targets = np.array([graph.globals['target'] for graph in graphs])
 
     match normalization_type:
         case 'per_atom_standard'|'sum':
@@ -201,11 +201,15 @@ def normalize_graph_globals(
     graphs: List[jraph.GraphsTuple], normalization: Dict
     ) -> List[jraph.GraphsTuple]:
     """Return list of graphs with normalized globals according to normalization."""
-    targets = np.array([graph.globals for graph in graphs])
+    # TODO(dts): change the global dict here.
+
+    targets = np.array([graph.globals['target'] for graph in graphs])
     targets_norm = normalize_targets(graphs, targets, normalization)
     graphs_norm = []
     for graph, target in zip(graphs, targets_norm):
-        graph = graph._replace(globals=target)
+        globals = graph.globals
+        globals['target'] = target
+        graph = graph._replace(globals=globals)
         graphs_norm.append(graph)
     return graphs_norm
 
