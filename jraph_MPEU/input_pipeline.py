@@ -419,11 +419,11 @@ class DataReader:
                 # Call get number of nodes/edges in the list.
                 # Append to the list. self._num_nodes_per_batch
                 
-                # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-                #     accumulated_graphs)
+                sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                    accumulated_graphs)
 
-                # self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
-                # self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
+                self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
+                self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
 
                 accumulated_graphs = jraph.batch_np(accumulated_graphs)
                 # Call get number of nodes/edges in the new list.
@@ -435,6 +435,17 @@ class DataReader:
                         accumulated_graphs)
                     accumulated_graphs = []
                 else:
+                    # get the number of edges/nodes in the batch after batching.
+                    # I'm not sure this will work since the accumulated graphs
+                    # have already been batched, this might mess up how I
+                    # count things.
+                    sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                        pad_graph_to_nearest_power_of_two(accumulated_graphs))
+
+                    self._num_nodes_per_batch_after_batching.append(sum_of_nodes_in_batch)
+                    self._num_edges_per_batch_after_batching.append(sum_of_edges_in_batch)
+
+
                     yield pad_graph_to_nearest_power_of_two(
                         accumulated_graphs)
                     accumulated_graphs = []

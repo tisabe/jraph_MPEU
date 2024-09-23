@@ -20,6 +20,7 @@ import jraph
 import ml_collections
 import numpy as np
 import optax
+import pandas as pd
 import haiku as hk
 import time
 
@@ -693,19 +694,19 @@ def train_and_evaluate(
     logging.info(f'Mean update time: {mean_updating_time}')
 
     # Temp test. let's just try logging the whole list:
-    # logging.info(f'Node distrubution before batching: '
-    #              f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
+    logging.info(f'Node distrubution before batching: '
+                 f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
 
-    # logging.info(f'Edge distrubution before batching: '
-    #              f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
+    logging.info(f'Edge distrubution before batching: '
+                 f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
 
     # Let's save the node distribution/edge distrubtion after batching to file.
-    # df = pd.DataFrame({
-    #         'node_before_batching': train_reader._num_nodes_per_batch_after_batching
-    #         'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
-    # })
-    # graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
-
+    df = pd.DataFrame({
+            'node_before_batching': train_reader._num_nodes_per_batch_after_batching,
+            'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
+    })
+    graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
+    df.to_csv(graph_distribution_after_batching_path)
 
     # after training is finished, evaluate model and save predictions in
     # dataframe
