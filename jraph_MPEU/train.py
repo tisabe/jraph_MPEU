@@ -694,16 +694,25 @@ def train_and_evaluate(
     logging.info(f'Mean update time: {mean_updating_time}')
 
     # Temp test. let's just try logging the whole list:
-    logging.info(f'Node distrubution before batching: '
+    logging.info(f'Mean Node distrubution before batching: '
+                 f'{np.mean(train_reader._num_nodes_per_batch_before_batching)}')
+
+    logging.info(f'Mean Edge distrubution before batching: '
+                 f'{np.mean(train_reader._num_edges_per_batch_before_batching)}')
+
+    # Temp test. let's just try logging the whole list:
+    logging.info(f'Mean Node distrubution after batching: '
                  f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
 
-    logging.info(f'Edge distrubution before batching: '
+    logging.info(f'Mean Edge distrubution after batching: '
                  f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
 
     # Let's save the node distribution/edge distrubtion after batching to file.
     df = pd.DataFrame({
-            'node_before_batching': train_reader._num_nodes_per_batch_after_batching,
-            'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
+            'num_node_before_batching': train_reader._num_nodes_per_batch_before_batching,
+            'num_edge_before_batching': train_reader._num_nodes_per_batch_before_batching,
+            'num_node_after_batching': train_reader._num_nodes_per_batch_after_batching,
+            'num_edge_after_batching': train_reader._num_nodes_per_batch_after_batching
     })
     graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
     df.to_csv(graph_distribution_after_batching_path)

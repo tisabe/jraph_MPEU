@@ -86,7 +86,7 @@ class TestUtilsFunctions(unittest.TestCase):
         self.assertEqual(estimate.n_edge, 128)
         self.assertEqual(estimate.n_graph, batch_size)
 
-    def test_get_node_edge_distribution_for_batch(self):
+    def test_get_node_edge_distribution_for_list_of_graphs(self):
         single_graph_10 = jraph.GraphsTuple(
             n_node=np.asarray([10]), n_edge=np.asarray([10]),
             nodes=np.ones((10, 4)), edges=np.ones((10, 5)),
@@ -103,7 +103,32 @@ class TestUtilsFunctions(unittest.TestCase):
         graphs_list.append(single_graph_100)
 
         sum_of_nodes_in_list, sum_of_edges_in_list = get_node_edge_distribution_for_batch(
-            graphs_list)
+            graphs_list, padded=False)
+        expected_nodes_in_list = 200
+        expected_edges_in_list = 200
+        self.assertEqual(sum_of_nodes_in_list, expected_nodes_in_list)
+        self.assertEqual(sum_of_edges_in_list, expected_edges_in_list)
+
+
+    def test_get_node_edge_distribution_for_list_of_graphs(self):
+        single_graph_10 = jraph.GraphsTuple(
+            n_node=np.asarray([10]), n_edge=np.asarray([10]),
+            nodes=np.ones((10, 4)), edges=np.ones((10, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((10)), receivers=np.zeros((10))
+        )
+        single_graph_100 = jraph.GraphsTuple(
+            n_node=np.asarray([100]), n_edge=np.asarray([100]),
+            nodes=np.ones((100, 4)), edges=np.ones((100, 5)),
+            globals=np.ones((1, 6)),
+            senders=np.zeros((100)), receivers=np.zeros((100))
+        )
+        graphs_list = [single_graph_10]*10
+        graphs_list.append(single_graph_100)
+        graphs_list = jraph.batch_np(graphs_list)
+
+        sum_of_nodes_in_list, sum_of_edges_in_list = get_node_edge_distribution_for_batch(
+            graphs_list, padded=True)
         expected_nodes_in_list = 200
         expected_edges_in_list = 200
         self.assertEqual(sum_of_nodes_in_list, expected_nodes_in_list)
