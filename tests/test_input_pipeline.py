@@ -266,6 +266,7 @@ class TestPipelineFunctions(unittest.TestCase):
                 h2_atom = Atoms(
                     random.choice(compound_list))
                 key_value_pairs = {config.label_str: label_value}
+                key_value_pairs['source_file'] = 'aflow_test.db'
                 data = {
                     'senders': [0],
                     'receivers': [0],
@@ -286,6 +287,13 @@ class TestPipelineFunctions(unittest.TestCase):
             self.assertListEqual(train_labels, [6., 7., 3., 0., 5.])
             self.assertListEqual(val_labels, [1., 2., 9.])
             self.assertListEqual(test_labels, [4., 8.])
+
+            for split in ['train', 'validation', 'test']:
+                train_globals = [graph.globals['global_input_features'] \
+                    for graph in graphs_split[split]]
+                for global_input in train_globals:
+                    np.testing.assert_array_equal(global_input, [[0, 1]])
+                    self.assertIsInstance(global_input, np.ndarray)
 
             # now with shuffled val and train set
             # split dict will be loaded, test stays the same but val and train
