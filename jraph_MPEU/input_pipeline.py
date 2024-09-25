@@ -556,7 +556,7 @@ def get_datasets(config, workdir):
             # save num list here
             with open(num_path, 'w+', encoding="utf-8") as num_file:
                 json.dump(num_list, num_file)
-    num_list = list(range(100))  # TODO: this is only a hack to make inference
+    #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
     # aflow_x_mp
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
