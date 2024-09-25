@@ -336,10 +336,10 @@ def get_node_edge_distribution_for_batch(
         sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
 
         logging.info(
-            f'Sum of nodes in group of graphs before batch: '
+            f'Sum of nodes in group of graphs after batch and pad: '
             f'{sum_of_nodes_in_batch}')
         logging.info(
-            f'Sum of edges in group of graphs before batch: '
+            f'Sum of edges in group of graphs after batch and pad: '
             f'{sum_of_nodes_in_batch}')
 
 
@@ -350,6 +350,8 @@ def get_node_edge_distribution_for_batch(
             sum_of_nodes_in_batch += jnp.sum(graph.n_node)
             sum_of_edges_in_batch += jnp.sum(graph.n_edge)
 
+        logging.info(f'Number of graphs before batch:'
+                     f'{len(batch_of_graphs)}')
         logging.info(
             f'Sum of nodes in group of graphs before batch: '
             f'{sum_of_nodes_in_batch}')
