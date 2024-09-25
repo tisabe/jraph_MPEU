@@ -311,7 +311,8 @@ def get_graphs_tuple_size(graph: jraph.GraphsTuple):
         n_graph=np.shape(graph.n_node)[0])
 
 
-def get_node_edge_distribution_for_batch(batch_of_graphs: jraph.GraphsTuple):
+def get_node_edge_distribution_for_batch(
+            batch_of_graphs: jraph.GraphsTuple, padded: bool):
     """Save number of nodes/edges in a batch.
 
     For a given batch, we want to save the # of nodes/edges in the batch
@@ -326,18 +327,20 @@ def get_node_edge_distribution_for_batch(batch_of_graphs: jraph.GraphsTuple):
 
     sum_of_nodes_in_batch = 0
     sum_of_edges_in_batch = 0
-
-    # logging.info(f'batch of graphs: {batch_of_graphs}')
-
-    # sum_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
-    # sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
+    
     logging.info(f'batch of graphs: {batch_of_graphs}')
 
-    for graph in batch_of_graphs:
-        logging.info(f'type of graph: {type(graph)}')
-        logging.info(f'individual graph: {graph}')
-        sum_of_nodes_in_batch += jnp.sum(graph.n_node)
-        sum_of_edges_in_batch += jnp.sum(graph.n_edge)
+    if padded == True:
+
+        sum_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
+        sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
+
+    else:
+        for graph in batch_of_graphs:
+            logging.info(f'type of graph: {type(graph)}')
+            logging.info(f'individual graph: {graph}')
+            sum_of_nodes_in_batch += jnp.sum(graph.n_node)
+            sum_of_edges_in_batch += jnp.sum(graph.n_edge)
 
     return sum_of_nodes_in_batch, sum_of_edges_in_batch
 

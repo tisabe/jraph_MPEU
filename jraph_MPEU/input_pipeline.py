@@ -420,7 +420,7 @@ class DataReader:
                 # Append to the list. self._num_nodes_per_batch
                 
                 sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-                    accumulated_graphs)
+                    accumulated_graphs, padded=False)
 
                 self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
                 self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
@@ -440,7 +440,7 @@ class DataReader:
                     # have already been batched, this might mess up how I
                     # count things.
                     sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-                        pad_graph_to_nearest_power_of_two(accumulated_graphs))
+                        pad_graph_to_nearest_power_of_two(accumulated_graphs), padded=True)
 
                     self._num_nodes_per_batch_after_batching.append(sum_of_nodes_in_batch)
                     self._num_edges_per_batch_after_batching.append(sum_of_edges_in_batch)
