@@ -277,11 +277,11 @@ class TestPipelineFunctions(unittest.TestCase):
             )
             mean = norm_dict['mean']
             std = norm_dict['std']
-            train_labels = [graph.globals[0]*std + mean \
+            train_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['train']]
-            val_labels = [graph.globals[0]*std + mean \
+            val_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['validation']]
-            test_labels = [graph.globals[0]*std + mean \
+            test_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['test']]
             self.assertListEqual(train_labels, [6., 7., 3., 0., 5.])
             self.assertListEqual(val_labels, [1., 2., 9.])
@@ -297,11 +297,11 @@ class TestPipelineFunctions(unittest.TestCase):
             )
             mean = norm_dict['mean']
             std = norm_dict['std']
-            train_labels = [graph.globals[0]*std + mean \
+            train_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['train']]
-            val_labels = [graph.globals[0]*std + mean \
+            val_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['validation']]
-            test_labels = [graph.globals[0]*std + mean \
+            test_labels = [graph.globals['target'][0]*std + mean \
                 for graph in graphs_split['test']]
             self.assertListEqual(train_labels, [2., 6., 5., 0., 1.])
             self.assertListEqual(val_labels, [9., 3., 7.])
@@ -409,7 +409,7 @@ class TestPipelineFunctions(unittest.TestCase):
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
-                labels = [(graph.globals*std)+mean for graph in graph_list]
+                labels = [(graph.globals['target']*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
 
             # load the dataset again to check if generated jsons work
@@ -642,7 +642,6 @@ class TestPipelineFunctions(unittest.TestCase):
                         keys_list0 = key_value_pairs.keys()
                     else:
                         self.assertCountEqual(key_value_pairs.keys(), keys_list0)
-        return 0
 
     def test_dbs_graphs(self):
         """Test the ase databases with graph features."""
@@ -669,7 +668,6 @@ class TestPipelineFunctions(unittest.TestCase):
                         count_no_edges += 1
                 self.assertEqual(count_no_edges, 0,
                     f'Number of graphs with zero edges: {count_no_edges}')
-        return 0
 
     def test_atoms_to_nodes_list(self):
         """Example: atomic numbers as nodes before:

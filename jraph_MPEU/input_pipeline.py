@@ -219,19 +219,22 @@ def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
     edges = row.data['edges']
     atoms = row.toatoms()
     nodes = atoms.get_atomic_numbers()
-    global_data_source = row['source_file']
-    if 'aflow' in global_data_source:
-        global_input = [0, 1]  # Data not standardized anywhere downstream, probably not a problem.
-    elif 'matproj' in global_data_source:
-        global_input = [1, 0]
+    if 'source_file' in row:
+        global_data_source = row['source_file']
+        if 'aflow' in global_data_source:
+            global_input = np.asarray([[0, 1]])  # Data not standardized anywhere downstream, probably not a problem.
+        elif 'matproj' in global_data_source:
+            global_input = np.asarray([[1, 0]])
+        else:
+            raise ValueError(
+                f'Cannot tell if data is from AFLOW or MP, source: {global_data_source}')
     else:
-        raise ValueError(
-            f'Cannot tell if data is from AFLOW or MP, source: {global_data_source}')
+        global_input=None
     graph = jraph.GraphsTuple(
         n_node=np.asarray([len(nodes)]),
         n_edge=np.asarray([len(senders)]),
         nodes=nodes, edges=edges,
-        globals=[global_input],  # List we think is better due to the way jraph handles this data.
+        globals=global_input,
         senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph
@@ -640,6 +643,6 @@ def get_datasets(config, workdir):
                 graphs_list, norm_dict)
         else:
             for i, graph in enumerate(graphs_list):
-                label = cut_egap(graph.globals[0], config.egap_cutoff)
+                label = cut_egap(graph.globals['target'][0], config.egap_cutoff)
                 graphs_list[i] = graph._replace(globals=np.array([label]))
     return graphs_split, norm_dict
