@@ -1,4 +1,3 @@
-import argparse
 import os
 import pickle
 import json
@@ -203,22 +202,25 @@ def main(_):
     ax2.tick_params(which='both', labelsize=FLAGS.tick_size)
     ax2.set_ylabel('Test MAE (eV)', fontsize=FLAGS.fontsize)
     ax2.set_xlabel('Validation MAE (eV)', fontsize=FLAGS.fontsize)
-    ax2.yaxis.tick_right()
-    ax2.yaxis.set_label_position("right")
+    ax1.set_aspect('equal', adjustable='box')
+    ax2.set_aspect('equal', adjustable='box')
+    #ax2.yaxis.tick_right()
+    #ax2.yaxis.set_label_position("right")
     # if plotting the egap NAS, manually add point of the ensemble and ref. model
     if FLAGS.directory=='results/aflow/egap_rand_search/':
         ax1.scatter(x=0.434, y=0.379, s=200, marker='*', label='Ensemble')
         ax2.scatter(x=0.183, y=0.168, s=200, marker='*', label='Ensemble')
-
         ax1.scatter(x=0.506, y=0.399, label='Ref. MPEU')
         ax2.scatter(x=0.209, y=0.180, label='Ref. MPEU')
 
     x_ref = np.linspace(*ax1.get_xlim())
-    ax1.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
+    ax1.plot(x_ref, x_ref, '--', alpha=0.2, color='black', linewidth=4)
     x_ref = np.linspace(*ax2.get_xlim())
-    ax2.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    ax1.legend(fontsize=FLAGS.fontsize)
+    ax2.plot(x_ref, x_ref, '--', alpha=0.2, color='black', linewidth=4)
+    ax1.legend(fontsize=FLAGS.fontsize-5)
 
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.2)
     plt.show()
     fig.savefig(
         FLAGS.directory + '/val_test_both.png', bbox_inches='tight', dpi=600)

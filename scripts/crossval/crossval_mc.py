@@ -17,6 +17,7 @@ from ml_collections import config_flags
 import tensorflow as tf
 import jax
 
+from jraph_MPEU import utils
 from jraph_MPEU.utils import ConfigIterator
 from jraph_MPEU.train import train_and_evaluate
 
@@ -82,7 +83,17 @@ def main(argv):
     config = random.choice(configs)
     # set the seed that determines which data fold is used
     # i.e. how data is split
-    config.seed = FLAGS.index % FLAGS.n_fold + config.base_data_seed
+    #config.seed = FLAGS.index % FLAGS.n_fold + config.base_data_seed
+
+    # if there is a config present in workdir, load it and ignore the passed config,
+    # otherwise, save the passed FLAGS.config
+    config_path = os.path.join(FLAGS.workdir, 'config.json')
+    if os.path.exists(config_path):
+        logging.info(f'Loading config file from {config_path}')
+        config = utils.load_config(FLAGS.workdir)
+    else:
+        utils.save_config(config, FLAGS.workdir)
+
     train_and_evaluate(config, FLAGS.workdir)
 
 
