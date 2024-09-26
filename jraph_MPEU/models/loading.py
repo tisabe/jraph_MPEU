@@ -14,6 +14,7 @@ from jraph_MPEU.models.mpeu import MPEU
 from jraph_MPEU.models.mpeu_uq import MPEU_uq
 from jraph_MPEU.models.schnet import SchNet
 from jraph_MPEU.models.painn import get_painn
+from jraph_MPEU.models.mpeu_global import MPEU_global
 from jraph_MPEU.utils import load_config
 
 
@@ -37,6 +38,8 @@ def load_model(workdir, is_training):
             net_fn = get_painn(config)
         case 'MPEU_uq':
             net_fn = MPEU_uq(config, is_training)
+        case 'MPEU_global':
+            net_fn = MPEU_global(config, is_training)
         case _:
             raise ValueError(
                 f'Model string {config.model_str} not recognized')
@@ -78,6 +81,8 @@ def create_model(config: ml_collections.ConfigDict, is_training=True):
             return get_painn(config)
         case 'MPEU_uq':
             return MPEU_uq(config, is_training)
+        case 'MPEU_global':
+            return MPEU_global(config, is_training)
         case _:
             raise ValueError(
                 f'Model string {config.model_str} not recognized')
