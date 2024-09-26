@@ -325,41 +325,45 @@ def get_node_edge_distribution_for_batch(
             f'zero list of graphs.')
         return
 
-    sum_of_nodes_in_batch = 0
-    sum_of_edges_in_batch = 0
+    num_of_nodes_in_batch = 0
+    num_of_edges_in_batch = 0
     
     # logging.info(f'batch of graphs: {batch_of_graphs}')
 
     if padded == True:
 
-        sum_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
-        sum_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
+        num_of_nodes_in_batch = jnp.sum(batch_of_graphs.n_node)
+        num_of_edges_in_batch = jnp.sum(batch_of_graphs.n_edge)
+        graph_counter = len(batch_of_graphs.n_edge)
 
         logging.info(
-            f'Sum of nodes in group of graphs after batch and pad: '
-            f'{sum_of_nodes_in_batch}')
+            f'Num of nodes in group of graphs after batch and pad: '
+            f'{num_of_nodes_in_batch}')
         logging.info(
-            f'Sum of edges in group of graphs after batch and pad: '
-            f'{sum_of_nodes_in_batch}')
-
+            f'Num of edges in group of graphs after batch and pad: '
+            f'{num_of_edges_in_batch}')
+        logging.info(
+            f'Number of graphs in group of graphs after batch and pad: '
+            f'{graph_counter}')
 
     else:
+        graph_counter = len(batch_of_graphs)
         for graph in batch_of_graphs:
             # logging.info(f'type of graph: {type(graph)}')
             # logging.info(f'individual graph: {graph}')
-            sum_of_nodes_in_batch += jnp.sum(graph.n_node)
-            sum_of_edges_in_batch += jnp.sum(graph.n_edge)
+            num_of_nodes_in_batch += jnp.sum(graph.n_node)
+            num_of_edges_in_batch += jnp.sum(graph.n_edge)
 
         logging.info(f'Number of graphs before batch:'
-                     f'{len(batch_of_graphs)}')
+                     f'{graph_counter}')
         logging.info(
-            f'Sum of nodes in group of graphs before batch: '
-            f'{sum_of_nodes_in_batch}')
+            f'Num of nodes in group of graphs before batch: '
+            f'{num_of_nodes_in_batch}')
         logging.info(
-            f'Sum of edges in group of graphs before batch: '
-            f'{sum_of_nodes_in_batch}')
+            f'Num of edges in group of graphs before batch: '
+            f'{num_of_edges_in_batch}')
 
-    return sum_of_nodes_in_batch, sum_of_edges_in_batch
+    return num_of_nodes_in_batch, num_of_edges_in_batch, graph_counter
 
 
 def estimate_padding_budget_for_batch_size(

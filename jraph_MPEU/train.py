@@ -609,8 +609,11 @@ def train_and_evaluate(
 
     # Begin training loop.
     logging.info('Starting training.')
+    
+    step_number_list = []
 
     for step in range(initial_step, config.num_train_steps_max + 1):
+        step_number_list.append(step)
         start_loop_time = time.time()
         graphs = next(train_reader)
         # Update the weights after a gradient step and report the
@@ -694,11 +697,14 @@ def train_and_evaluate(
     logging.info(f'Mean update time: {mean_updating_time}')
 
     # Temp test. let's just try logging the whole list:
-    logging.info(f'Mean Node distrubution before batching: '
+    logging.info(f'Mean number of nodes in batch before batching: '
                  f'{np.mean(train_reader._num_nodes_per_batch_before_batching)}')
 
-    logging.info(f'Mean Edge distrubution before batching: '
+    logging.info(f'Mean number of edges in batch before batching: '
                  f'{np.mean(train_reader._num_edges_per_batch_before_batching)}')
+
+    logging.info(f'Mean # of Graphs in group before batching: '
+                 f'{np.mean(train_reader._num_graphs_per_batch_before_batching)}')
 
     # Temp test. let's just try logging the whole list:
     logging.info(f'Mean Node distrubution after batching: '
@@ -709,13 +715,16 @@ def train_and_evaluate(
 
     # Let's save the node distribution/edge distrubtion after batching to file.
     df = pd.DataFrame({
+            'step_number': step_number_list,
             'num_node_before_batching': train_reader._num_nodes_per_batch_before_batching,
             'num_edge_before_batching': train_reader._num_nodes_per_batch_before_batching,
+            'num_graphs_before_batching': train_reader._num_graphs_per_batch_before_batching,
             'num_node_after_batching': train_reader._num_nodes_per_batch_after_batching,
-            'num_edge_after_batching': train_reader._num_nodes_per_batch_after_batching
+            'num_edge_after_batching': train_reader._num_nodes_per_batch_after_batching,
+            'num_graphs_after_batching': train_reader._num_graphs_per_batch_after_batching
     })
-    graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
-    df.to_csv(graph_distribution_after_batching_path)
+    graph_distribution_after_batching_path = workdir + '/graph_distribution_batching_path.csv'
+    df.to_csv(graph_distribution_after_batching_path, index_label='step_number')
 
     # after training is finished, evaluate model and save predictions in
     # dataframe

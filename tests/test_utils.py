@@ -102,13 +102,13 @@ class TestUtilsFunctions(unittest.TestCase):
         graphs_list = [single_graph_10]*10
         graphs_list.append(single_graph_100)
 
-        sum_of_nodes_in_list, sum_of_edges_in_list = get_node_edge_distribution_for_batch(
+        num_of_nodes_in_list, num_of_edges_in_list, num_graphs = get_node_edge_distribution_for_batch(
             graphs_list, padded=False)
         expected_nodes_in_list = 200
         expected_edges_in_list = 200
-        self.assertEqual(sum_of_nodes_in_list, expected_nodes_in_list)
-        self.assertEqual(sum_of_edges_in_list, expected_edges_in_list)
-
+        self.assertEqual(num_of_nodes_in_list, expected_nodes_in_list)
+        self.assertEqual(num_of_edges_in_list, expected_edges_in_list)
+        self.assertEqual(num_graphs, 11)
 
     def test_get_node_edge_distribution_for_list_of_graphs(self):
         single_graph_10 = jraph.GraphsTuple(
@@ -127,12 +127,13 @@ class TestUtilsFunctions(unittest.TestCase):
         graphs_list.append(single_graph_100)
         graphs_list = jraph.batch_np(graphs_list)
 
-        sum_of_nodes_in_list, sum_of_edges_in_list = get_node_edge_distribution_for_batch(
+        num_of_nodes_in_list, num_of_edges_in_list, num_graphs = get_node_edge_distribution_for_batch(
             graphs_list, padded=True)
         expected_nodes_in_list = 200
         expected_edges_in_list = 200
-        self.assertEqual(sum_of_nodes_in_list, expected_nodes_in_list)
-        self.assertEqual(sum_of_edges_in_list, expected_edges_in_list)
+        self.assertEqual(num_of_nodes_in_list, expected_nodes_in_list)
+        self.assertEqual(num_of_edges_in_list, expected_edges_in_list)
+        self.assertEqual(num_graphs, 11)
 
 
     def test_str_to_list(self):
@@ -442,7 +443,7 @@ class TestUtilsFunctions(unittest.TestCase):
         print(budget.n_graph)
 
         global_sum = 0
-        for batch in batch_generator:
+        for batch, _, _, _ in batch_generator:
             global_sum += sum(batch.globals)
         print(global_sum)
         print(sum(labels))

@@ -378,8 +378,11 @@ class DataReader:
 
         self._num_nodes_per_batch_before_batching = []
         self._num_edges_per_batch_before_batching = []
+        self._num_graphs_per_batch_before_batching = []
+
         self._num_nodes_per_batch_after_batching = []
         self._num_edges_per_batch_after_batching = []
+        self._num_graphs_per_batch_after_batching = []
 
         self.static_round_to_multiple = static_round_to_multiple
 
@@ -419,16 +422,16 @@ class DataReader:
                 # Call get number of nodes/edges in the list.
                 # Append to the list. self._num_nodes_per_batch
                 
-                sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                sum_of_nodes_in_batch, sum_of_edges_in_batch, num_graphs = get_node_edge_distribution_for_batch(
                     accumulated_graphs, padded=False)
 
                 self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
                 self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
+                self._num_graphs_per_batch_before_batching.append(num_graphs)
 
                 accumulated_graphs = jraph.batch_np(accumulated_graphs)
                 # Call get number of nodes/edges in the new list.
                 # Append to the list self._num_nodes_per_batch_after_batching.
-
                 # How do i get the data out?
                 if self.static_round_to_multiple:
                     yield pad_graph_to_nearest_multiple_of_64(
@@ -439,12 +442,12 @@ class DataReader:
                     # I'm not sure this will work since the accumulated graphs
                     # have already been batched, this might mess up how I
                     # count things.
-                    sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                    sum_of_nodes_in_batch, sum_of_edges_in_batch, num_graphs = get_node_edge_distribution_for_batch(
                         pad_graph_to_nearest_power_of_two(accumulated_graphs), padded=True)
 
                     self._num_nodes_per_batch_after_batching.append(sum_of_nodes_in_batch)
                     self._num_edges_per_batch_after_batching.append(sum_of_edges_in_batch)
-
+                    self._num_graphs_per_batch_after_batching.append(num_graphs)
 
                     yield pad_graph_to_nearest_power_of_two(
                         accumulated_graphs)
@@ -457,7 +460,20 @@ class DataReader:
         return self
 
     def __next__(self):
-        return next(self.batch_generator)
+        if self.dynamic_batch == True:
+            padded_graphs, num_accumulated_nodes, num_accumulated_edges, num_accumulated_graphs = next(self.batch_generator)
+            self._num_nodes_per_batch_before_batching.append(num_accumulated_nodes)
+            self._num_edges_per_batch_before_batching.append(num_accumulated_edges)            
+            self._num_graphs_per_batch_before_batching.append(num_accumulated_graphs)
+            # Now get some stats after batching:
+            sum_of_nodes_in_batch, sum_of_edges_in_batch, num_graphs = get_node_edge_distribution_for_batch(
+                        padded_graphs, padded=True)
+            self._num_nodes_per_batch_after_batching.append(sum_of_nodes_in_batch)
+            self._num_edges_per_batch_after_batching.append(sum_of_edges_in_batch)
+            self._num_graphs_per_batch_after_batching.append(num_graphs)
+            return padded_graphs
+        else:
+            return next(self.batch_generator)
         # if self.dynamic_batch and self.compile_batching is True:
         #     return self.jax_next()
         # else:
