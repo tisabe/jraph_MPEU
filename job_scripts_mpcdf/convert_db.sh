@@ -8,7 +8,7 @@
 #SBATCH -J data_convert
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=32
 #SBATCH --ntasks-per-core=1
 #SBATCH --mem=16000         # Request main memory per node in MB units.
 #SBATCH --mail-type=none
@@ -21,6 +21,4 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/data/asedb_to_graphs.py \
--f databases/matproj/mp2018_graphs.db -o databases/matproj/mp2018_graphs_12knn_vec.db \
--cutoff_type knearest -cutoff 12.0
+srun python scripts/data/combine_db.py
