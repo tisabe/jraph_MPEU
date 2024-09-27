@@ -733,10 +733,11 @@ def train_and_evaluate(
         f'len of # graphs after: {len(train_reader._num_graphs_per_batch_after_batching)}\n'
         f'len of step_number: {len(step_number_list)}')
 
+    # step_number_list = [str(x) for x in step_number_list]
 
     # Let's save the node distribution/edge distrubtion after batching to file.
     df = pd.DataFrame({
-            'step_number': step_number_list.append('eval'),
+            'step_number': step_number_list,
             'num_node_before_batching': train_reader._num_nodes_per_batch_before_batching,
             'num_edge_before_batching': train_reader._num_edges_per_batch_before_batching,
             'num_graphs_before_batching': train_reader._num_graphs_per_batch_before_batching,
