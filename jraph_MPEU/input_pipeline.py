@@ -394,7 +394,7 @@ class DataReader:
         # From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
-        if self.dynamic_batch is True:
+        if self.dynamic_batch:
             self.batch_generator = jraph.dynamically_batch(
                 self._generator,
                 self.budget.n_node,
@@ -465,6 +465,16 @@ class DataReader:
             self._num_nodes_per_batch_before_batching.append(num_accumulated_nodes)
             self._num_edges_per_batch_before_batching.append(num_accumulated_edges)            
             self._num_graphs_per_batch_before_batching.append(num_accumulated_graphs)
+            logging.info(
+                f'Num of nodes in group of graphs before batch and pad: '
+                f'{num_accumulated_nodes}')
+            logging.info(
+                f'Num of edges in group of graphs before batch and pad: '
+                f'{num_accumulated_edges}')
+            logging.info(
+                f'Number of graphs in group of graphs before batch and pad: '
+                f'{num_accumulated_graphs}')
+        
             # Now get some stats after batching:
             sum_of_nodes_in_batch, sum_of_edges_in_batch, num_graphs = get_node_edge_distribution_for_batch(
                         padded_graphs, padded=True)
