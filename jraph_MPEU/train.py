@@ -717,15 +717,15 @@ def train_and_evaluate(
                  f'{np.mean(train_reader._num_graphs_per_batch_after_batching)}')
 
 
-    logging.info(f'Size of different vecs: '
-                 f'len of # nodes before: {len(train_reader._num_nodes_per_batch_before_batching)}'
-                 f'len of # edges before: {len(train_reader._num_edges_per_batch_before_batching)}'
-                 f'len of # graphs before: {len(train_reader._num_graphs_per_batch_before_batching)}'
-                 f'len of # nodes after: {len(train_reader._num_nodes_per_batch_after_batching)}'
-                 f'len of # edges after: {len(train_reader._num_edges_per_batch_after_batching)}'
-                 f'len of # graphs after: {len(train_reader._num_graphs_per_batch_after_batching)}'
-                 f'len of step_number': step_number_list,
-                 )
+    logging.info(
+        f'Size of different vecs: '
+        f'len of # nodes before: {len(train_reader._num_nodes_per_batch_before_batching)}'
+        f'len of # edges before: {len(train_reader._num_edges_per_batch_before_batching)}'
+        f'len of # graphs before: {len(train_reader._num_graphs_per_batch_before_batching)}'
+        f'len of # nodes after: {len(train_reader._num_nodes_per_batch_after_batching)}'
+        f'len of # edges after: {len(train_reader._num_edges_per_batch_after_batching)}'
+        f'len of # graphs after: {len(train_reader._num_graphs_per_batch_after_batching)}'
+        f'len of step_number: {step_number_list}')
 
 
     # Let's save the node distribution/edge distrubtion after batching to file.
