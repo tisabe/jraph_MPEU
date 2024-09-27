@@ -615,7 +615,11 @@ def train_and_evaluate(
     for step in range(initial_step, config.num_train_steps_max + 1):
         step_number_list.append(step)
         start_loop_time = time.time()
+        logging.info(f'step: {step}, before batch')
+
         graphs = next(train_reader)
+        logging.info(f'step: {step}, after batch')
+
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
@@ -716,6 +720,8 @@ def train_and_evaluate(
     logging.info(f'Mean # of Graphs in group after batching: '
                  f'{np.mean(train_reader._num_graphs_per_batch_after_batching)}')
 
+    logging.info(f'step number list: {step_number_list}')
+
 
     logging.info(
         f'Size of different vecs: '
@@ -739,7 +745,7 @@ def train_and_evaluate(
             'num_graphs_after_batching': train_reader._num_graphs_per_batch_after_batching
     })
     graph_distribution_after_batching_path = workdir + '/graph_distribution_batching_path.csv'
-    df.to_csv(graph_distribution_after_batching_path, index_label='step_number')
+    df.to_csv(graph_distribution_after_batching_path)
 
     # after training is finished, evaluate model and save predictions in
     # dataframe
