@@ -74,45 +74,52 @@ def main(args):
     #with ase.db.connect(FLAGS.file_out, append=True) as db_out:
     db_out = ase.db.connect(FLAGS.file_out, append=True)
     for count, (i, row) in enumerate(aflow_df.iterrows()):
-        if count % 10000 == 0:
-            logging.info(f'Step {count}')
-        atoms = dict_to_ase(row)  # get the atoms object from each row
-        row = row.to_dict()
-        row.pop('geometry', None)
-        row.pop('positions_fractional', None)
-        row.pop('compound', None)
+        # figure out if the row has already been written with a try
+        try:
+            # if yes, go on to the next row
+            db_out.get(count)
+            continue
+        except KeyError:
+            # if no, convert row and write to db
+            if count % 10000 == 0:
+                logging.info(f'Step {count}')
+            atoms = dict_to_ase(row)  # get the atoms object from each row
+            row = row.to_dict()
+            row.pop('geometry', None)
+            row.pop('positions_fractional', None)
+            row.pop('compound', None)
 
-        # calculate adjacency of graph as senders and receivers
-        cutoff = FLAGS.cutoff
-        if FLAGS.cutoff_type == 'const':
-            nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
-        elif FLAGS.cutoff_type == 'knearest':
-            cutoff = int(cutoff)
-            nodes, atom_positions, edges, senders, receivers = get_graph_knearest(atoms, cutoff)
-        elif FLAGS.cutoff_type == 'fc':
-            nodes, atom_positions, edges, senders, receivers = get_graph_fc(atoms)
-        else:
-            raise ValueError(f'Cutoff type {args.cutoff_type} not recognised.')
+            # calculate adjacency of graph as senders and receivers
+            cutoff = FLAGS.cutoff
+            if FLAGS.cutoff_type == 'const':
+                nodes, atom_positions, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
+            elif FLAGS.cutoff_type == 'knearest':
+                cutoff = int(cutoff)
+                nodes, atom_positions, edges, senders, receivers = get_graph_knearest(atoms, cutoff)
+            elif FLAGS.cutoff_type == 'fc':
+                nodes, atom_positions, edges, senders, receivers = get_graph_fc(atoms)
+            else:
+                raise ValueError(f'Cutoff type {args.cutoff_type} not recognised.')
 
-        # get property dict from all keys in the row
-        prop_dict = {}
-        data = {}
-        for key in row.keys():
-            val = row[key]
-            prop_dict[key] = val
-        data['senders'] = senders
-        data['receivers'] = receivers
-        data['edges'] = edges
-        # add information about cutoff
-        prop_dict['cutoff_type'] = FLAGS.cutoff_type
-        prop_dict['cutoff_val'] = cutoff
+            # get property dict from all keys in the row
+            prop_dict = {}
+            data = {}
+            for key in row.keys():
+                val = row[key]
+                prop_dict[key] = val
+            data['senders'] = senders
+            data['receivers'] = receivers
+            data['edges'] = edges
+            # add information about cutoff
+            prop_dict['cutoff_type'] = FLAGS.cutoff_type
+            prop_dict['cutoff_val'] = cutoff
 
-        # save in new database
-        db_out.write(atoms, key_value_pairs=prop_dict, data=data)
-        if count < 3:
-            logging.info(prop_dict)
-            #logging.info(atoms)
-            #view(atoms)
+            # save in new database
+            db_out.write(atoms, key_value_pairs=prop_dict, data=data)
+            if count < 3:
+                logging.info(prop_dict)
+                #logging.info(atoms)
+                #view(atoms)
     return 0
 
 

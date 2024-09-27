@@ -36,14 +36,14 @@ class TestPipelineFunctions(unittest.TestCase):
         """Prepare test cases."""
         # ase databases with graph features (in the "data" sections)
         self.graphs_dbs = [
-            'QM9/qm9_graphs.db',
-            'aflow/graphs_all_12knn.db',
-            'matproj/mp2018_graphs.db']
+            'databases/QM9/graphs_fc_vec.db',
+            'databases/aflow/graphs_12knn_vec.db',
+            'databases/matproj/mp2018_graphs.db']
         # ase databases without graph features
-        self.raw_dbs = ['QM9/qm9.db']
-        self.test_db = 'QM9/qm9_graphs.db'
+        self.raw_dbs = ['databases/QM9/qm9.db']
+        self.test_db_path = 'databases/QM9/graphs_fc_vec.db'
         # aflow database to test Egap classification inputs
-        self.aflow_db = 'aflow/graphs_all_12knn.db'
+        self.aflow_db = 'databases/aflow/graphs_12knn_vec.db'
         self.rng = np.random.default_rng(seed=7)
 
     def test_graph_fc(self):
@@ -546,7 +546,7 @@ class TestPipelineFunctions(unittest.TestCase):
             limit: 100
         """
 
-        file_str = self.test_db
+        file_str = self.test_db_path
         if not os.path.isfile(file_str):
             raise FileNotFoundError(f'{file_str} does not exist')
         label_str = 'U0'
@@ -618,7 +618,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        database = ase.db.connect(self.test_db)
+        database = ase.db.connect(self.test_db_path)
         row = database.get(1)
         atomic_numbers = row.toatoms().get_atomic_numbers()
         graph = ase_row_to_jraph(row)

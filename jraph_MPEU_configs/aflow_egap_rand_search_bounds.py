@@ -31,7 +31,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = [100_000]
     config.num_checkpoints = [1]
     # data split settings
-    config.data_file = ['aflow/egap_full_graphs.db']
+    config.data_file = ['databases/aflow/graphs_12knn_vec.db']
     config.label_str = ['Egap']
     config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation

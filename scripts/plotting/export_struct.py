@@ -6,7 +6,7 @@ import ase.db
 from ase import Atoms
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('db', 'aflow/graphs_knn.db', 'input database name')
+flags.DEFINE_string('db', 'databases/aflow/graphs_12knn_vec.db', 'input database name')
 flags.DEFINE_string('id', 'aflow:c9ba9ee6a035b51a', 'identifier for database')
 
 

@@ -10,11 +10,14 @@ def get_config() -> ml_collections.ConfigDict():
 
     # rng init
     config.base_data_seed = [42]
+    config.seed_splits = [42]
+    config.seed_datareader = [42]
+    config.seed_weights = [42]
 
     # Optimizer
     config.optimizer = ['adam']
     config.schedule = ['exponential_decay']
-    config.init_lr = [2e-5, 1e-4, 5e-4] # initial learning rate
+    config.init_lr = [2e-5, 1e-4] # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = [100_000]
     config.decay_rate = [0.96, 0.98, 1.0]
@@ -30,18 +33,15 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = [100_000]
     config.num_checkpoints = [1]
     # data split settings
-    config.data_file = ['aflow/graphs_all_12knn.db']
-    config.label_str = ['enthalpy_formation_atom']
+    config.data_file = ['databases/aflow/graphs_12knn_vec.db']
+    config.label_str = ['Egap']
     config.label_type = ['scalar']  # or 'class', also changes the loss function
     config.val_frac = [0.1] # fraction of total data used for validation
     config.test_frac = [0.1] # fraction of total data used for testing
 
     # data selection parameters
     # remove outliers in formation enthalpy and other dft types
-    config.selection = [(
-        "enthalpy_formation_atom<70,"
-        "enthalpy_formation_atom>-10,"
-        "dft_type=['PAW_PBE']")]
+    config.selection = [("dft_type=['PAW_PBE']")]
     config.limit_data = [None]
     config.num_edges_max = [None]
 
