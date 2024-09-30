@@ -613,7 +613,7 @@ def train_and_evaluate(
     step_number_list = [0]
 
     for step in range(initial_step, config.num_train_steps_max + 1):
-        step_number_list.append(step+1)
+        step_number_list.append(step)
         start_loop_time = time.time()
         logging.info(f'step: {step}, before batch')
 
