@@ -59,9 +59,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-cd /u/dansp/jraph_MPEU
-# Load the environment with modules and python packages.
-source activate_jax.sh
+source /u/dansp/batch_stats/activate_env.sh
 srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
@@ -159,12 +157,12 @@ def create_config_file_path(
     config = config.replace(
         '<number_of_training_steps>', number_of_training_steps)
     if setting['dataset'] == 'aflow':
-        data_file = "\'aflow/graphs_knn.db\'"
+        data_file = "\'/u/dansp/jraph_MPEU/aflow/graphs_knn.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
     elif setting['dataset'] == 'qm9':
-        data_file = "\'qm9/qm9_graphs_fc.db\'"
+        data_file = "\'/u/dansp/jraph_MPEU/qm9/qm9_graphs_fc.db\'"
         label_str = "\'U0\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
