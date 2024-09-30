@@ -610,10 +610,10 @@ def train_and_evaluate(
     # Begin training loop.
     logging.info('Starting training.')
     
-    step_number_list = []
+    step_number_list = [0]
 
     for step in range(initial_step, config.num_train_steps_max + 1):
-        step_number_list.append(step)
+        step_number_list.append(step+1)
         start_loop_time = time.time()
         logging.info(f'step: {step}, before batch')
 
@@ -667,7 +667,8 @@ def train_and_evaluate(
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits, config)
+
+        # early_stop = evaluater.update(state, datasets, eval_splits, config)
 
         # if early_stop:
         #     logging.info(f'Loss converged at step {step}, stopping early.')
@@ -722,7 +723,6 @@ def train_and_evaluate(
 
     logging.info(f'step number list: {step_number_list}')
 
-
     logging.info(
         f'Size of different vecs: '
         f'len of # nodes before: {len(train_reader._num_nodes_per_batch_before_batching)}\n'
@@ -749,7 +749,7 @@ def train_and_evaluate(
     df.to_csv(graph_distribution_after_batching_path)
 
     # after training is finished, evaluate model and save predictions in
-    # dataframe
+    # dataframe.
     """
     df_path = workdir + '/result.csv'
     if not os.path.exists(df_path):
