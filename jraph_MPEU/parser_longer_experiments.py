@@ -41,6 +41,12 @@ flags.DEFINE_string(
     'and paths expired.')
 
 
+TRAINING_STEP = [
+    '100', '200', '300', '400', '500', '600', '700', '800', '900', '1_000',
+    '1_100', '1_200', '1_300', '1_400', '1_500', '1_600', '1_700', '1_800',
+    '1_900', '2_000']
+
+
 class ProfilingParser():
     """Parses data output."""
     def __init__(
@@ -73,26 +79,13 @@ class ProfilingParser():
             'batching_round_to_64', 'batch_size',
             'computing_type', 'iteration', 'experiment_completed',
             'submission_path', 'path', 'recompilation_counter',
-            'step_100000_train_rmse',
-            'step_100000_val_rmse', 'step_100000_test_rmse',
-            'step_100000_batching_time_mean', 'step_100000_update_time_mean',
-            'step_100000_batching_time_median', 'step_100000_update_time_median',
-            # 'step_200000_train_rmse',
-            # 'step_200000_val_rmse', 'step_200000_test_rmse',
-            # 'step_200000_batching_time', 'step_200000_update_time',
-            # 'step_400000_train_rmse',
-            # 'step_400000_val_rmse', 'step_400000_test_rmse',
-            # 'step_400000_batching_time', 'step_400000_update_time',
-            # 'step_600000_train_rmse',
-            # 'step_600000_val_rmse', 'step_600000_test_rmse',
-            # 'step_600000_batching_time', 'step_600000_update_time',            
-            # 'step_800000_train_rmse',
-            # 'step_800000_val_rmse', 'step_800000_test_rmse',
-            # 'step_800000_batching_time', 'step_800000_update_time',               
-            # 'step_1000000_train_rmse',
-            # 'step_1000000_val_rmse', 'step_1000000_test_rmse',
-            # 'step_1000000_batching_time', 'step_1000000_update_time',             
-            ]
+            'step_2_000_000_batching_time_mean',
+            'step_2_000_000_update_time_mean',
+            'step_2_000_000_batching_time_median',
+            'step_2_000_000_update_time_median']
+        
+        self.add_training_val_test_csv_columns()
+
 
         # Define a list of paths that we shoudl resubmit
         # to a longer queue since they expired during calculation.
@@ -100,6 +93,16 @@ class ProfilingParser():
         # We also define a list of paths that didn't exit well
         # and the reason is not that the time didn't expire.
         self.paths_misbehaving = paths_misbehaving
+
+    def add_training_val_test_csv_columns(self):
+            
+        for step in TRAINING_STEP:
+            train_column = 'step_X_train_rmse'.replace('X', step)
+            self.csv_columns.append(train_column)
+            validation_column = 'step_X_000_val_rmse'.replace('X', step)
+            self.csv_columns.append(train_column)
+            test_column = 'step_X_000_test_rmse'.replace('X', step)
+            self.csv_columns.append([])
 
 
     def get_path_list(self, paths_txt_file):
@@ -206,54 +209,16 @@ class ProfilingParser():
         I1107 20:59:07.805134 22949931718464 train.py:636] Mean update time: 0.0026955132026672364
         """
         recompilation_counter = 0
-        # step_200_000_train_loss = np.nan
-        # step_400_000_train_loss = np.nan
-        # step_600_000_train_loss = np.nan
-        # step_800_000_train_loss = np.nan
-        # step_1_000_000_train_loss = np.nan
+
         experiment_completed = False
 
+        self.initialize_training_validation_data_dict(data_dict)
 
-        # initialize values in case we don't find them.
-        data_dict[f'step_100000_train_rmse'] = np.nan
-        data_dict[f'step_100000_val_rmse'] = np.nan
-        data_dict[f'step_100000_test_rmse'] = np.nan
         data_dict[f'step_100000_batching_time_median'] = np.nan
         data_dict[f'step_100000_batching_time_mean'] = np.nan
         data_dict[f'step_100000_update_time_median'] = np.nan
         data_dict[f'step_100000_update_time_mean'] = np.nan
 
-
-        # # initialize values in case we don't find them.
-        # data_dict[f'step_200000_train_rmse'] = np.nan
-        # data_dict[f'step_200000_val_rmse'] = np.nan
-        # data_dict[f'step_200000_test_rmse'] = np.nan
-        # data_dict[f'step_200000_batching_time'] = np.nan
-        # data_dict[f'step_200000_update_time'] = np.nan
-        # # 400000
-        # data_dict[f'step_400000_train_rmse'] = np.nan
-        # data_dict[f'step_400000_val_rmse'] = np.nan
-        # data_dict[f'step_400000_test_rmse'] = np.nan
-        # data_dict[f'step_400000_batching_time'] = np.nan
-        # data_dict[f'step_400000_update_time'] = np.nan
-        # # 600000
-        # data_dict[f'step_600000_train_rmse'] = np.nan
-        # data_dict[f'step_600000_val_rmse'] = np.nan
-        # data_dict[f'step_600000_test_rmse'] = np.nan
-        # data_dict[f'step_600000_batching_time'] = np.nan
-        # data_dict[f'step_600000_update_time'] = np.nan
-        # # 800000
-        # data_dict[f'step_800000_train_rmse'] = np.nan
-        # data_dict[f'step_800000_val_rmse'] = np.nan
-        # data_dict[f'step_800000_test_rmse'] = np.nan
-        # data_dict[f'step_800000_batching_time'] = np.nan
-        # data_dict[f'step_800000_update_time'] = np.nan
-        # # 1000000
-        # data_dict[f'step_1000000_train_rmse'] = np.nan
-        # data_dict[f'step_1000000_val_rmse'] = np.nan
-        # data_dict[f'step_1000000_test_rmse'] = np.nan
-        # data_dict[f'step_1000000_batching_time'] = np.nan
-        # data_dict[f'step_1000000_update_time'] = np.nan
 
         with open(most_recent_error_file, 'r') as fin:
             for line in list(fin.readlines()):
@@ -296,7 +261,17 @@ class ProfilingParser():
         data_dict['recompilation_counter'] = recompilation_counter
         data_dict['experiment_completed'] = experiment_completed
         return data_dict
-        
+
+
+    def initialize_training_validation_data_dict(self, data_dict)
+        # initialize values in case we don't find them.
+        for step in TRAINING_STEP:
+            data_dict[f'step_X_000_train_rmse'.replace('X', step)] = np.nan
+            data_dict[f'step_X_000_val_rmse'.replace('X', step)] = np.nan
+            data_dict[f'step_X_000_test_rmse'.replace('X', step)] = np.nan
+        return data_dict
+
+
     def update_dict_with_batching_method_size(self, parent_path, data_dict):
         """Parse information about the batching method and size.
 
