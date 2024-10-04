@@ -77,12 +77,14 @@ def main(args):
         # figure out if the row has already been written with a try
         try:
             # if yes, go on to the next row
+            if count % 10000 == 0:
+                logging.info(f'Read step {count}')
             db_out.get(count)
             continue
         except KeyError:
             # if no, convert row and write to db
             if count % 10000 == 0:
-                logging.info(f'Step {count}')
+                logging.info(f'Write step {count}')
             atoms = dict_to_ase(row)  # get the atoms object from each row
             row = row.to_dict()
             row.pop('geometry', None)
