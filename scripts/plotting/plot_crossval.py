@@ -153,6 +153,7 @@ def main(_):
         print(f"# {key}: {len(dir_list)}")
     print(f"Aborted early: {finish_condition['aborted_early']}")
     print(f"Time elapsed: {finish_condition['time_elapsed']}")
+    print(f"Reached max steps: {finish_condition['reached_max_steps']}")
     print(f"Unkown: {finish_condition['unknown']}")
     df_path = FLAGS.directory + '/result_crossval.csv'
     df = pd.concat([df_metrics, df_configs], axis=1)
