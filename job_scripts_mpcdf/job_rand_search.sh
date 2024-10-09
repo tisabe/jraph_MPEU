@@ -1,13 +1,13 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=90,8,39,26,73,44
+#SBATCH --array=80,8,52,24,73,49,45
 # Standard output and error:
-#SBATCH -o ./results/aflow/ef/painn/rand_search/output_slurm/job_%A_%a.out
-#SBATCH -e ./results/aflow/ef/painn/rand_search/output_slurm/job_%A_%a.err 
+#SBATCH -o ./results/aflow/egap/painn/rand_search/output_slurm/job_%A_%a.out
+#SBATCH -e ./results/aflow/egap/painn/rand_search/output_slurm/job_%A_%a.err 
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J ef_painn
+#SBATCH -J egap_painn
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
@@ -26,7 +26,7 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/crossval/crossval_mc.py \
---workdir=./results/aflow/ef/painn/rand_search/id${SLURM_ARRAY_TASK_ID} \
---config=jraph_MPEU_configs/aflow_ef_painn_search.py \
+--workdir=./results/aflow/egap/painn/rand_search/id${SLURM_ARRAY_TASK_ID} \
+--config=jraph_MPEU_configs/aflow_egap_painn_search.py \
 --index=${SLURM_ARRAY_TASK_ID} \
---split_file=./results/aflow/ef/painn/rand_search/splits.json
+--split_file=./results/aflow/egap/painn/rand_search/splits_ins.json

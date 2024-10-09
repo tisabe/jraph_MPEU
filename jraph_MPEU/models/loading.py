@@ -4,6 +4,7 @@ which model is chosen."""
 
 import pickle
 import os
+import json
 
 from absl import logging
 import haiku as hk
@@ -23,6 +24,14 @@ def load_model(workdir, is_training):
     with open(state_dir, 'rb') as state_file:
         best_state = pickle.load(state_file)
     config = load_config(workdir)
+
+    # get the correct max_atomic_number, it was changed from input config in 
+    # input_pipeline
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    with open(num_path, 'r', encoding="utf-8") as num_file:
+        num_list = json.load(num_file)
+        config.max_atomic_number = len(num_list)
+
     # load the model params
     params = best_state['state']['params']
     logging.info(f'Loaded best state at step {best_state["state"]["step"]}')
