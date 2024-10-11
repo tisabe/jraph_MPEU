@@ -190,7 +190,7 @@ def main(_):
 
     # custom settings for specific publication plots
     match FLAGS.directory:
-        case 'results/aflow/egap_rand_search':
+        case 'results/aflow/egap/mpeu/rand_search':
             ax1.set_ylim([.3, .7])
             ax1.set_xlim([.3, .7])
             ax1.set_xticks([.3, .4, .5, .6, .7])
@@ -204,6 +204,21 @@ def main(_):
             ax2.set_yticks([.15, .2, .25, .3, .35])
             ax2.scatter(x=0.183, y=0.168, s=200, marker='*', label='Ensemble')
             ax2.scatter(x=0.209, y=0.180, label='Ref. MPEU')
+
+        case 'results/aflow/egap/painn/rand_search':
+            ax1.set_ylim([.3, .7])
+            ax1.set_xlim([.3, .7])
+            ax1.set_xticks([.3, .4, .5, .6, .7])
+            ax1.set_yticks([.3, .4, .5, .6, .7])
+            ax1.scatter(x=0.442, y=0.368, s=200, marker='*', label='Ensemble PaiNN')
+            ax1.scatter(x=0.474, y=0.381, label='Ref. PaiNN')
+
+            ax2.set_ylim([.15, .35])
+            ax2.set_xlim([.15, .35])
+            ax2.set_xticks([.15, .2, .25, .3, .35])
+            ax2.set_yticks([.15, .2, .25, .3, .35])
+            ax2.scatter(x=0.180, y=0.158, s=200, marker='*', label='Ensemble PaiNN')
+            ax2.scatter(x=0.195, y=0.171, label='Ref. PaiNN')
 
         case _:
             pass
