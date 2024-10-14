@@ -3,6 +3,7 @@
 Most tests consist of running model training for some steps and then looking at
 the resulting metrics and checkpoints.
 """
+import os
 import tempfile
 import unittest
 
@@ -16,6 +17,7 @@ from jraph_MPEU.inference import (
     get_predictions, get_predictions_ensemble, get_results_df,
     get_predictions_graph)
 from jraph_MPEU.train import train_and_evaluate
+from jraph_MPEU.utils import save_config
 from jraph_MPEU_configs import default_test as cfg
 
 
@@ -125,6 +127,9 @@ class TestInference(unittest.TestCase):
         net = hk.transform_with_state(summing_gnn)
         params, state = net.init(jax.random.PRNGKey(42), dataset[0])
         models = [(net, params, state)]*n_ensemble
+        net_list = [net]*n_ensemble
+        params_list = [params]*n_ensemble
+        state_list = [state]*n_ensemble
         predictions_expected = []
         for graph in dataset:
             prediction_expected = np.sum(graph.nodes)
@@ -134,7 +139,7 @@ class TestInference(unittest.TestCase):
         predictions_expected = np.repeat(predictions_expected, n_ensemble, axis=1)
 
         predictions = get_predictions_ensemble(
-            dataset, models, 'scalar', 32)
+            dataset, net_list, params_list, state_list, 'scalar', 32)
         self.assertTupleEqual(
             predictions.shape, (len(dataset), n_ensemble, 1))
         np.testing.assert_allclose(
@@ -166,9 +171,10 @@ class TestInference(unittest.TestCase):
         config.dropout_rate = 0.5 if mc_dropout else 0
 
         with tempfile.TemporaryDirectory() as test_dir:
+            save_config(config, test_dir)
             _ = train_and_evaluate(config, test_dir)
 
-            df = get_results_df(test_dir, limit=None, mc_dropout=mc_dropout)
+            df = get_results_df(test_dir, limit=None, mc_dropout=mc_dropout, ensemble=False)
             match (mc_dropout, config.model_str):
                 case [False, 'MPEU_uq']:
                     self.assertTupleEqual(
@@ -186,6 +192,45 @@ class TestInference(unittest.TestCase):
                     self.assertTupleEqual(
                         df['prediction'].to_numpy().shape, (n,))
                     np.testing.assert_array_less([0]*n, df['prediction_std'])
+
+    @parameterized.expand(['MPEU_uq', 'MPEU'])
+    def test_get_results_df_ensemble(self, model_str):
+        """Test getting the results dataframe. This is an integration test,
+        because we call train_and_evaluate to generate all the files and model.
+        """
+        config = cfg.get_config()
+        # Training hyperparameters
+        config.num_train_steps_max = 100
+        config.log_every_steps = 10
+        config.eval_every_steps = 10
+        config.checkpoint_every_steps = 10
+        config.latent_size = 16
+        # data selection parameters
+        config.limit_data = 100
+        n = config.limit_data
+
+        n_ensemble = 2
+        mc_dropout = False
+        config.model_str = model_str
+        config.label_type = 'scalar'
+        config.dropout_rate = 0
+
+        with tempfile.TemporaryDirectory() as test_dir:
+            # create ensemble models
+            for i in range(n_ensemble):
+                workdir = test_dir+'/ensemble_model'+str(i)
+                os.mkdir(workdir)
+                save_config(config, workdir)
+                _ = train_and_evaluate(config, workdir)
+
+            df = get_results_df(test_dir, limit=None, mc_dropout=False, ensemble=True)
+            self.assertTupleEqual(
+                df['prediction_std'].to_numpy().shape, (n,))
+            self.assertTupleEqual(
+                df['prediction'].to_numpy().shape, (n,))
+            
+            if model_str == 'MPEU_uq':
+                np.testing.assert_array_less([0]*n, df['prediction_uq'])
 
     def test_get_predictions_graph(self):
         """Test getting full graph predictions (globals, nodes and edges)."""

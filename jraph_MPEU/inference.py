@@ -22,7 +22,7 @@ from jraph_MPEU.utils import (
     get_valid_mask, load_config, get_normalization_dict, scale_targets,
     load_norm_dict
 )
-from jraph_MPEU.models.loading import load_model
+from jraph_MPEU.models.loading import load_model, load_ensemble
 
 
 def get_predictions_graph(dataset, net, params, hk_state,
@@ -132,12 +132,14 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
     return predictions
 
 
-def get_predictions_ensemble(dataset, models, label_type, batch_size=32):
+def get_predictions_ensemble(
+    dataset, net_list, params_list, hk_state_list, label_type='scalar', batch_size=32):
     """Get predictions on dataset from an ensemble of models.
     Args:
         dataset: list of jraph.GraphsTuple
-        models: list of tuples, each with (net, params, hk_state) as returned
-            by models.loading.load_ensemble
+        net_list: list of model objects (see get_predictions)
+        params_list: list of haiku parameter trees (see get_predictions)
+        hk_state_list: list of haiku states (see get_predictions)
         label_type: string that describes the type of label
 
     Returns:
@@ -145,7 +147,7 @@ def get_predictions_ensemble(dataset, models, label_type, batch_size=32):
         m is number of ensemble models, d is feature length of prediction
     """
     predictions_ensemble = []
-    for (net, params, hk_state) in tqdm(models):
+    for (net, params, hk_state) in tqdm(zip(net_list, params_list, hk_state_list)):
         predictions_single = get_predictions(
             dataset, net, params, hk_state, False, label_type, batch_size)
         predictions_ensemble.append(predictions_single)
@@ -163,7 +165,7 @@ def get_predictions_graph_ensemble(dataset, models, batch_size=32):
     return predictions_ensemble
 
 
-def get_results_df(workdir, limit=None, mc_dropout=False):
+def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
     """Return a pandas dataframe with predictions and their database entries.
 
     This function loads the config, and splits. Then connects to the
@@ -172,16 +174,24 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
     including id from the database, the predictions and splits of each database
     row into a pandas.DataFrame."""
 
-    config = load_config(workdir)
-    split_dict = load_split_dict(workdir)
+    assert not (mc_dropout and ensemble),"mc_dropout and ensemble not supported at the same time."
+
+    if ensemble:
+        net, params, hk_state, config, num_list, norm_dict = load_ensemble(workdir)
+    else:
+        net, params, hk_state, config, num_list, norm_dict = load_model(
+            workdir, is_training=mc_dropout)
     label_str = config.label_str
-    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
 
     # we need to order the graphs and labels as dicts to be able to refer
     # to their splits later
     graphs_dict = {} # key: asedb_id, value corresponding graph
     labels_dict = {} # key: asedb_id, value corresponding label
     ase_db = ase.db.connect(config.data_file)
+    try:
+        split_dict = load_split_dict(workdir)
+    except FileNotFoundError:
+        split_dict = {i+1: 'test' for i in range(ase_db.count())}
     inference_df = pandas.DataFrame({})
     for i, (id_single, split) in enumerate(split_dict.items()):
         if i%10000 == 0:
@@ -209,10 +219,6 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         inference_df = pandas.concat(
             [inference_df, pandas.DataFrame([row_dict])], ignore_index=True)
     # Normalize graphs and targets
-    # Convert the atomic numbers in nodes to classes and set number of classes.
-    num_path = os.path.join(workdir, 'atomic_num_list.json')
-    with open(num_path, 'r', encoding="utf-8") as num_file:
-        num_list = json.load(num_file)
     #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
     # aflow_x_mp
@@ -229,9 +235,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
         graphs_split[split].append(graph)
 
     # get and apply normalization to graph targets
-    norm_path = os.path.join(workdir, 'normalization.json')
-    norm_dict = {}
-    if not os.path.exists(norm_path):
+    if norm_dict is None:
         match config.label_type:
             case 'scalar':
                 norm_dict = get_normalization_dict(
@@ -241,14 +245,19 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
                     graphs_split['train'], 'scalar_non_negative')
             case 'class'|'class_binary'|'class_multi':
                 norm_dict = {}
-    else:
-        norm_dict = load_norm_dict(norm_path)
-    graphs = list(graphs_dict.values())
 
     logging.info('Predicting on dataset.')
-    preds = get_predictions(
-        graphs, net, params, hk_state, mc_dropout, config.label_type,
-        config.batch_size)  # shape (N, m, d)
+    graphs = list(graphs_dict.values())
+
+    if ensemble:
+        preds = get_predictions_ensemble(
+            graphs, net, params, hk_state, config.label_type,
+            config.batch_size)  # shape (N, m, d)
+    else:
+        preds = get_predictions(
+            graphs, net, params, hk_state, mc_dropout, config.label_type,
+            config.batch_size)  # shape (N, m, d)
+
     match (config.label_type, config.model_str):
         case ['scalar'|'scalar_non_negative', 'MPEU_uq']:
             # scale the predicted mean (preds[:, :, 0])
@@ -267,7 +276,7 @@ def get_results_df(workdir, limit=None, mc_dropout=False):
             pass
 
     # NOTE: for now, only works with scalar predictions, and uncertainties
-    match (mc_dropout, config.model_str):
+    match (mc_dropout or ensemble, config.model_str):
         case [False, 'MPEU_uq']:
             inference_df['prediction'] = preds[:, 0, 0]
             inference_df['prediction_uq'] = preds[:, 0, 1]
@@ -336,6 +345,6 @@ def get_results_kfold(workdir_super, mc_dropout=False):
     graphs = list(graphs_dict.values())
 
 
-    net, params, hk_state = load_model(workdir, is_training=mc_dropout)
+    net, params, hk_state, _, _ = load_model(workdir, is_training=mc_dropout)
     # TODO: maybe finish this. Other possibility: after end of training,
     # generate results dataframe and combine afterwards

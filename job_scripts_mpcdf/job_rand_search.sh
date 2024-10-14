@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # specify the indexes (max. 30000) of the job array elements (max. 300 - the default job submit limit per user)
-#SBATCH --array=80,8,52,24,73,49,45
+#SBATCH --array=8
 # Standard output and error:
 #SBATCH -o ./results/aflow/egap/painn/rand_search/output_slurm/job_%A_%a.out
 #SBATCH -e ./results/aflow/egap/painn/rand_search/output_slurm/job_%A_%a.err 
