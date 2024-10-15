@@ -401,6 +401,136 @@ I0924 19:30:55.162486 22758399235904 train.py:690] Median update time: 0.0026547
 I0924 19:30:55.237533 22758399235904 train.py:693] Mean update time: 0.0026973051978349686
 """
 
+convert_string_to_float_file = """
+2024-09-21 07:22:08.597080: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Error.  nthreads cannot be larger than environment variable "NUMEXPR_MAX_THREADS" (64)I0921 07:22:30.495136 22514370438976 main.py:51] JAX host: 0 / 1
+I0921 07:22:30.495256 22514370438976 main.py:52] JAX local devices: [cuda(id=0), cuda(id=1), cuda(id=2), cuda(id=3)]
+I0921 07:22:30.495486 22514370438976 train.py:553] Loading datasets.
+I0921 07:22:30.495563 22514370438976 input_pipeline.py:581] Did not find split file at /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/splits.json. Pulling data.
+I0921 07:22:31.487912 22514370438976 input_pipeline.py:275] Number of entries selected: 133885
+I0921 07:23:44.065457 22514370438976 input_pipeline.py:653] Mean: -75.9140390541746, Std: 10.36986183441548
+I0921 07:23:45.060635 22514370438976 train.py:555] Number of node classes: 5
+I0921 07:23:45.061464 22514370438976 train.py:565] Because of compute device: gpu_a100 we set compile batching to: True
+I0921 07:23:45.061539 22514370438976 train.py:569] Config dynamic batch: True
+I0921 07:23:45.061582 22514370438976 train.py:570] Config dynamic batch is True?: True
+I0921 07:23:45.266489 22514370438976 train.py:478] Initializing network.
+I0921 07:23:47.659484 22514370438976 train.py:594] 173152 params, size: 0.69MB
+I0921 07:23:47.659948 22514370438976 train.py:610] Starting training.
+I0921 07:23:47.663232 22514370438976 train.py:77] LOG Message: Recompiling!
+2024-09-21 07:23:51.420173: W external/xla/xla/service/gpu/buffer_comparator.cc:1054] INTERNAL: ptxas exited with non-zero error code 65280, output: ptxas /tmp/tempfile-ravg1120-9057b1d2-28532-6229a5c6f9468, line 10; fatal   : Unsupported .version 7.8; current version is '7.4'
+ptxas fatal   : Ptx assembly aborted due to errors
+
+Relying on driver to perform ptx compilation. 
+Setting XLA_FLAGS=--xla_gpu_cuda_data_dir=/path/to/cuda  or modifying $PATH can be used to set the location of ptxas
+This message will only be logged once.
+I0921 07:30:01.609405 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0100000.pkl
+I0921 07:30:01.615419 22514370438976 train.py:646] Step 100000 train loss: 0.0025825551711022854
+I0921 07:30:14.274028 22514370438976 train.py:367] RMSE/MAE train: [0.63762646 0.56198494]
+I0921 07:30:14.274304 22514370438976 train.py:367] RMSE/MAE validation: [0.64053979 0.56614005]
+I0921 07:30:14.274457 22514370438976 train.py:367] RMSE/MAE test: [0.63644425 0.56342979]
+I0921 07:36:23.180192 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0200000.pkl
+I0921 07:36:23.185059 22514370438976 train.py:646] Step 200000 train loss: 0.0012534132692962885
+I0921 07:36:33.223848 22514370438976 train.py:367] RMSE/MAE train: [0.22917887 0.16128595]
+I0921 07:36:33.224080 22514370438976 train.py:367] RMSE/MAE validation: [0.23004881 0.15912314]
+I0921 07:36:33.224224 22514370438976 train.py:367] RMSE/MAE test: [0.2250047 0.1604264]
+I0921 07:42:43.112245 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0300000.pkl
+I0921 07:42:43.116894 22514370438976 train.py:646] Step 300000 train loss: 0.0003567503299564123
+I0921 07:42:53.181013 22514370438976 train.py:367] RMSE/MAE train: [0.1812213  0.14005429]
+I0921 07:42:53.181252 22514370438976 train.py:367] RMSE/MAE validation: [0.17847037 0.13838503]
+I0921 07:42:53.181404 22514370438976 train.py:367] RMSE/MAE test: [0.18507901 0.14135047]
+I0921 07:49:02.103027 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0400000.pkl
+I0921 07:49:02.107646 22514370438976 train.py:646] Step 400000 train loss: 0.00015636355965398252
+I0921 07:49:11.819210 22514370438976 train.py:367] RMSE/MAE train: [0.1243     0.09017694]
+I0921 07:49:11.819446 22514370438976 train.py:367] RMSE/MAE validation: [0.12357951 0.09069529]
+I0921 07:49:11.819596 22514370438976 train.py:367] RMSE/MAE test: [0.12825794 0.09103447]
+I0921 07:55:20.288949 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0500000.pkl
+I0921 07:55:20.293587 22514370438976 train.py:646] Step 500000 train loss: 7.989697769517079e-05
+I0921 07:55:30.067422 22514370438976 train.py:367] RMSE/MAE train: [0.11459652 0.08087971]
+I0921 07:55:30.067661 22514370438976 train.py:367] RMSE/MAE validation: [0.11934893 0.08216458]
+I0921 07:55:30.067810 22514370438976 train.py:367] RMSE/MAE test: [0.11386451 0.08208607]
+I0921 08:01:39.139464 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0600000.pkl
+I0921 08:01:39.144009 22514370438976 train.py:646] Step 600000 train loss: 0.0001237685646628961
+I0921 08:01:48.810663 22514370438976 train.py:367] RMSE/MAE train: [0.15309076 0.12301692]
+I0921 08:01:48.810899 22514370438976 train.py:367] RMSE/MAE validation: [0.15296898 0.12343316]
+I0921 08:01:48.811051 22514370438976 train.py:367] RMSE/MAE test: [0.15476382 0.12413499]
+I0921 08:07:56.416045 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0700000.pkl
+I0921 08:07:56.420655 22514370438976 train.py:646] Step 700000 train loss: 0.0001710331125650555
+I0921 08:08:06.375671 22514370438976 train.py:367] RMSE/MAE train: [0.09724305 0.07112052]
+I0921 08:08:06.375907 22514370438976 train.py:367] RMSE/MAE validation: [0.10051427 0.07216019]
+I0921 08:08:06.376056 22514370438976 train.py:367] RMSE/MAE test: [0.10070716 0.07242802]
+I0921 08:14:14.920322 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0800000.pkl
+I0921 08:14:14.924881 22514370438976 train.py:646] Step 800000 train loss: 9.332817717222497e-05
+I0921 08:14:24.628510 22514370438976 train.py:367] RMSE/MAE train: [0.10526463 0.07417917]
+I0921 08:14:24.628751 22514370438976 train.py:367] RMSE/MAE validation: [0.09714349 0.07477885]
+I0921 08:14:24.628902 22514370438976 train.py:367] RMSE/MAE test: [0.10362583 0.0759442 ]
+I0921 08:20:33.078607 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_0900000.pkl
+I0921 08:20:33.083292 22514370438976 train.py:646] Step 900000 train loss: 4.312652163207531e-05
+I0921 08:20:42.788543 22514370438976 train.py:367] RMSE/MAE train: [0.08619641 0.06452338]
+I0921 08:20:42.788779 22514370438976 train.py:367] RMSE/MAE validation: [0.09631777 0.06615742]
+I0921 08:20:42.788928 22514370438976 train.py:367] RMSE/MAE test: [0.09176402 0.06596294]
+I0921 08:26:49.325927 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1000000.pkl
+I0921 08:26:49.330620 22514370438976 train.py:646] Step 1000000 train loss: 4.207703022984788e-05
+I0921 08:26:58.952258 22514370438976 train.py:367] RMSE/MAE train: [0.06884504 0.04885343]
+I0921 08:26:58.952494 22514370438976 train.py:367] RMSE/MAE validation: [0.09523428 0.05094998]
+I0921 08:26:58.952640 22514370438976 train.py:367] RMSE/MAE test: [0.07267908 0.05076584]
+I0921 08:33:05.361518 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1100000.pkl
+I0921 08:33:05.366066 22514370438976 train.py:646] Step 1100000 train loss: 4.020088817924261e-05
+I0921 08:33:14.886878 22514370438976 train.py:367] RMSE/MAE train: [0.07085029 0.05352306]
+I0921 08:33:14.887110 22514370438976 train.py:367] RMSE/MAE validation: [0.0800021  0.05494436]
+I0921 08:33:14.887259 22514370438976 train.py:367] RMSE/MAE test: [0.0773113  0.05588198]
+I0921 08:39:20.505896 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1200000.pkl
+I0921 08:39:20.510442 22514370438976 train.py:646] Step 1200000 train loss: 2.5999226636486128e-05
+I0921 08:39:30.311761 22514370438976 train.py:367] RMSE/MAE train: [0.05222315 0.03802177]
+I0921 08:39:30.311997 22514370438976 train.py:367] RMSE/MAE validation: [0.06575698 0.0404972 ]
+I0921 08:39:30.312145 22514370438976 train.py:367] RMSE/MAE test: [0.06023241 0.04034673]
+I0921 08:45:35.474556 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1300000.pkl
+I0921 08:45:35.478927 22514370438976 train.py:646] Step 1300000 train loss: 1.3793463949696161e-05
+I0921 08:45:45.014043 22514370438976 train.py:367] RMSE/MAE train: [0.08595129 0.07485353]
+I0921 08:45:45.014283 22514370438976 train.py:367] RMSE/MAE validation: [0.09203123 0.07639384]
+I0921 08:45:45.014434 22514370438976 train.py:367] RMSE/MAE test: [0.09162185 0.07642386]
+I0921 08:51:49.250559 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1400000.pkl
+I0921 08:51:49.254976 22514370438976 train.py:646] Step 1400000 train loss: 2.812404818541836e-05
+I0921 08:51:58.783100 22514370438976 train.py:367] RMSE/MAE train: [0.04826016 0.03565576]
+I0921 08:51:58.783335 22514370438976 train.py:367] RMSE/MAE validation: [0.06070637 0.0378385 ]
+I0921 08:51:58.783484 22514370438976 train.py:367] RMSE/MAE test: [0.05729091 0.03781344]
+I0921 08:58:04.354798 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1500000.pkl
+I0921 08:58:04.359186 22514370438976 train.py:646] Step 1500000 train loss: 2.2484884539153427e-05
+I0921 08:58:13.871082 22514370438976 train.py:367] RMSE/MAE train: [0.05039525 0.03880818]
+I0921 08:58:13.871315 22514370438976 train.py:367] RMSE/MAE validation: [0.06177463 0.0411522 ]
+I0921 08:58:13.871464 22514370438976 train.py:367] RMSE/MAE test: [0.05942395 0.04133885]
+I0921 09:04:18.085724 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1600000.pkl
+I0921 09:04:18.090103 22514370438976 train.py:646] Step 1600000 train loss: 3.5359073081053793e-05
+I0921 09:04:28.064980 22514370438976 train.py:367] RMSE/MAE train: [0.06367842 0.05231116]
+I0921 09:04:28.065217 22514370438976 train.py:367] RMSE/MAE validation: [0.0725041  0.05510169]
+I0921 09:04:28.065369 22514370438976 train.py:367] RMSE/MAE test: [0.07272359 0.05505082]
+I0921 09:10:33.489484 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1700000.pkl
+I0921 09:10:33.493985 22514370438976 train.py:646] Step 1700000 train loss: 1.8517826902098022e-05
+I0921 09:10:43.085015 22514370438976 train.py:367] RMSE/MAE train: [0.04856026 0.03693727]
+I0921 09:10:43.085393 22514370438976 train.py:367] RMSE/MAE validation: [0.05777337 0.03919467]
+I0921 09:10:43.085545 22514370438976 train.py:367] RMSE/MAE test: [0.06161602 0.03969593]
+I0921 09:16:49.385122 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1800000.pkl
+I0921 09:16:49.389605 22514370438976 train.py:646] Step 1800000 train loss: 1.81268151209224e-05
+I0921 09:16:58.963572 22514370438976 train.py:367] RMSE/MAE train: [0.04259785 0.03222654]
+I0921 09:16:58.963806 22514370438976 train.py:367] RMSE/MAE validation: [0.05474784 0.03499521]
+I0921 09:16:58.963953 22514370438976 train.py:367] RMSE/MAE test: [0.05678338 0.03520006]
+I0921 09:23:07.636128 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_1900000.pkl
+I0921 09:23:07.640480 22514370438976 train.py:646] Step 1900000 train loss: 1.0581983588053845e-05
+I0921 09:23:17.191517 22514370438976 train.py:367] RMSE/MAE train: [0.03762809 0.02813114]
+I0921 09:23:17.191755 22514370438976 train.py:367] RMSE/MAE validation: [0.05094656 0.0310673 ]
+I0921 09:23:17.191905 22514370438976 train.py:367] RMSE/MAE test: [0.05345152 0.03106724]
+I0921 09:29:21.729304 22514370438976 train.py:150] Serializing experiment state to /u/dansp/batching_2_000_000_steps_20_9_2024//profiling_experiments/MPEU/qm9/dynamic/round_False/32/gpu_a100/iteration_7/checkpoints/checkpoint_2000000.pkl
+I0921 09:29:21.733754 22514370438976 train.py:646] Step 2000000 train loss: 4.694749804912135e-05
+I0921 09:29:31.270494 22514370438976 train.py:367] RMSE/MAE train: [0.03707845 0.02783663]
+I0921 09:29:31.270727 22514370438976 train.py:367] RMSE/MAE validation: [0.05057768 0.03068886]
+I0921 09:29:31.270873 22514370438976 train.py:367] RMSE/MAE test: [0.05613954 0.03114205]
+I0921 09:29:31.275461 22514370438976 train.py:674] Reached maximum number of steps without early stopping.
+I0921 09:29:31.275787 22514370438976 train.py:681] Lowest validation loss: 0.050577678924907624
+I0921 09:29:31.395223 22514370438976 train.py:684] Median batching time: 0.0010075569152832031
+I0921 09:29:31.470323 22514370438976 train.py:687] Mean batching time: 0.0010253586618900298
+I0921 09:29:31.569359 22514370438976 train.py:690] Median update time: 0.0030689239501953125
+I0921 09:29:31.644672 22514370438976 train.py:693] Mean update time: 0.0030888630081415177
+"""
+
 sample_err_file_cancelled = sample_err_file + '\nCANCELLED DUE TO TIME LIMIT'
 
 sample_err_file_cancelled_nothing_else = '\nCANCELLED DUE TO TIME LIMIT'
@@ -662,6 +792,29 @@ class ParseProfileExperiments(unittest.TestCase):
             self.assertEqual(
                 data_dict['step_2_000_000_update_time_mean'], 0.0026973051978349686)
 
+    def test_get_convert_string_to_float_file(self):
+        # Write the sample text to file:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            failing_err_file = os.path.join(tmp_dir, 'convert_string_to_float_file.err')
+            with open(failing_err_file, 'w') as fd:
+                fd.write(convert_string_to_float_file)
+
+            # Now test reading the file.
+            data_dict = {}
+            data_dict = self.profiling_parser_object.get_recompile_and_timing_info(
+                failing_err_file, data_dict)
+            print(data_dict)
+            self.assertEqual(data_dict['recompilation_counter'], 1)
+            self.assertEqual(data_dict['experiment_completed'], True)
+            # Test that we were able to get MAE/RMSE info
+            self.assertEqual(data_dict['step_100_000_train_rmse'], 0.63762646)
+            self.assertEqual(data_dict['step_400_000_val_rmse'], 0.12357951)
+
+            self.assertEqual(data_dict['step_2_000_000_test_rmse'], 0.05613954)
+            self.assertEqual(
+                data_dict['step_2_000_000_batching_time_mean'], 0.0010253586618900298)
+            self.assertEqual(
+                data_dict['step_2_000_000_update_time_mean'], 0.0030888630081415177)
 
 
 if __name__ == '__main__':

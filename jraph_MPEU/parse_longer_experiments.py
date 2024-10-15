@@ -233,15 +233,15 @@ class LongerParser():
 
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
-                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('     ', ' ').replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
-                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('     ', ' ').replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_val_rmse'] = rmse                    
                 elif 'RMSE/MAE test' in line:
                     # Grab the test loss
-                    rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
+                    rmse = float(line.replace('     ', ' ').replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_test_rmse'] = rmse
                 elif 'Mean batching time' in line:
                     # Grab the training loss
