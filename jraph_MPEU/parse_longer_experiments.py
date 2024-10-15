@@ -484,7 +484,7 @@ def main(argv):
         'File to store paths to'
         ' resubmit %s' % paths_misbehaving)
 
-    parse_obj = ProfilingParser(
+    parse_obj = LongerParser(
         paths_txt_file=paths_txt_file,
         csv_filename=csv_filename,
         paths_to_resubmit=paths_to_resubmit,
