@@ -214,11 +214,11 @@ class LongerParser():
         experiment_completed = False
 
         self.initialize_training_validation_data_dict(data_dict)
-
-        data_dict[f'step_100_000_batching_time_median'] = np.nan
-        data_dict[f'step_100_000_batching_time_mean'] = np.nan
-        data_dict[f'step_100_000_update_time_median'] = np.nan
-        data_dict[f'step_100_000_update_time_mean'] = np.nan
+        # # We give these values some values even if the job didn't finish?
+        # data_dict[f'step_2_000_000_update_time_median'] = np.nan
+        # data_dict[f'step_2_000_000_update_time_median'] = np.nan
+        # data_dict[f'step_2_000_000_batching_time_mean'] = np.nan
+        # data_dict[f'step_2_000_000_batching_time_median'] = np.nan
 
 
         with open(most_recent_error_file, 'r') as fin:
@@ -230,14 +230,11 @@ class LongerParser():
                     step_num = split_line[-4]
                     # Add underscore for every set of three zeros.
                     step_num = re.sub(pattern, r"_\g<0>", step_num)
-                    
-                    print(f'step_num: {step_num}')
 
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
                     rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
-                    print(f'rmse: {rmse}')
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
                     rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
