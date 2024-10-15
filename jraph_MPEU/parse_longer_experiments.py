@@ -7,6 +7,7 @@ each json like object to an ASE database.
 Eventually, we would like to use the aims parser."""
 import ase.io
 import os
+import re
 from numpy.linalg import norm
 import logging
 from absl import flags
@@ -47,7 +48,7 @@ TRAINING_STEP = [
     '1_900', '2_000']
 
 
-class ProfilingParser():
+class LongerParser():
     """Parses data output."""
     def __init__(
             self, paths_txt_file, csv_filename,
@@ -97,12 +98,12 @@ class ProfilingParser():
     def add_training_val_test_csv_columns(self):
             
         for step in TRAINING_STEP:
-            train_column = 'step_X_train_rmse'.replace('X', step)
+            train_column = 'step_X_000_train_rmse'.replace('X', step)
             self.csv_columns.append(train_column)
             validation_column = 'step_X_000_val_rmse'.replace('X', step)
-            self.csv_columns.append(train_column)
+            self.csv_columns.append(validation_column)
             test_column = 'step_X_000_test_rmse'.replace('X', step)
-            self.csv_columns.append([])
+            self.csv_columns.append(test_column)
 
 
     def get_path_list(self, paths_txt_file):
@@ -209,15 +210,15 @@ class ProfilingParser():
         I1107 20:59:07.805134 22949931718464 train.py:636] Mean update time: 0.0026955132026672364
         """
         recompilation_counter = 0
-
+        pattern = r"(?m)(?<=\d)\d{3}(?=(?:\d{3})*$)"
         experiment_completed = False
 
         self.initialize_training_validation_data_dict(data_dict)
 
-        data_dict[f'step_100000_batching_time_median'] = np.nan
-        data_dict[f'step_100000_batching_time_mean'] = np.nan
-        data_dict[f'step_100000_update_time_median'] = np.nan
-        data_dict[f'step_100000_update_time_mean'] = np.nan
+        data_dict[f'step_100_000_batching_time_median'] = np.nan
+        data_dict[f'step_100_000_batching_time_mean'] = np.nan
+        data_dict[f'step_100_000_update_time_median'] = np.nan
+        data_dict[f'step_100_000_update_time_mean'] = np.nan
 
 
         with open(most_recent_error_file, 'r') as fin:
@@ -227,10 +228,16 @@ class ProfilingParser():
                 if "Step " in line:
                     split_line = line.split(' ')
                     step_num = split_line[-4]
+                    # Add underscore for every set of three zeros.
+                    step_num = re.sub(pattern, r"_\g<0>", step_num)
+                    
+                    print(f'step_num: {step_num}')
+
                 elif 'RMSE/MAE train' in line:
                     # Grab the training loss
                     rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
                     data_dict[f'step_{step_num}_train_rmse'] = rmse
+                    print(f'rmse: {rmse}')
                 elif 'RMSE/MAE validation' in line:
                     # Grab the val loss
                     rmse = float(line.replace('   ', ' ').replace('  ', ' ').split(' ')[-2].split('[')[-1])
@@ -263,7 +270,7 @@ class ProfilingParser():
         return data_dict
 
 
-    def initialize_training_validation_data_dict(self, data_dict)
+    def initialize_training_validation_data_dict(self, data_dict):
         # initialize values in case we don't find them.
         for step in TRAINING_STEP:
             data_dict[f'step_X_000_train_rmse'.replace('X', step)] = np.nan
