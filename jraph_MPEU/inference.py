@@ -218,6 +218,7 @@ def get_results_df(
     limit: Optional[int] = None,
     mc_dropout: Optional[bool] = False,
     ensemble: Optional[bool] = False,
+    data_path: Optional[str] = None,
 ) -> pd.DataFrame:
     """Return a pandas dataframe with predictions and their database entries.
     Args:
@@ -229,6 +230,8 @@ def get_results_df(
         ensemble: whether to load an ensemble of models. If True, workdir has
             to point to multiple valid working directories, each with models
             saved
+        data_path: path to database to predict on, if None, path in
+            config.data_file will be used
 
     This function loads the config, and splits. Then connects to the
     database specified in config.data_file, gets the predictions of entries in
@@ -249,7 +252,13 @@ def get_results_df(
     # to their splits later
     graphs_dict = {} # key: asedb_id, value corresponding graph
     labels_dict = {} # key: asedb_id, value corresponding label
-    ase_db = ase.db.connect(config.data_file)
+    if data_path is None:
+        assert os.path.exists(config.data_file),f"ASE_db not found at {config.data_file}"
+        ase_db = ase.db.connect(config.data_file)
+    else:
+        assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
+        ase_db = ase.db.connect(data_path)
+
     try:
         split_dict = load_split_dict(workdir)
     except FileNotFoundError:

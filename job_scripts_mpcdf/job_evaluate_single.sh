@@ -23,5 +23,8 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/plotting/error_analysis.py \
---file=results/aflow_x_mp/ef/mp_infer_combined/ --label=ef --plot=nothing
+srun python scripts/eval.py \
+--workdir=results/aflow/ef/painn/rand_search_best \
+--data_path=databases/aflow/eform_all_graphs_202409.db \
+--mc_dropout=False \
+--ensemble=True \

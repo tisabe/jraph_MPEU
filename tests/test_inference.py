@@ -174,7 +174,12 @@ class TestInference(unittest.TestCase):
             save_config(config, test_dir)
             _ = train_and_evaluate(config, test_dir)
 
-            df = get_results_df(test_dir, limit=n_data, mc_dropout=mc_dropout, ensemble=False)
+            df = get_results_df(
+                test_dir,
+                limit=n_data,
+                mc_dropout=mc_dropout,
+                ensemble=False,
+                data_path=config.data_file)
             match (mc_dropout, config.model_str):
                 case [False, 'MPEU_uq']:
                     self.assertTupleEqual(
@@ -221,7 +226,12 @@ class TestInference(unittest.TestCase):
                 os.mkdir(workdir)
                 save_config(config, workdir)
                 _ = train_and_evaluate(config, workdir)
-            df = get_results_df(test_dir, limit=n_data, mc_dropout=False, ensemble=True)
+            df = get_results_df(
+                test_dir,
+                limit=n_data,
+                mc_dropout=False,
+                ensemble=True,
+                data_path=None)
             self.assertTupleEqual(
                 df['prediction_std'].to_numpy().shape, (n_data,))
             self.assertTupleEqual(
