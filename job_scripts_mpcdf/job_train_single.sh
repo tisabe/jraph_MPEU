@@ -23,6 +23,6 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/main.py \
+srun python scripts/train.py \
 --workdir=./results/aflow_x_mp/egap_all/train_aflow \
 --config=jraph_MPEU_configs/default_mp.py

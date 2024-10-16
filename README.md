@@ -33,7 +33,7 @@ To do this first run datapuller.py, you may have to make a directory "aflow".
 Then run datahandler.py to convert the raw data from the pull into graphs.
 
 ## Training
-To train a model run main.py, this defaults to the QM9 dataset, but does not automatically pull it. You have to specify config directory, where parameters are pulled and working directory, where results are stored.
+To train a model run train.py, this defaults to the QM9 dataset, but does not automatically pull it. You have to specify config directory, where parameters are pulled and working directory, where results are stored.
 
 The config directory can be one of the two files in configs.
 

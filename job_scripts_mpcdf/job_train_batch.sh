@@ -25,7 +25,7 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/main.py \
+srun python scripts/train.py \
 --workdir=./results/aflow/ef/mpeu/uq_nll/id${SLURM_ARRAY_TASK_ID} \
 --config=jraph_MPEU_configs/aflow_ef_clean.py \
 --config.seed_weights=${SLURM_ARRAY_TASK_ID} \
