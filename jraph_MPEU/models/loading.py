@@ -59,7 +59,7 @@ def load_ensemble(directory):
     params_list = []
     hk_state_list = []
     config_list = []
-    num_list = []
+    num_lists = []
     norm_dict_list = []
     with os.scandir(directory) as dirs:
         for entry in dirs:
@@ -72,15 +72,15 @@ def load_ensemble(directory):
                     params_list.append(params)
                     hk_state_list.append(hk_state)
                     config_list.append(config)
-                    num_list.append(num_list)
+                    num_lists.append(num_list)
                     norm_dict_list.append(norm_dict)
     return (
         net_list,
         params_list,
         hk_state_list,
         config_list[0],
-        num_list[0],
-        norm_dict[0]
+        num_lists[0],
+        norm_dict_list[0]
     )
 
 

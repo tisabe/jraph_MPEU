@@ -4,34 +4,50 @@ import os
 import json
 import glob
 from collections import defaultdict
+from typing import Optional, Sequence
 
 import jax
-import jax.numpy as jnp
 import jraph
+import haiku as hk
 import numpy as np
 from absl import logging
 import ase.db
-import pandas
-from tqdm import tqdm
+import pandas as pd
 
 from jraph_MPEU.input_pipeline import (
     DataReader, load_split_dict, ase_row_to_jraph,
     atoms_to_nodes_list
 )
 from jraph_MPEU.utils import (
-    get_valid_mask, load_config, get_normalization_dict, scale_targets,
-    load_norm_dict
+    get_valid_mask, load_config, get_normalization_dict, scale_targets
 )
 from jraph_MPEU.models.loading import load_model, load_ensemble
 
 
-def get_predictions_graph(dataset, net, params, hk_state,
-    mc_dropout=False, batch_size=32):
+def get_predictions_graph(
+    dataset: Sequence[jraph.GraphsTuple],
+    net: hk.Transformed,
+    params: hk.Params,
+    hk_state: hk.State,
+    mc_dropout: Optional[bool] = False,
+    batch_size: Optional[int] = 32,
+) -> Sequence[jraph.GraphsTuple]:
     """Get whole graph predictions for a single dataset of graphs.
+
+    Args:
+        dataset: list of jraph.GraphsTuple
+        net: the model object with an apply function that applies the GNN model
+            on a batch of graphs.
+        params: haiku parameters used by the net.apply function
+        hk_state: haiku state for batch norm in apply function
+        mc_dropout: whether to use monte-carlo dropout to estimate the
+            uncertainty of the model. If true, preds gets and extra dimension
+            for the extra sampling of each graph
+        batch_size: size of batches used in the data_reader
     
-    Returns a nested list with length of len(dataset),
-    each item is a list of graphs with length 1 if mc_dopout=False,
-    length 10 otherwise.
+    Returns:
+        a nested list with length of len(dataset), each item is a list of
+        graphs with length 1 if mc_dopout=False, length 10 otherwise.
     """
     n_samples = 10 if mc_dropout else 1
     key = jax.random.PRNGKey(42)
@@ -62,8 +78,15 @@ def get_predictions_graph(dataset, net, params, hk_state,
     return graphs_all
 
 
-def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
-    label_type='scalar', batch_size=32):
+def get_predictions(
+    dataset: Sequence[jraph.GraphsTuple],
+    net: hk.Transformed,
+    params: hk.Params,
+    hk_state: hk.State,
+    mc_dropout: Optional[bool] = False,
+    batch_size: Optional[int] = 32,
+    label_type: Optional[str] = 'scalar',
+) -> np.ndarray:
     """Get predictions for a single dataset split.
 
     Args:
@@ -75,6 +98,7 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
         mc_dropout: whether to use monte-carlo dropout to estimate the
             uncertainty of the model. If true, preds gets and extra dimension
             for the extra sampling of each graph
+        batch_size: size of batches used in the data_reader
         label_type: string that describes the type of label
 
     Returns:
@@ -133,7 +157,13 @@ def get_predictions(dataset, net, params, hk_state, mc_dropout=False,
 
 
 def get_predictions_ensemble(
-    dataset, net_list, params_list, hk_state_list, label_type='scalar', batch_size=32):
+    dataset: Sequence[jraph.GraphsTuple],
+    net_list: Sequence[hk.Transformed],
+    params_list: Sequence[hk.Params],
+    hk_state_list: Sequence[hk.State],
+    batch_size: Optional[int] = 32,
+    label_type: Optional[str] = 'scalar',
+) -> np.ndarray:
     """Get predictions on dataset from an ensemble of models.
     Args:
         dataset: list of jraph.GraphsTuple
@@ -147,17 +177,35 @@ def get_predictions_ensemble(
         m is number of ensemble models, d is feature length of prediction
     """
     predictions_ensemble = []
-    for (net, params, hk_state) in tqdm(zip(net_list, params_list, hk_state_list)):
+    for i, (net, params, hk_state) in enumerate(zip(net_list, params_list, hk_state_list)):
+        logging.info(f"Inference using model {i}/{len(net_list)}")
         predictions_single = get_predictions(
-            dataset, net, params, hk_state, False, label_type, batch_size)
+            dataset, net, params, hk_state, False, batch_size, label_type)
         predictions_ensemble.append(predictions_single)
     predictions_ensemble = np.concatenate(predictions_ensemble, axis=1)
     return predictions_ensemble
 
 
-def get_predictions_graph_ensemble(dataset, models, batch_size=32):
+def get_predictions_graph_ensemble(
+    dataset: Sequence[jraph.GraphsTuple],
+    net_list: Sequence[hk.Transformed],
+    params_list: Sequence[hk.Params],
+    hk_state_list: Sequence[hk.State],
+    batch_size: Optional[int] = 32,
+) -> Sequence[jraph.GraphsTuple]:
+    """Get predictions on dataset from an ensemble of models.
+    Args:
+        dataset: list of jraph.GraphsTuple
+        net_list: list of model objects (see get_predictions)
+        params_list: list of haiku parameter trees (see get_predictions)
+        hk_state_list: list of haiku states (see get_predictions)
+
+    Returns:
+        nested list of jraph.GraphsTuple with shape (len(dataset),len(net_list),)
+    """
     predictions_ensemble = []
-    for (net, params, hk_state) in tqdm(models):
+    for i, (net, params, hk_state) in enumerate(zip(net_list, params_list, hk_state_list)):
+        logging.info(f"Inference using model {i}/{len(net_list)}")
         predictions_single = get_predictions_graph(
             dataset, net, params, hk_state, False, batch_size)
         predictions_single = [pred[0] for pred in predictions_single]
@@ -165,8 +213,22 @@ def get_predictions_graph_ensemble(dataset, models, batch_size=32):
     return predictions_ensemble
 
 
-def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
+def get_results_df(
+    workdir: str,
+    limit: Optional[int] = None,
+    mc_dropout: Optional[bool] = False,
+    ensemble: Optional[bool] = False,
+) -> pd.DataFrame:
     """Return a pandas dataframe with predictions and their database entries.
+    Args:
+        workdir: directory to load model, dataset from
+        limit: maximum number of datapoints to load and predict on, None means
+            no limit on number
+        mc_dropout: whether to use monte-carlo dropout to get prediction
+            standard deviations
+        ensemble: whether to load an ensemble of models. If True, workdir has
+            to point to multiple valid working directories, each with models
+            saved
 
     This function loads the config, and splits. Then connects to the
     database specified in config.data_file, gets the predictions of entries in
@@ -191,8 +253,9 @@ def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
     try:
         split_dict = load_split_dict(workdir)
     except FileNotFoundError:
+        logging.info("No split file found, assuming everything is test data.")
         split_dict = {i+1: 'test' for i in range(ase_db.count())}
-    inference_df = pandas.DataFrame({})
+    inference_df = pd.DataFrame({})
     for i, (id_single, split) in enumerate(split_dict.items()):
         if i%10000 == 0:
             logging.info(f'Rows read: {i}')
@@ -216,8 +279,8 @@ def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
         row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
         # the csv from file, this has to be converted from string to list
         row_dict['formula'] = row.formula
-        inference_df = pandas.concat(
-            [inference_df, pandas.DataFrame([row_dict])], ignore_index=True)
+        inference_df = pd.concat(
+            [inference_df, pd.DataFrame([row_dict])], ignore_index=True)
     # Normalize graphs and targets
     #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
@@ -251,12 +314,12 @@ def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
 
     if ensemble:
         preds = get_predictions_ensemble(
-            graphs, net, params, hk_state, config.label_type,
-            config.batch_size)  # shape (N, m, d)
+            graphs, net, params, hk_state, config.batch_size, config.label_type,
+            )  # shape (N, m, d)
     else:
         preds = get_predictions(
-            graphs, net, params, hk_state, mc_dropout, config.label_type,
-            config.batch_size)  # shape (N, m, d)
+            graphs, net, params, hk_state, mc_dropout, config.batch_size,
+            config.label_type)  # shape (N, m, d)
 
     match (config.label_type, config.model_str):
         case ['scalar'|'scalar_non_negative', 'MPEU_uq']:
@@ -292,13 +355,14 @@ def get_results_df(workdir, limit=None, mc_dropout=False, ensemble=False):
 
     return inference_df
 
+
 def get_results_kfold(workdir_super, mc_dropout=False):
     """Generate dataframe with results from k models and data split into k
     folds.
     """
     directories = glob.glob(workdir_super+'/id*')
     # make dataframe to append to
-    inference_df = pandas.DataFrame({})
+    inference_df = pd.DataFrame({})
     base_ids = None
     base_config = None
     for i, workdir in enumerate(directories):

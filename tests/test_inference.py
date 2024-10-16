@@ -139,7 +139,7 @@ class TestInference(unittest.TestCase):
         predictions_expected = np.repeat(predictions_expected, n_ensemble, axis=1)
 
         predictions = get_predictions_ensemble(
-            dataset, net_list, params_list, state_list, 'scalar', 32)
+            dataset, net_list, params_list, state_list, 32, 'scalar')
         self.assertTupleEqual(
             predictions.shape, (len(dataset), n_ensemble, 1))
         np.testing.assert_allclose(
@@ -163,8 +163,8 @@ class TestInference(unittest.TestCase):
         config.checkpoint_every_steps = 10
         config.latent_size = 16
         # data selection parameters
-        config.limit_data = 100
-        n = config.limit_data
+        n_data = 10
+        config.limit_data = n_data
 
         config.model_str = model_str
         config.label_type = 'scalar'
@@ -174,24 +174,24 @@ class TestInference(unittest.TestCase):
             save_config(config, test_dir)
             _ = train_and_evaluate(config, test_dir)
 
-            df = get_results_df(test_dir, limit=None, mc_dropout=mc_dropout, ensemble=False)
+            df = get_results_df(test_dir, limit=n_data, mc_dropout=mc_dropout, ensemble=False)
             match (mc_dropout, config.model_str):
                 case [False, 'MPEU_uq']:
                     self.assertTupleEqual(
-                        df['prediction'].to_numpy().shape, (n,))
-                    np.testing.assert_array_less([0]*n, df['prediction_uq'])
+                        df['prediction'].to_numpy().shape, (n_data,))
+                    np.testing.assert_array_less([0]*n_data, df['prediction_uq'])
                 case [True, 'MPEU_uq']:
                     self.assertTupleEqual(
-                        df['prediction'].to_numpy().shape, (n,))
-                    np.testing.assert_array_less([0]*n, df['prediction_uq'])
-                    np.testing.assert_array_less([0]*n, df['prediction_std'])
+                        df['prediction'].to_numpy().shape, (n_data,))
+                    np.testing.assert_array_less([0]*n_data, df['prediction_uq'])
+                    np.testing.assert_array_less([0]*n_data, df['prediction_std'])
                 case [False, _]:
                     self.assertTupleEqual(
-                        df['prediction'].to_numpy().shape, (n,))
+                        df['prediction'].to_numpy().shape, (n_data,))
                 case [True, _]:
                     self.assertTupleEqual(
-                        df['prediction'].to_numpy().shape, (n,))
-                    np.testing.assert_array_less([0]*n, df['prediction_std'])
+                        df['prediction'].to_numpy().shape, (n_data,))
+                    np.testing.assert_array_less([0]*n_data, df['prediction_std'])
 
     @parameterized.expand(['MPEU_uq', 'MPEU'])
     def test_get_results_df_ensemble(self, model_str):
@@ -200,17 +200,16 @@ class TestInference(unittest.TestCase):
         """
         config = cfg.get_config()
         # Training hyperparameters
-        config.num_train_steps_max = 100
+        config.num_train_steps_max = 10
         config.log_every_steps = 10
         config.eval_every_steps = 10
         config.checkpoint_every_steps = 10
         config.latent_size = 16
         # data selection parameters
-        config.limit_data = 100
-        n = config.limit_data
+        n_data = 10
+        config.limit_data = n_data
 
         n_ensemble = 2
-        mc_dropout = False
         config.model_str = model_str
         config.label_type = 'scalar'
         config.dropout_rate = 0
@@ -222,15 +221,14 @@ class TestInference(unittest.TestCase):
                 os.mkdir(workdir)
                 save_config(config, workdir)
                 _ = train_and_evaluate(config, workdir)
+            df = get_results_df(test_dir, limit=n_data, mc_dropout=False, ensemble=True)
+            self.assertTupleEqual(
+                df['prediction_std'].to_numpy().shape, (n_data,))
+            self.assertTupleEqual(
+                df['prediction'].to_numpy().shape, (n_data,))
 
-            df = get_results_df(test_dir, limit=None, mc_dropout=False, ensemble=True)
-            self.assertTupleEqual(
-                df['prediction_std'].to_numpy().shape, (n,))
-            self.assertTupleEqual(
-                df['prediction'].to_numpy().shape, (n,))
-            
             if model_str == 'MPEU_uq':
-                np.testing.assert_array_less([0]*n, df['prediction_uq'])
+                np.testing.assert_array_less([0]*n_data, df['prediction_uq'])
 
     def test_get_predictions_graph(self):
         """Test getting full graph predictions (globals, nodes and edges)."""
