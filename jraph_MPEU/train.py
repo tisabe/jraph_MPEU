@@ -587,7 +587,7 @@ def save_loss_curve(loss_dict, ckpt_dir, splits, std):
 def train_and_evaluate(
         config: ml_collections.ConfigDict,
         workdir: str) -> Dict:
-    """Train the model and evaluate it."""
+    """Train the model by counting gradient steps and evaluate it."""
     logging.info('Loading datasets.')
     datasets, norm_dict = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
@@ -670,6 +670,96 @@ def train_and_evaluate(
         if is_last_step:
             logging.info(
                 'Reached maximum number of steps without early stopping.')
+            if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
+                    pass
+
+    lowest_val_loss = evaluater.lowest_val_loss
+    logging.info(f'Lowest validation loss: {lowest_val_loss}')
+    return evaluater, lowest_val_loss
+
+
+def train_epochs(
+        config: ml_collections.ConfigDict,
+        workdir: str) -> Dict:
+    """Train the model by counting epochs and evaluate it."""
+    logging.info('Loading datasets.')
+    datasets, norm_dict = get_datasets(config, workdir)
+    logging.info(f'Number of node classes: {config.max_atomic_number}')
+
+    init_graphs = jraph.batch_np(
+        datasets['train'][0:config.batch_size])
+    # Initialize globals in graph to zero. Don't want to give the model
+    # the right answer. The model's not using them now anyway.
+    init_graphs = replace_globals(init_graphs)
+    # Create the training state.
+    updater, state, evaluater = init_state(config, init_graphs, workdir)
+
+    # calculate and print parameter size
+    params = state['params']
+    num_params = hk.data_structures.tree_size(params)
+    byte_size = hk.data_structures.tree_bytes(params)
+    logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
+
+    # Decide on splits of data on which to evaluate.
+    eval_splits = ['validation', 'test']
+    # Set up saving of losses.
+    evaluater.init_loss_lists(eval_splits)
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            evaluater.set_loss_scalar(norm_dict['std'])
+        case _:
+            evaluater.set_loss_scalar(1.0)
+
+    initial_epoch = int(state['epoch'])
+
+    # Begin training loop.
+    logging.info('Starting training.')
+
+    for epoch in range(initial_epoch, config.max_epochs):
+        # initialize data reader with training data
+        train_reader = DataReader(
+            data=datasets['train'],
+            batch_size=config.batch_size,
+            repeat=False,
+            seed=config.seed_datareader)
+
+        for graphs in train_reader:
+            # Update the weights after a gradient step and report the
+            # state/losses/optimizer gradient. The loss returned here is the loss
+            # on a batch not on the full training dataset.
+            state, loss_metrics = updater.update(state, graphs)
+
+        logging.info(f'Epoch {epoch} train loss: {loss_metrics["loss"]}')
+
+        # catch a NaN or too high loss, stop training if it happens
+        if (np.isnan(loss_metrics["loss"]) or
+                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+            logging.info('Invalid loss, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                with open(workdir + '/ABORTED_EARLY', 'w', encoding="utf-8"):
+                    pass
+            break
+
+        # Get evaluation on all splits of the data (train/validation/test),
+        # checkpoint if needed and
+        # check if we should be stopping early.
+        early_stop = evaluater.update(state, datasets, eval_splits)
+
+        if early_stop:
+            logging.info(f'Loss converged at epoch {epoch}, stopping early.')
+            # create a file that signals that training stopped early
+            if not os.path.exists(workdir + '/STOPPED_EARLY'):
+                with open(workdir + '/STOPPED_EARLY', 'w', encoding="utf-8"):
+                    pass
+            break
+
+        # No need to break if it's the last step since the loop terminates
+        # automatically when reaching the last step.
+        if epoch == config.max_epochs-1:
+            logging.info(
+                'Reached maximum number of epochs without early stopping.')
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
                 with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
                     pass
