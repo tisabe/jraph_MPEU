@@ -9,6 +9,9 @@ import ase.io
 import os
 from numpy.linalg import norm
 import logging
+from datetime import datetime
+from pathlib import Path
+
 from absl import flags
 from absl import app
 import sys
@@ -45,7 +48,7 @@ class ProfilingParser():
     """Parses data output."""
     def __init__(
             self, paths_txt_file, csv_filename,
-            paths_to_resubmit, paths_misbehaving):
+            save_directory):
         """Constructor
 
         Args:
@@ -96,10 +99,27 @@ class ProfilingParser():
 
         # Define a list of paths that we shoudl resubmit
         # to a longer queue since they expired during calculation.
-        self.paths_to_resubmit = paths_to_resubmit
+        self.parsing_time_and_day_date = self.get_time_and_day()
+        self.save_directory = Path(save_directory)
+
+        self.paths_to_resubmit = self.save_directory / ('paths_to_resubmit_' + self.parsing_time_and_day_date + '.txt')
         # We also define a list of paths that didn't exit well
         # and the reason is not that the time didn't expire.
-        self.paths_misbehaving = paths_misbehaving
+        self.paths_misbehaving = self.save_directory / ('paths_misbehaving_' + self.parsing_time_and_day_date + '.txt')
+        self.paths_resubmit_from_scratch = self.save_directory / ('paths_resubmit_from_scratch_' + self.parsing_time_and_day_date + '.txt')
+
+
+    def get_time_and_day(self):
+        """Return the time and day now as string.
+
+        Returns:
+        time_day_str: (str) time and day in a string.
+        """
+        now = datetime.now()
+
+        # dd/mm/YY H:M:S
+        dt_string = now.strftime("%H_%M_%S__%d_%m_%Y")
+        return dt_string
 
 
     def get_path_list(self, paths_txt_file):
@@ -168,7 +188,7 @@ class ProfilingParser():
 
         # Check if sim finished, if not if time expired.
         calc_ran_bool, most_recent_error_file = self.check_experiment_ran(
-                parent_path)
+                submission_path, parent_path)
         
         calc_expired_bool = self.check_sim_time_lim(most_recent_error_file)
 
@@ -335,8 +355,19 @@ class ProfilingParser():
             fo.writelines(submission_path + '\n')
 
 
-    @staticmethod
-    def check_experiment_ran(parent_path):
+    def add_unsubmitted_path(self, submission_path):
+        """Add a path name where a simulation didn't end nicely.
+
+        Args:
+        path: (str) path name to submission script so that it
+            can be resubmitted.
+        """
+        with open(
+                self.paths_resubmit_from_scratch, 'a') as fo:
+            fo.writelines(submission_path + '\n')
+
+
+    def check_experiment_ran(self, submission_path, parent_path):
         """Check if simulation exited nicely.
 
         We look to see if a .err file was created meaning the profiling
@@ -364,9 +395,9 @@ class ProfilingParser():
             calc_ran_bool = True
             most_recent_error_file = error_files[-1]
         else:
+            self.add_unsubmitted_path(submission_path)
             raise ValueError(
                 'unexpected non zero length and no none glob output')
-
         return calc_ran_bool, most_recent_error_file
 
     @staticmethod

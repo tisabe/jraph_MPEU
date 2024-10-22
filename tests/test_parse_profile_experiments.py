@@ -79,16 +79,19 @@ class ParseProfileExperiments(unittest.TestCase):
     """Unit and integration test functions in models.py."""
 
     def setUp(self):
-        paths_text_file = PATHS_TEXT_FILE
-        csv_filename = None
-        paths_to_resubmit = None
-        paths_misbehaving = None
-        self.profiling_parser_object = ppe.ProfilingParser(
-            paths_text_file,
-            csv_filename,
-            paths_to_resubmit,
-            paths_misbehaving
-        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_dir_for_err_file = os.path.join(
+                tmp_dir,
+                'tests')
+            os.makedirs(temp_dir_for_err_file)
+            save_directory=os.path.join(tmp_dir,'tests')
+            paths_txt_file = PATHS_TEXT_FILE
+            csv_filename = None
+            self.profiling_parser_object = ppe.ProfilingParser(
+                paths_txt_file,
+                csv_filename,
+                save_directory
+            )
 
     #TODO(dts): figure out what happens to the CSV writer if some fields
     # are missing ideally, I would like to write nan to those fields.
@@ -156,7 +159,7 @@ class ParseProfileExperiments(unittest.TestCase):
                 fd.write(sample_err_file)
             parent_path = Path(temp_file_name).parent.absolute()
             calc_ran_bool, most_recent_error_file = self.profiling_parser_object.check_experiment_ran(
-                parent_path)
+                temp_file_name, parent_path)
             self.assertEqual(calc_ran_bool, True)
             self.assertEqual(most_recent_error_file, temp_file_name)
 
@@ -198,8 +201,7 @@ class ParseProfileExperiments(unittest.TestCase):
             profiling_parser_object = ppe.ProfilingParser(
                 paths_txt_file=PATHS_TEXT_FILE,
                 csv_filename=None,
-                paths_to_resubmit=paths_to_resubmit,
-                paths_misbehaving=None)
+                save_directory=tmp_dir)
 
             data_dict = profiling_parser_object.gather_all_path_data(
                 temp_file_name_cancelled)
@@ -235,8 +237,7 @@ class ParseProfileExperiments(unittest.TestCase):
             profiling_parser_object = ppe.ProfilingParser(
                 paths_txt_file=PATHS_TEXT_FILE,
                 csv_filename=csv_file_name,
-                paths_to_resubmit=paths_to_resubmit,
-                paths_misbehaving=None)
+                save_directory=tmp_dir)
             profiling_parser_object.create_header()
 
             # Now open the CSV and count how many lines are there.
@@ -257,10 +258,7 @@ class ParseProfileExperiments(unittest.TestCase):
                 'sample_err_file.err')
             with open(temp_file_name_cancelled, 'w') as fd:
                 fd.write(sample_full_err_file)
-            
-            paths_to_resubmit = os.path.join(
-                tmp_dir,
-                'paths_to_resubmit.txt')
+        
 
             csv_file_name = os.path.join(
                 tmp_dir,
@@ -277,9 +275,11 @@ class ParseProfileExperiments(unittest.TestCase):
             profiling_parser_object = ppe.ProfilingParser(
                 paths_txt_file=paths_text_file,
                 csv_filename=csv_file_name,
-                paths_to_resubmit=paths_to_resubmit,
-                paths_misbehaving=None)
+                save_directory=tmp_dir)
 
+            # paths_to_resubmit = os.path.join(
+            #     tmp_dir,
+            #     'paths_to_resubmit.txt')
 
             if not os.path.isfile(csv_file_name):
                 profiling_parser_object.create_header()
@@ -322,6 +322,64 @@ class ParseProfileExperiments(unittest.TestCase):
         self.assertEqual(data_dict['step_100000_update_time_mean'], 0.0031542533135414125)
 
 
+    def test_check_experiment_ran_empty_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_dir_for_err_file = os.path.join(
+                tmp_dir,
+                'tests/data/mpnn/aflow/dynamic/round_Talse/64/gpu_a100/'
+                'iteration_5')
+            os.makedirs(temp_dir_for_err_file)
+            save_directory=os.path.join(tmp_dir,'tests')
+
+            profiling_parser_object = ppe.ProfilingParser(
+                paths_txt_file=PATHS_TEXT_FILE,
+                csv_filename=None,
+                save_directory=save_directory)
+            # Now do not create a file in the folder and see what happens when we parse it.
+            # temp_file_name_cancelled = os.path.join(
+            #     temp_dir_for_err_file,
+            #     'sample_err_file.err')
+            # with open(temp_file_name_cancelled, 'w') as fd:
+            #     fd.write(sample_full_err_file)
+            with self.assertRaises(ValueError):
+                profiling_parser_object.check_experiment_ran(
+                    os.path.join(temp_dir_for_err_file, 'submission_MgO.sh'), temp_dir_for_err_file)
+            with open(
+                    profiling_parser_object.paths_resubmit_from_scratch, 'r') as fo:
+                    parsed_resubmit_paths = fo.readlines()
+                    print(parsed_resubmit_paths)
+                    self.assertEqual(len(parsed_resubmit_paths), 1)
+                    self.assertEqual(parsed_resubmit_paths[0], os.path.join(temp_dir_for_err_file, 'submission_MgO.sh\n'))
+
+    def test_parsing_empty_folder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_dir_for_err_file = os.path.join(
+                tmp_dir,
+                'tests/data/mpnn/aflow/dynamic/round_Talse/64/gpu_a100/'
+                'iteration_5')
+            os.makedirs(temp_dir_for_err_file)
+            save_directory=os.path.join(tmp_dir,'tests')
+
+            profiling_parser_object = ppe.ProfilingParser(
+                paths_txt_file=PATHS_TEXT_FILE,
+                csv_filename=None,
+                save_directory=save_directory)
+            # Now do not create a file in the folder and see what happens when we parse it.
+            # temp_file_name_cancelled = os.path.join(
+            #     temp_dir_for_err_file,
+            #     'sample_err_file.err')
+            # with open(temp_file_name_cancelled, 'w') as fd:
+            #     fd.write(sample_full_err_file)
+            with self.assertRaises(ValueError):
+                profiling_parser_object.gather_all_path_data(
+                    os.path.join(temp_dir_for_err_file, 'submission_MgO.sh'))
+
+            with open(
+                    profiling_parser_object.paths_resubmit_from_scratch, 'r') as fo:
+                parsed_resubmit_paths = fo.readlines()
+                print(parsed_resubmit_paths)
+                self.assertEqual(len(parsed_resubmit_paths), 1)
+                self.assertEqual(parsed_resubmit_paths[0], os.path.join(temp_dir_for_err_file, 'submission_MgO.sh\n'))
 
 if __name__ == '__main__':
     unittest.main()
