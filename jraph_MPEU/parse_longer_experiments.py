@@ -33,15 +33,9 @@ flags.DEFINE_string(
     'None',
     'Where to store data as csv that has been parsed.')
 flags.DEFINE_string(
-    'paths_to_resubmit',
+    'save_directory',
     'None',
-    'Paths where have a nice day was not found.'
-    'and paths that ran out of time.')
-flags.DEFINE_string(
-    'paths_misbehaving',
-    'None',
-    'Paths where have a nice day was not found'
-    'and paths expired.')
+    'where to save the parsed results')
 
 
 TRAINING_STEP = [
@@ -494,24 +488,12 @@ def main(argv):
         sys.exit('csv filename name is None')
     print('csv filename is %s' % csv_filename)
 
-    paths_to_resubmit = FLAGS.paths_to_resubmit
-    if paths_to_resubmit == 'None':
-        sys.exit('paths to resubmit is None')
-    print(
-        'File to store paths to'
-        ' resubmit %s' % paths_to_resubmit)
-    paths_misbehaving = FLAGS.paths_misbehaving
-    if paths_misbehaving == 'None':
-        sys.exit('paths misbehaving')
-    print(
-        'File to store paths to'
-        ' resubmit %s' % paths_misbehaving)
+    save_directory = FLAGS.save_directory
 
-    parse_obj = LongerParser(
+    parse_obj = ProfilingParser(
         paths_txt_file=paths_txt_file,
         csv_filename=csv_filename,
-        paths_to_resubmit=paths_to_resubmit,
-        paths_misbehaving=paths_misbehaving)
+        save_directory=save_directory)
     # Now submit all jobs
     parse_obj.connect_to_db()
 
