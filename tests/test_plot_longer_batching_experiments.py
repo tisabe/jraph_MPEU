@@ -69,7 +69,6 @@ class ParseProfileExperiments(unittest.TestCase):
         print(df_std)
         self.assertAlmostEqual(df_mean['step_1_900_000_train_rmse'], 3.5, 5)
         self.assertAlmostEqual(df_std['step_1_900_000_train_rmse'], 1.290994, 5)
-        
 
 if __name__ == '__main__':
     unittest.main()
