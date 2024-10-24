@@ -490,7 +490,7 @@ def main(argv):
 
     save_directory = FLAGS.save_directory
 
-    parse_obj = ProfilingParser(
+    parse_obj = LongerParser(
         paths_txt_file=paths_txt_file,
         csv_filename=csv_filename,
         save_directory=save_directory)
