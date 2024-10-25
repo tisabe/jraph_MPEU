@@ -69,13 +69,17 @@ def get_avg_std_rmse(
     # return df.mean(skipna = True), df.std(skipna = True)
     return df.mean(), df.std()
 
+def get_lowest_loss_error_curve(
+        df, model, batch_method, compute_type, batch_size, dataset, data_split):
+
+    df[df.S==df.S.min()]
 
 def plot_curves(
         csv_file, model_types, batch_size_list, batch_method_list,
         compute_type, dataset, data_split='training'):
     # load the dataframe
     df = pd.read_csv(csv_file)
-    fig, axs = plt.subplots(4, 2)
+    fig, axs = plt.subplots(4, 2, figsize=(8, 8))
     for model in model_types:
         if model == 'schnet':
             y_shift = 1
@@ -118,11 +122,31 @@ def plot_curves(
                 
                 # errorbar(step_list, avg_metric_list,
                 #                 std_metric_list)
+
+    # Set the axlimits the same for each side of the plot
+    for x in range(0,4):
+        axs[x, 0].set_ylabel('RMSE (eV/atom)')
+        axs[x, 1].yaxis.tick_right()
+        axs[x, 1].tick_params(left=False)
+        axs[x, 0].tick_params(right=False)
+        axs[x, 0].set_xlim(0, 2000)
+        axs[x, 1].set_xlim(0, 2000)
+        axs[x, 0].set_ylim(0, 0.3)
+        axs[x, 1].set_ylim(0, 0.3)
+        # ax[1].set_yticks([1E-4, 1E-3, 1E-2, 1E-1, 1E0, 1E1, 1E2], minor=False)
+        axs[x, 1].set_yticks([], minor=False)
+    
+    plt.legend(["dynamic", "static"])
+
+    axs[3, 0].set_xlabel('Training steps (thousands)')
+    axs[3, 1].set_xlabel('Training steps (thousands)')
+    plt.tight_layout()
+
     plt.show()
 
 def main(args):
     # plot learning curves
-    fig, ax = plt.subplots(2)
+    # fig, ax = plt.subplots(2)
     rmse_all = []
     mae_all = []
     # COMPUTING_TYPE_LIST
