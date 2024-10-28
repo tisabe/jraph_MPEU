@@ -5,14 +5,14 @@
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J eval_mp_co
+#SBATCH -J eval
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --constraint="gpu"   # Request a GPU node
 #SBATCH --gres=gpu:a100:1    # Use one a100 GPU
 #SBATCH --cpus-per-task=10
 #SBATCH --ntasks-per-core=1
-#SBATCH --mem=32000        # Request 32 GB of main memory per node in MB units.
+#SBATCH --mem=80000        # Request x MB of main memory.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=userid@example.mpg.de
 #SBATCH --time=12:00:00

@@ -259,20 +259,35 @@ def get_results_df(
         assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
         ase_db = ase.db.connect(data_path)
 
+    split_loaded = False
     try:
         split_dict = load_split_dict(workdir)
+        split_loaded = True
     except FileNotFoundError:
         logging.info("No split file found, assuming everything is test data.")
         split_dict = {i+1: 'test' for i in range(ase_db.count())}
-    inference_df = pd.DataFrame({})
-    for i, (id_single, split) in enumerate(split_dict.items()):
+
+    if split_loaded:
+        iterator = split_dict.items()
+    else:
+        iterator = ase_db.select(limit=limit)
+
+    rows = []
+    for i, iter_return in enumerate(iterator):
+        if split_loaded:
+            id_single, split = iter_return
+            row = ase_db.get(id_single)
+        else:
+            row = iter_return
+            id_single = row.id
+            split = 'test'
+
         if i%10000 == 0:
             logging.info(f'Rows read: {i}')
         if limit is not None:
             if i >= limit:
                 # limit the number of read graphs, for faster loading
                 break
-        row = ase_db.get(id_single)
         graph = ase_row_to_jraph(row)
         n_edge = int(graph.n_edge[0])
         if config.num_edges_max is not None:
@@ -288,8 +303,10 @@ def get_results_df(
         row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
         # the csv from file, this has to be converted from string to list
         row_dict['formula'] = row.formula
-        inference_df = pd.concat(
-            [inference_df, pd.DataFrame([row_dict])], ignore_index=True)
+        rows.append(pd.DataFrame([row_dict]))
+
+    logging.info("Concatenating rows...")
+    inference_df = pd.concat(rows, ignore_index=True)
     # Normalize graphs and targets
     #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
