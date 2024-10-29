@@ -46,6 +46,8 @@ def main(argv):
         mc_dropout=FLAGS.mc_dropout,
         ensemble=FLAGS.ensemble,
         data_path=FLAGS.data_path)
+    print("DataFrame memory usage: ")
+    print(df.memory_usage(deep=True))
     df_path = FLAGS.workdir + '/result.csv'
     df.to_csv(df_path, index=False)
 

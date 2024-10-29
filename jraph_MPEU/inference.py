@@ -289,6 +289,9 @@ def get_results_df(
                 # limit the number of read graphs, for faster loading
                 break
         graph = ase_row_to_jraph(row)
+        # test if nodes are a subset of num_list, otherwise ignore this row
+        if not set(graph.nodes) <= set(num_list):
+            continue # TODO: test this
         n_edge = int(graph.n_edge[0])
         if config.num_edges_max is not None:
             if n_edge > config.num_edges_max:  # do not include graphs with too many edges
@@ -300,17 +303,19 @@ def get_results_df(
         row_dict['asedb_id'] = row.id
         row_dict['n_edge'] = n_edge
         row_dict['split'] = split  # convert from one-based id
-        row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
-        # the csv from file, this has to be converted from string to list
         row_dict['formula'] = row.formula
+        if 'auid' in row_dict:
+            row_dict.pop('aurl', None) # redundant, if auid is present
         rows.append(pd.DataFrame([row_dict]))
 
     logging.info("Concatenating rows...")
     inference_df = pd.concat(rows, ignore_index=True)
+
     # Normalize graphs and targets
     #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
     # aflow_x_mp
+    logging.info("Converting atomic numbers...")
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     # also save the graphs in lists corresponding to split
@@ -325,6 +330,7 @@ def get_results_df(
 
     # get and apply normalization to graph targets
     if norm_dict is None:
+        logging.info("Getting normalization...")
         match config.label_type:
             case 'scalar':
                 norm_dict = get_normalization_dict(
@@ -335,7 +341,7 @@ def get_results_df(
             case 'class'|'class_binary'|'class_multi':
                 norm_dict = {}
 
-    logging.info('Predicting on dataset.')
+    logging.info('Predicting on dataset...')
     graphs = list(graphs_dict.values())
 
     if ensemble:
@@ -364,6 +370,7 @@ def get_results_df(
         case _:
             pass
 
+    logging.info('Saving model predictions...')
     # NOTE: for now, only works with scalar predictions, and uncertainties
     match (mc_dropout or ensemble, config.model_str):
         case [False, 'MPEU_uq']:
