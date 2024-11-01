@@ -305,7 +305,10 @@ def get_results_df(
             if n_edge > config.num_edges_max:  # do not include graphs with too many edges
                 continue
         graphs_dict[id_single] = graph
-        label = row.key_value_pairs[label_str]
+        if label_str in row.key_value_pairs:
+            label = row.key_value_pairs[label_str]
+        else:
+            label = None # TODO: test this
         labels_dict[id_single] = label
         row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
         row_dict['asedb_id'] = row.id
@@ -411,61 +414,3 @@ def get_results_df(
         rows_df = pd.concat(rows, axis=0, ignore_index=True)
         rows_df = pd.concat([rows_df, inference_df], axis=1)
         rows_df.to_csv(df_path, index=False, mode='w')
-
-
-def get_results_kfold(workdir_super, mc_dropout=False):
-    """Generate dataframe with results from k models and data split into k
-    folds.
-    """
-    directories = glob.glob(workdir_super+'/id*')
-    # make dataframe to append to
-    inference_df = pd.DataFrame({})
-    base_ids = None
-    base_config = None
-    for i, workdir in enumerate(directories):
-        split_dict = load_split_dict(workdir)
-        ids = list(split_dict.keys())
-        if i == 0:
-            base_ids = list(split_dict.keys())
-            base_config = load_config(workdir)
-        else:
-            # make sure that the folds have the same underlying data
-            assert set(ids) == set(base_ids)
-
-    ase_db = ase.db.connect(base_config.data_file)
-    graphs = []
-    labels = []
-    for i, (id_single, split) in enumerate(split_dict.items()):
-        if i%10000 == 0:
-            logging.info(f'Rows read: {i}')
-        row = ase_db.get(id_single)
-        graph = ase_row_to_jraph(row)
-        n_edge = int(graph.n_edge)
-        graphs.append(graph)
-        label = row.key_value_pairs[base_config.label_str]
-        labels.append(label)
-        row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
-        row_dict['asedb_id'] = row.id
-        row_dict['n_edge'] = n_edge
-        row_dict['split'] = split  # convert from one-based id
-        row_dict['numbers'] = row.numbers  # get atomic numbers, when loading
-        # the csv from file, this has to be converted from string to list
-        row_dict['formula'] = row.formula
-        inference_df = inference_df.append(row_dict, ignore_index=True)
-    # Normalize graphs and targets
-    # Convert the atomic numbers in nodes to classes and set number of classes.
-    num_path = os.path.join(workdir, 'atomic_num_list.json')
-    with open(num_path, 'r', encoding="utf-8") as num_file:
-        num_list = json.load(num_file)
-
-    # convert to dict for atoms_to_nodes function
-    graphs_dict = dict(enumerate(graphs))
-    labels_dict = dict(enumerate(labels))
-    graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
-    pooling = base_config.aggregation_readout_type  # abbreviation
-    graphs = list(graphs_dict.values())
-
-
-    net, params, hk_state, _, _ = load_model(workdir, is_training=mc_dropout)
-    # TODO: maybe finish this. Other possibility: after end of training,
-    # generate results dataframe and combine afterwards
