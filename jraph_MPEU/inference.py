@@ -213,8 +213,15 @@ def get_predictions_graph_ensemble(
     return predictions_ensemble
 
 
+def _chunks(rows, n):
+    """Yield successive n-sized chunks from rows, and start, stop indices."""
+    for i in range(0, len(rows), n):
+        yield rows[i:i+n], i, i+n
+
+
 def get_results_df(
     workdir: str,
+    results_path: str,
     limit: Optional[int] = None,
     mc_dropout: Optional[bool] = False,
     ensemble: Optional[bool] = False,
@@ -223,6 +230,7 @@ def get_results_df(
     """Return a pandas dataframe with predictions and their database entries.
     Args:
         workdir: directory to load model, dataset from
+        results_path: file path where results csv is saved
         limit: maximum number of datapoints to load and predict on, None means
             no limit on number
         mc_dropout: whether to use monte-carlo dropout to get prediction
@@ -308,9 +316,7 @@ def get_results_df(
             row_dict.pop('aurl', None) # redundant, if auid is present
         rows.append(pd.DataFrame([row_dict]))
 
-    logging.info("Concatenating rows...")
-    inference_df = pd.concat(rows, ignore_index=True)
-
+    
     # Normalize graphs and targets
     #num_list = list(range(100))  # TODO: this is only a hack to make inference
     # across databases easier, this should be reverted in the future
@@ -372,6 +378,7 @@ def get_results_df(
 
     logging.info('Saving model predictions...')
     # NOTE: for now, only works with scalar predictions, and uncertainties
+    inference_df = pd.DataFrame({})
     match (mc_dropout or ensemble, config.model_str):
         case [False, 'MPEU_uq']:
             inference_df['prediction'] = preds[:, 0, 0]
@@ -381,12 +388,29 @@ def get_results_df(
             inference_df['prediction_uq'] = np.mean(preds[:, :, 1], axis=1)
             inference_df['prediction_std'] = np.std(preds[:, :, 0], axis=1)
         case [False, _]:
-            inference_df['prediction'] = preds[:, 0, :]
+            inference_df['prediction'] = preds[:, 0, 0]
         case [True, _]:
             inference_df['prediction'] = np.mean(preds[:, :, 0], axis=1)
             inference_df['prediction_std'] = np.std(preds[:, :, 0], axis=1)
 
-    return inference_df
+    df_path = os.path.join(workdir, results_path)
+    max_rows = 1_000_000
+    if len(rows) > max_rows:
+        header = True
+        # split the data into chunks to avoid out of memory (due to pd.concat)
+        logging.info("Concatenating and writing in chunks...")
+        for rows_chunk, i_start, i_stop in _chunks(rows, max_rows):
+            rows_df = pd.concat(rows_chunk, axis=0, ignore_index=True)
+            pred_df = inference_df[i_start:i_stop]
+            pred_df.index = rows_df.index
+            rows_df = pd.concat([rows_df, pred_df], axis=1)
+            rows_df.to_csv(df_path, header=header, index=False, mode='a')
+            header = False
+    else:
+        logging.info("Concatenating rows, writing directly...")
+        rows_df = pd.concat(rows, axis=0, ignore_index=True)
+        rows_df = pd.concat([rows_df, inference_df], axis=1)
+        rows_df.to_csv(df_path, index=False, mode='w')
 
 
 def get_results_kfold(workdir_super, mc_dropout=False):

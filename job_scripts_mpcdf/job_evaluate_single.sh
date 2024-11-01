@@ -25,6 +25,7 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/eval.py \
 --workdir=results/aflow/ef/painn/rand_search_best \
+--results_path=result_3m.csv \
 --data_path=databases/aflow/eform_all_graphs_202409.db \
 --mc_dropout=False \
 --ensemble=True \

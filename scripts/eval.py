@@ -17,6 +17,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('workdir', None, 'Directory where model data is saved.', required=True)
 flags.DEFINE_string('data_path', None, 'Path to database to evaluate model on.', required=True)
+flags.DEFINE_string('results_path', None, 'Path to results file.', required=True)
 flags.DEFINE_string('split_file', None, 'Directory to source split file.')
 flags.DEFINE_integer('limit', None, 'Limit for number of data to predict.')
 flags.DEFINE_bool('mc_dropout', False, 'If monte-carlo dropout is used for evaluation.')
@@ -40,16 +41,13 @@ def main(argv):
         with open(os.path.join(FLAGS.workdir, 'splits.json'), 'w', encoding="utf-8") as splits_file:
             json.dump(splits_dict, splits_file, indent=4, separators=(',', ': '))
 
-    df = get_results_df(
+    get_results_df(
         workdir=FLAGS.workdir,
+        results_path=FLAGS.results_path,
         limit=FLAGS.limit,
         mc_dropout=FLAGS.mc_dropout,
         ensemble=FLAGS.ensemble,
         data_path=FLAGS.data_path)
-    print("DataFrame memory usage: ")
-    print(df.memory_usage(deep=True))
-    df_path = FLAGS.workdir + '/result.csv'
-    df.to_csv(df_path, index=False)
 
 
 if __name__ == '__main__':
