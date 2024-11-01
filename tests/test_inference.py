@@ -12,6 +12,7 @@ import numpy as np
 import jax
 import jraph
 import haiku as hk
+import pandas as pd
 
 from jraph_MPEU.inference import (
     get_predictions, get_predictions_ensemble, get_results_df,
@@ -174,12 +175,15 @@ class TestInference(unittest.TestCase):
             save_config(config, test_dir)
             _ = train_and_evaluate(config, test_dir)
 
-            df = get_results_df(
+            get_results_df(
                 test_dir,
+                results_path='results.csv',
                 limit=n_data,
                 mc_dropout=mc_dropout,
                 ensemble=False,
                 data_path=config.data_file)
+            df_path = os.path.join(test_dir, 'results.csv')
+            df = pd.read_csv(df_path)
             match (mc_dropout, config.model_str):
                 case [False, 'MPEU_uq']:
                     self.assertTupleEqual(
@@ -226,12 +230,16 @@ class TestInference(unittest.TestCase):
                 os.mkdir(workdir)
                 save_config(config, workdir)
                 _ = train_and_evaluate(config, workdir)
-            df = get_results_df(
+            get_results_df(
                 test_dir,
+                results_path='results.csv',
                 limit=n_data,
                 mc_dropout=False,
                 ensemble=True,
                 data_path=None)
+            df_path = os.path.join(test_dir, 'results.csv')
+            df = pd.read_csv(df_path)
+            
             self.assertTupleEqual(
                 df['prediction_std'].to_numpy().shape, (n_data,))
             self.assertTupleEqual(

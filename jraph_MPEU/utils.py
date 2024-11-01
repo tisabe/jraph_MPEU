@@ -158,8 +158,11 @@ def save_norm_dict(norm_dict, path):
 
 def load_norm_dict(path):
     """Load saved norm_dict at path."""
-    with open(path, 'r', encoding="utf-8") as file:
-        norm_dict = pickle.loads(json.load(file).encode('latin-1'))
+    if os.path.exists(path):
+        with open(path, 'r', encoding="utf-8") as file:
+            norm_dict = pickle.loads(json.load(file).encode('latin-1'))
+    else:
+        norm_dict = {}
     return norm_dict
 
 

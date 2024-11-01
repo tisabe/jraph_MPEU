@@ -24,7 +24,7 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'tick size to use in labels')
 
 
 def main(argv):
@@ -57,6 +57,9 @@ def main(argv):
     # softmax outputs probability, the threshold is exactly 1/2
     df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
     df['class_correct'] = df['class_true'] == df['class_pred']
+    df['Egap_bin'] = pd.cut(df['Egap'], 20)
+    print(df['Egap_bin'])
+
     print(df[df['class_correct'] == False][[
         'class_true', 'class_pred', 'class_correct']])
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
@@ -75,6 +78,7 @@ def main(argv):
         y_true=df['class_true'], y_pred=df['class_pred'],
         target_names=['Metals','Non-metals']
     ))
+
     # calculate and display ROC curve
     y_pred = df_test['p_insulator'].to_numpy().reshape(-1, 1)
     y_true = df_test['class_true'].to_numpy()
@@ -90,6 +94,15 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
+
+    # calculate binned egap plot
+    grouped = df_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate('mean')
+    print(grouped)
+    fig, ax = plt.subplots()
+    ax.scatter(x='Egap', y='class_correct', data=grouped)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/classify_binned.png', bbox_inches='tight', dpi=600)
 
     # display calibration curve
     fig, ax = plt.subplots()

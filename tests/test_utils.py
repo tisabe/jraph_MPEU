@@ -390,7 +390,10 @@ class TestUtilsFunctions(unittest.TestCase):
             np.testing.assert_array_equal(
                 norm_dict['np.array'], norm_dict_load['np.array'])
             self.assertEqual(norm_dict['string'], norm_dict_load['string'])
-
+        
+        # test empty dict return when no norm_dict was saved
+        norm_dict_load = load_norm_dict('norm.json')
+        self.assertEqual(norm_dict_load, {})
 
     def test_dynamic_batch_budget(self):
         """Test dynamic batching budget of graphs by looking at sizes of the
