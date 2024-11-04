@@ -96,13 +96,37 @@ def main(argv):
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
 
     # calculate binned egap plot
-    grouped = df_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate('mean')
-    print(grouped)
+    data = df_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate(
+        ['mean', 'min', 'max', 'count'])
+    print(data)
     fig, ax = plt.subplots()
-    ax.scatter(x='Egap', y='class_correct', data=grouped)
+    color = 'tab:blue'
+    ax.bar(
+        x=data['Egap']['min'],
+        height=data['class_correct']['mean'],
+        width=0.8,
+        align='edge')
+    ax.set_ylim([.9, 1.005])
+    ax.set_ylabel('Accuracy', color=color, fontsize=FLAGS.font_size)
+    ax.set_xlabel(r'$E_g$ (eV)', color='black', fontsize=FLAGS.font_size)
+    ax.tick_params(
+        axis='y', which='both', labelcolor=color, labelsize=FLAGS.tick_size)
+    ax.tick_params(
+        axis='x', which='both', labelcolor='black', labelsize=FLAGS.tick_size)
+
+    color = 'tab:orange'
+    ax2 = ax.twinx()  # instantiate a second Axes that shares the same x-axis
+    ax2.bar(
+        x=data['Egap']['min'],
+        height=data['Egap']['count'],
+        width=0.5,
+        align='edge',
+        color=color)
+    ax2.set_ylabel('Count', color=color, fontsize=FLAGS.font_size)
+    ax2.tick_params(axis='y', labelcolor=color, labelsize=FLAGS.tick_size)
     plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/classify_binned.png', bbox_inches='tight', dpi=600)
+    fig.savefig(workdir+'/accuracy_binned.png', bbox_inches='tight', dpi=600)
 
     # display calibration curve
     fig, ax = plt.subplots()
