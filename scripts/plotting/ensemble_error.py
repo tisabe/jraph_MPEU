@@ -102,7 +102,26 @@ def plot_stdev(df_ensemble, label_str):
     df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
 
     fig, ax = plt.subplots()
-    sns.jointplot(
+    sns.histplot(
+        ax=ax,
+        x='prediction_std',
+        data=df_ensemble,
+        hue='split',
+        log_scale=(False, True),
+        bins=50,
+        element='step',
+        fill=False,
+    )
+    ax.set_xlabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
+    ax.set_ylabel('Count', fontsize=FLAGS.font_size)
+    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
+    ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(FLAGS.directory + '/ensemble_err_hist.png', bbox_inches='tight', dpi=600)
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
         ax=ax,
         x='abs. error',
         y='prediction_std',
@@ -269,7 +288,7 @@ def main(_):
         print(f'Median error on {split} set: {median_err}')
 
     if FLAGS.plot:
-        plot_prediction(df_result, label_str)
+        #plot_prediction(df_result, label_str)
         plot_stdev(df_result, label_str)
         plot_calibration(df_result)
 
