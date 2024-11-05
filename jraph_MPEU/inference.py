@@ -260,20 +260,24 @@ def get_results_df(
     # to their splits later
     graphs_dict = {} # key: asedb_id, value corresponding graph
     labels_dict = {} # key: asedb_id, value corresponding label
+    split_loaded = False
     if data_path is None:
-        assert os.path.exists(config.data_file),f"ASE_db not found at {config.data_file}"
-        ase_db = ase.db.connect(config.data_file)
+        data_path = config.data_file
+        assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
+        ase_db = ase.db.connect(data_path)
+        try:
+            split_dict = load_split_dict(workdir)
+            split_loaded = True
+        except FileNotFoundError:
+            logging.info("No split file found, assuming everything is test data.")
+            split_dict = {i+1: 'test' for i in range(ase_db.count())}
+            split_loaded = False
     else:
         assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
         ase_db = ase.db.connect(data_path)
-
-    split_loaded = False
-    try:
-        split_dict = load_split_dict(workdir)
-        split_loaded = True
-    except FileNotFoundError:
         logging.info("No split file found, assuming everything is test data.")
         split_dict = {i+1: 'test' for i in range(ase_db.count())}
+        split_loaded = False
 
     if split_loaded:
         iterator = split_dict.items()
@@ -282,7 +286,7 @@ def get_results_df(
 
     rows = []
     for i, iter_return in enumerate(iterator):
-        if split_loaded:
+        if split_loaded and (config.data_file == data_path):
             id_single, split = iter_return
             row = ase_db.get(id_single)
         else:
@@ -308,7 +312,7 @@ def get_results_df(
         if label_str in row.key_value_pairs:
             label = row.key_value_pairs[label_str]
         else:
-            label = None # TODO: test this
+            label = 0 # TODO: test this
         labels_dict[id_single] = label
         row_dict = row.key_value_pairs  # initialze row dict with key_val_pairs
         row_dict['asedb_id'] = row.id

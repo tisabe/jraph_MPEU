@@ -102,7 +102,7 @@ def plot_stdev(df_ensemble, label_str):
     df_test = df_ensemble.loc[lambda df_temp: df_temp['split'] == 'test']
 
     fig, ax = plt.subplots()
-    sns.scatterplot(
+    sns.jointplot(
         ax=ax,
         x='abs. error',
         y='prediction_std',
