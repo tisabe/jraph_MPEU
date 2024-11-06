@@ -24,8 +24,9 @@ cd ~/jraph_MPEU
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 srun python scripts/eval.py \
---workdir=results/aflow/egap/mpeu/classify \
---results_path=result_3m.csv \
+--workdir=results/aflow/egap/painn/rand_search_best \
+--results_path=result_test.csv \
 --data_path=databases/aflow/eform_all_graphs_202409.db \
 --mc_dropout=False \
---ensemble=False \
+--ensemble=True \
+--limit=100000

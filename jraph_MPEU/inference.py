@@ -266,7 +266,9 @@ def get_results_df(
         assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
         ase_db = ase.db.connect(data_path)
         try:
+            split_path = os.path.join(workdir, 'splits.json')
             split_dict = load_split_dict(workdir)
+            logging.info(f'loaded split at {split_path}')
             split_loaded = True
         except FileNotFoundError:
             logging.info("No split file found, assuming everything is test data.")
@@ -275,7 +277,7 @@ def get_results_df(
     else:
         assert os.path.exists(data_path),f"ASE_db not found at {data_path}"
         ase_db = ase.db.connect(data_path)
-        logging.info("No split file found, assuming everything is test data.")
+        logging.info(f"Data path {data_path} was given, assuming everything is test data.")
         split_dict = {i+1: 'test' for i in range(ase_db.count())}
         split_loaded = False
 
@@ -360,11 +362,12 @@ def get_results_df(
     if ensemble:
         preds = get_predictions_ensemble(
             graphs, net, params, hk_state, config.batch_size, config.label_type,
-            )  # shape (N, m, d)
+        )  # shape (N, m, d)
     else:
         preds = get_predictions(
             graphs, net, params, hk_state, mc_dropout, config.batch_size,
-            config.label_type)  # shape (N, m, d)
+            config.label_type
+        )  # shape (N, m, d)
 
     match (config.label_type, config.model_str):
         case ['scalar'|'scalar_non_negative', 'MPEU_uq']:
@@ -418,3 +421,4 @@ def get_results_df(
         rows_df = pd.concat(rows, axis=0, ignore_index=True)
         rows_df = pd.concat([rows_df, inference_df], axis=1)
         rows_df.to_csv(df_path, index=False, mode='w')
+    logging.info(f'saved results at {df_path}')

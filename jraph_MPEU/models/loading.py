@@ -20,18 +20,22 @@ from jraph_MPEU.utils import load_config, load_norm_dict
 
 def load_model(workdir, is_training):
     """Load model to evaluate on."""
+    config_path = os.path.join(workdir, 'config.json')
+    logging.info(f'loading config at {config_path}')
     config = load_config(workdir)
 
-    # get the correct max_atomic_number, it was changed from input config in 
+    # get the correct max_atomic_number, it was changed from input config in
     # input_pipeline
     num_path = os.path.join(workdir, 'atomic_num_list.json')
+    logging.info(f'loading atomic_num_list at {num_path}')
     with open(num_path, 'r', encoding="utf-8") as num_file:
         num_list = json.load(num_file)
         config.max_atomic_number = len(num_list)
 
     # load the model params
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
+    state_path = workdir+'/checkpoints/best_state.pkl'
+    logging.info(f'loading model parameters and state at {state_path}')
+    with open(state_path, 'rb') as state_file:
         best_state = pickle.load(state_file)
     params = best_state['state']['params']
     logging.info(f'Loaded best state at step {best_state["state"]["step"]}')
@@ -48,6 +52,7 @@ def load_model(workdir, is_training):
 
     # load target normalization dict
     norm_path = os.path.join(workdir, 'normalization.json')
+    logging.info(f'loading norm_dict at {norm_path}')
     norm_dict = load_norm_dict(norm_path)
 
     return net, params, hk_state, config, num_list, norm_dict
