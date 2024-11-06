@@ -36,7 +36,14 @@ CALCULATE_LABEL = ''
 ABS_ERROR_LABEL = ''
 
 
+def remove_legend_title(ax):
+    """Remove the legend title of pyplot axis ax, in place."""
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles, labels=labels)
+
+
 def id_list_to_int_list(ids_list):
+    """['id1', 'id2', ...] to [1, 2, ...]"""
     return [int(ids.removeprefix('id')) for ids in ids_list]
 
 
@@ -87,14 +94,18 @@ def plot_prediction(df_ensemble, label_str):
     fig.savefig(FLAGS.directory + '/ensemble_pred.png', bbox_inches='tight', dpi=600)
 
 
-def plot_stdev(df_ensemble, label_str):
-    for split in ['train', 'validation', 'test']:
-        df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
+def plot_stdev(df_ensemble):
+    """Plots using the standard deviation of ensemble models."""
+    for split in ['train', 'validation', 'test', 'all']:
+        if split == 'all':
+            df_split = df_ensemble
+        else:
+            df_split = df_ensemble.loc[lambda df_temp: df_temp['split'] == split]
         r2_split = sklearn.metrics.r2_score(
             df_split['abs. error'], df_split['prediction_std']
         )
         print(f'Uncertainty R^2 on {split} set: {r2_split}')
-        pearson = df_split[['abs. error', 'prediction_std']].corr()
+        pearson = df_split[['abs. error', 'prediction_std']].corr().to_numpy()[1,0]
         print(f'Pearson r^2 on {split} set: {pearson}')
         spr = spearmanr(df_split['abs. error'], df_split['prediction_std'])
         print(f'Spearman r on {split} set: {spr.statistic}')
@@ -107,15 +118,17 @@ def plot_stdev(df_ensemble, label_str):
         x='prediction_std',
         data=df_ensemble,
         hue='split',
-        log_scale=(False, True),
+        log_scale=(False, False),
         bins=50,
-        element='step',
         fill=False,
+        element='step',
+        common_norm=False,
+        stat='proportion',
     )
-    ax.set_xlabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
-    ax.set_ylabel('Count', fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
+    ax.set_xlim(0, 0.4)
+    ax.set_xlabel(f'Prediction STDEV ({FLAGS.unit})')
+    ax.set_ylabel('Normalized count')
+    remove_legend_title(ax)
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory + '/ensemble_err_hist.png', bbox_inches='tight', dpi=600)
@@ -126,20 +139,19 @@ def plot_stdev(df_ensemble, label_str):
         x='abs. error',
         y='prediction_std',
         data=df_ensemble,
-        hue='split'
+        hue='split',
     )
-    ax.set_xlabel(f'Absolute error ({FLAGS.unit})', fontsize=FLAGS.font_size)
-    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})', fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    ax.legend(title='', fontsize=FLAGS.font_size-3)  # disable 'split' title
+    ax.set_xlabel(f'Absolute error ({FLAGS.unit})')
+    ax.set_ylabel(f'Prediction STDEV ({FLAGS.unit})')
+    remove_legend_title(ax)
     x_ref = np.linspace(*ax.get_xlim())
-    ax.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
-    #plt.xscale('log')
-    #plt.yscale('log')
+    ax.plot(x_ref, x_ref, '--', alpha=1, color='grey')
+    plt.xscale('log')
+    plt.yscale('log')
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory + '/ensemble_err.png', bbox_inches='tight', dpi=600)
-
+    """
     fig, ax = plt.subplots()
     sns.histplot(
         x='abs. error', y='prediction_std', data=df_test, ax=ax,
@@ -153,11 +165,16 @@ def plot_stdev(df_ensemble, label_str):
     plt.tight_layout()
     plt.show()
     fig.savefig(FLAGS.directory+'/hist_simple.png', bbox_inches='tight', dpi=600)
-
+    """
 
 def main(_):
     """Main function where all the data is gathered and put into dataframes
     and evaluated."""
+    plt.rc('xtick', labelsize=FLAGS.tick_size)
+    plt.rc('ytick', labelsize=FLAGS.tick_size)
+    plt.rc('legend', fontsize=FLAGS.font_size)
+    plt.rc('legend', title_fontsize=FLAGS.font_size)
+    plt.rc('axes', labelsize=FLAGS.font_size)
     df_path = FLAGS.directory+'/result.csv'
     if not os.path.exists(df_path) or FLAGS.redo:
         logging.info('Did not find csv path, generating DataFrame.')
@@ -289,7 +306,7 @@ def main(_):
 
     if FLAGS.plot:
         #plot_prediction(df_result, label_str)
-        plot_stdev(df_result, label_str)
+        plot_stdev(df_result)
         plot_calibration(df_result)
 
 
