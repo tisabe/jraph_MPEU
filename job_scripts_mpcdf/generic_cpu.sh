@@ -1,11 +1,11 @@
 #!/bin/bash -l
 # Standard output and error:
-#SBATCH -o ./output_slurm/datajob.%j.out
-#SBATCH -e ./output_slurm/datajob.%j.err
+#SBATCH -o ./output_slurm/generic_cpu.%j.out
+#SBATCH -e ./output_slurm/generic_cpu.%j.err
 # Initial working directory:
 #SBATCH -D ./
 # Job name
-#SBATCH -J data
+#SBATCH -J generic_cpu
 #
 #SBATCH --nodes=1            # Request 1 or more full nodes
 #SBATCH --cpus-per-task=4
@@ -21,6 +21,6 @@ cd ~/jraph_MPEU
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-srun python scripts/data/aflow_to_graphs.py \
---file_in=databases/aflow/eform_all_202409.csv \
---file_out=databases/aflow/eform_all_graphs_202409.db
+srun python scripts/plotting/combined_csv_analysis.py 
+--paths=results/aflow/egap/painn/rand_search_best/result_3m.csv,results/aflow/ef/painn/rand_search_best/result_3m.csv,results/aflow/egap/mpeu/classify/result_3m.csv
+--labels=egap,ef,egap_class
