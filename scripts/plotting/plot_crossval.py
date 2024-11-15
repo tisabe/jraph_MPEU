@@ -148,6 +148,7 @@ def main(_):
         val_counts = df_configs[col].value_counts()
         if len(val_counts) > 1:
             cols_variable.append(col)
+            print(val_counts)
     print("Cols to plot: ", cols_variable)
     for key, dir_list in finish_condition.items():
         print(f"# {key}: {len(dir_list)}")
@@ -286,11 +287,11 @@ def main(_):
             sharey=True)
         for i, name in enumerate(box_xnames_split):
             print(name)
-            sns.boxplot(ax=ax[i], x=name, y='rmse_validation', data=df, color='lightblue')
-            sns.swarmplot(ax=ax[i], x=name, y='rmse_validation', data=df, color='.25')
+            sns.boxplot(ax=ax[i], x=name, y='mae_validation', data=df, color='lightblue')
+            sns.swarmplot(ax=ax[i], x=name, y='mae_validation', data=df, color='.25')
             ax[i].set_xlabel(col_to_label_type[name]['label'], fontsize=FLAGS.fontsize)
             if i == 0:
-                ax[i].set_ylabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
+                ax[i].set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
             else:
                 ax[i].set_ylabel('')
             ax[i].tick_params(

@@ -60,6 +60,10 @@ def get_type(element: str):
     raise KeyError('Element type not found')
 
 
+def formula_to_latex(formula: str):
+    return Formula(formula).format('latex')
+
+
 def main(argv):
     """Get the model inferences and plot regression."""
     logging.set_verbosity(logging.INFO)
@@ -106,11 +110,17 @@ def main(argv):
         # make column with accuracy.
         df['abs. error'] = 1 * df['class_correct']
 
+    df['formula_latex'] = df['formula'].apply(formula_to_latex)
     # filter for binary oxides:
-    #df = df[df['formula'].apply(is_binary_oxide)]
+    df = df[df['formula'].apply(is_binary_oxide)]
 
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     df = df.loc[lambda df_temp: df_temp['split'] == 'test']
+    df = df.sort_values(by=['abs. error'])
+    print("Five best and worst predictions: ")
+    cols = ['auid', 'formula_latex', 'spacegroup_relax', 'Egap', 'prediction']
+    print(df[cols][:5])
+    print(df[cols][-5:])
 
     # dict with species as keys and list of errors
     errors_dict = defaultdict(list)

@@ -21,6 +21,7 @@ flags.DEFINE_string('index_col', 'auid', 'Column used to index the data')
 flags.DEFINE_list('units', None, 'Units for each of the files')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the csv.')
+flags.DEFINE_bool('redo', False, 'If the csv combine should be redone')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
 
@@ -58,10 +59,28 @@ def plot_ef_parity(df):
 
 def plot_egap_hist(df):
     """Plot a histogram of bandgap values."""
-    fig, ax = plt.subplots()
-    sns.histplot(df, x='egap_pred', hue='Predicted class', ax=ax)
-    ax.set_xlabel(r'Predicted $E_g$')
-    plt.show()
+    rows = (np.abs(stats.zscore(
+        df[['egap_pred']],
+        nan_policy='omit')) < 3).all(axis=1)
+    df_plot = df[rows]
+    df_ins = df_plot[df_plot['class_pred'] == 1]
+    fig, ax = plt.subplots(2)
+    sns.histplot(
+        df_plot,
+        x='egap_pred',
+        hue='Predicted class',
+        ax=ax[0],
+        log_scale=(False, False),
+        multiple='stack'
+    )
+    ax[0].set_xlabel(r'Predicted $E_g$')
+    sns.histplot(
+        df_ins,
+        x='egap_pred',
+        ax=ax[1],
+        log_scale=(False, False),
+    )
+    ax[1].set_xlabel(r'Predicted $E_g$')
     fig.savefig('results/aflow/egap_hist.png', bbox_inches='tight', dpi=600)
 
 
@@ -70,27 +89,32 @@ def main(_):
     if FLAGS.units is None:
         FLAGS.units = ['a.u.']*len(FLAGS.paths)
 
-    df_list = []
-    df_all = pd.DataFrame({})
-    for path, label in zip(FLAGS.paths, FLAGS.labels):
-        logging.info(f'Reading {path}')
-        if FLAGS.limit is None:
-            df = pd.read_csv(path)
-        else:
-            df = pd.read_csv(path, nrows=FLAGS.limit)
-        df[label+'_pred'] = df['prediction']
-        if 'prediction_std' in df:
-            df[label+'_pred_std'] = df['prediction_std']
-        df.index = df['auid']
-        df_list.append(df)
-        print(df.describe())
-        print(df.columns)
-        df_all = df_all.combine_first(df)
-    df_all.drop(['prediction', 'prediction_std'], axis=1, inplace=True)
-    print(df_all.describe())
-    print(df_all.columns)
-    df_all.to_csv(FLAGS.out_path, mode='w')
-    #df_all = df_all.dropna()
+    if (not os.path.exists(FLAGS.out_path)) or FLAGS.redo:
+        logging.info(f"Did not find {FLAGS.out_path}, combining csv")
+        df_all = pd.DataFrame({})
+        for path, label in zip(FLAGS.paths, FLAGS.labels):
+            logging.info(f'Reading {path}')
+            if FLAGS.limit is None:
+                df = pd.read_csv(path)
+            else:
+                df = pd.read_csv(path, nrows=FLAGS.limit)
+            if 'numbers' in df.columns:
+                df.drop(['numbers'], axis=1, inplace=True)
+            df[label+'_pred'] = df['prediction']
+            if 'prediction_std' in df:
+                df[label+'_pred_std'] = df['prediction_std']
+            df.index = df['auid']
+            print(df.describe())
+            print(df.columns)
+            df_all = df_all.combine_first(df)
+        df_all.drop(['prediction', 'prediction_std'], axis=1, inplace=True)
+        print(df_all.describe())
+        print(df_all.columns)
+        logging.info(f"Wrote dataframe to {FLAGS.out_path}")
+        df_all.to_csv(FLAGS.out_path, mode='w')
+        #df_all = df_all.dropna()
+    logging.info(f"Loading dataframe from {FLAGS.out_path}")
+    df = pd.read_csv(FLAGS.out_path)
 
     plt.rc('xtick', labelsize=FLAGS.tick_size)
     plt.rc('ytick', labelsize=FLAGS.tick_size)
@@ -98,16 +122,19 @@ def main(_):
     plt.rc('legend', title_fontsize=FLAGS.font_size)
     plt.rc('axes', labelsize=FLAGS.font_size)
 
-    df_all['p_insulator'] = 1 - df_all['egap_class_pred']
+    df['p_insulator'] = 1 - df['egap_class_pred']
     # calculate the class prediction by applying a threshold. Because of the
     # softmax outputs probability, the threshold is exactly 1/2
-    df_all['class_pred'] = df_all['p_insulator'].apply(lambda p: (p > 0.5)*1)
-    df_ins = df_all[df_all['class_pred'] == 1]
+    df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
+    df_ins = df[df['class_pred'] == 1]
     print(f"Number of entries predicted to be insulators: {len(df_ins)}")
-    df_all['Predicted class'] = df_all['class_pred'].map(
+    df['Predicted class'] = df['class_pred'].map(
         {0: 'metal', 1: 'non-metal'})
-    #plot_ef_parity(df_all)
-    plot_egap_hist(df_all)
+
+    if 'ef' in FLAGS.plots or FLAGS.plots[0] == 'all':
+        plot_ef_parity(df)
+    if 'egap' in FLAGS.plots or FLAGS.plots[0] == 'all':
+        plot_egap_hist(df)
 
 
 if __name__ == "__main__":
