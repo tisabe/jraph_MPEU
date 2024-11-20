@@ -63,6 +63,7 @@ def plot_egap_hist(df):
         df[['egap_pred']],
         nan_policy='omit')) < 3).all(axis=1)
     df_plot = df[rows]
+    df_plot.sort_values('Predicted class', ascending=False, inplace=True)
     df_ins = df_plot[df_plot['class_pred'] == 1]
     fig, ax = plt.subplots(2)
     sns.histplot(
@@ -71,7 +72,8 @@ def plot_egap_hist(df):
         hue='Predicted class',
         ax=ax[0],
         log_scale=(False, False),
-        multiple='stack'
+        multiple='stack',
+        element='step',
     )
     ax[0].set_xlabel(r'Predicted $E_g$')
     sns.histplot(
@@ -79,6 +81,7 @@ def plot_egap_hist(df):
         x='egap_pred',
         ax=ax[1],
         log_scale=(False, False),
+        element='step',
     )
     ax[1].set_xlabel(r'Predicted $E_g$')
     fig.savefig('results/aflow/egap_hist.png', bbox_inches='tight', dpi=600)

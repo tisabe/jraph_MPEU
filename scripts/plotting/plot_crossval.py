@@ -149,6 +149,15 @@ def main(_):
         if len(val_counts) > 1:
             cols_variable.append(col)
             print(val_counts)
+    # hard-coded order of columns to reproduce figs in manuscript
+    if FLAGS.directory == 'results/aflow/egap/mpeu/rand_search':
+        cols_variable = ['batch_size', 'message_passing_steps', 'latent_size',
+            'init_lr', 'decay_rate', 'dropout_rate', 'global_readout_mlp_layers',
+            'mlp_depth', 'activation_name', 'use_layer_norm']
+    elif FLAGS.directory == 'results/aflow/ef/mpeu/rand_search':
+        cols_variable = ['batch_size', 'message_passing_steps', 'latent_size',
+            'init_lr', 'decay_rate', 'dropout_rate', 'global_readout_mlp_layers',
+            'mlp_depth', 'activation_name', 'use_layer_norm']
     print("Cols to plot: ", cols_variable)
     for key, dir_list in finish_condition.items():
         print(f"# {key}: {len(dir_list)}")
@@ -164,6 +173,7 @@ def main(_):
     df = df.sort_values(by='rmse_validation', axis='index')
     rmse_cut = df['rmse_validation'].iloc[10]
     print('Best RMSE: ', df['rmse_validation'].iloc[0])
+    print('Best parameters: ', df[cols_variable].iloc[0])
     print('Tenth best RMSE: ', rmse_cut)
     df['in_ensemble'] = df['rmse_validation'] < rmse_cut
     # sort descencing, to put better points in front
@@ -278,6 +288,8 @@ def main(_):
     }
     for col in cols_variable:
         df[col].astype(col_to_label_type[col]['dtype'])
+    if 'activation_name' in cols_variable:
+        df['activation_name'] = df['activation_name'].map(activation_name_convert)
     n_subplots_max = FLAGS.n_plots  # maximum number of subplots in a single large plot
     #n_subplots_max = [[0,1,2,3],[4,5,6],[7,8,9]]
     count = 0  # count up plots for saving them in different files
@@ -287,11 +299,11 @@ def main(_):
             sharey=True)
         for i, name in enumerate(box_xnames_split):
             print(name)
-            sns.boxplot(ax=ax[i], x=name, y='mae_validation', data=df, color='lightblue')
-            sns.swarmplot(ax=ax[i], x=name, y='mae_validation', data=df, color='.25')
+            sns.boxplot(ax=ax[i], x=name, y='rmse_validation', data=df, color='lightblue')
+            sns.swarmplot(ax=ax[i], x=name, y='rmse_validation', data=df, color='.25')
             ax[i].set_xlabel(col_to_label_type[name]['label'], fontsize=FLAGS.fontsize)
             if i == 0:
-                ax[i].set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
+                ax[i].set_ylabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.fontsize)
             else:
                 ax[i].set_ylabel('')
             ax[i].tick_params(
