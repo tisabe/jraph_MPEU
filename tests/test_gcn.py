@@ -152,13 +152,10 @@ class TestModelFunctions(unittest.TestCase):
         """
         np.random.seed(4)
         graph = _get_random_graph(max_n_graph=2, multi_edges=False)
-        print("Initial nodes: ", graph.nodes)
-
         adjacency = _get_adjacency_from_lists(
             sum(graph.n_node), graph.senders, graph.receivers)
         # ensure there are self edges
         adjacency = np.maximum(adjacency, np.eye(adjacency.shape[0]))
-        print(adjacency)
         # calculate the D_ii matrix that denotes the incoming edge degree
         # this is already inverse squareroot
         degree_matrix = np.diag(np.sum(adjacency, axis=-1)**(-.5))
@@ -170,16 +167,7 @@ class TestModelFunctions(unittest.TestCase):
         #weights_0 = np.random.random_sample(
         #    size=(np.shape(h_0)[-1], latent_size))
         weights_0 = np.eye(np.shape(h_0)[-1], latent_size)
-        print("Shapes of matrices: ")
-        print(degree_matrix.shape)
-        print(adjacency.shape)
-        print(degree_matrix.shape)
-        print(h_0.shape)
-        print(weights_0.shape)
         h_1 = degree_matrix @ adjacency @ degree_matrix @ h_0 @ weights_0
-        print("Manually calculated node features: ")
-        print(h_1)
-        print(h_1.shape)
         rng = jax.random.PRNGKey(42)
         rng, init_rng = jax.random.split(rng)
 
@@ -190,16 +178,7 @@ class TestModelFunctions(unittest.TestCase):
         params = net.init(init_rng, graph) # create weights etc. for the model
 
         graph_pred = net.apply(params, rng, graph)
-        print("Node features from GCN: ")
-        print(graph_pred.nodes)
-        print(graph_pred.nodes.shape)
-        prediction = graph_pred.globals
-
         np.testing.assert_allclose(graph_pred.nodes, h_1, rtol=1e-6)
-        #prediction = np.array([])
-        label = np.array([])
-        #np.testing.assert_array_equal(prediction.shape, (1, 1))
-        #self.assertAlmostEqual(label, prediction[0, 0], places=5)
 
 
 if __name__ == '__main__':

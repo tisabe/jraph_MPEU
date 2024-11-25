@@ -3,7 +3,6 @@ Test a specified database by visualizing unit cell and printing atoms object.
 """
 import os
 import pickle
-import re
 
 from absl import flags
 from absl.testing import absltest
@@ -18,8 +17,10 @@ from jraph_MPEU.input_pipeline import get_datasets, DataReader
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string(
-    'workdir', None, 'Working directory to print config and params from.',
-    required=True)
+    'workdir',
+    'tests/qm9_test_run',
+    'Working directory to print config and params from.'
+)
 
 
 def string_correlation(str_a, str_b):

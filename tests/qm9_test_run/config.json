@@ -13,7 +13,7 @@
     "early_stopping_steps": 1000000,
     "checkpoint_every_steps": 1000,
     "restore": false,
-    "data_file": "QM9/qm9_graphs.db",
+    "data_file": "databases/QM9/graphs_fc_vec.db",
     "label_str": "U0",
     "val_frac": 0.1,
     "test_frac": 0.1,
