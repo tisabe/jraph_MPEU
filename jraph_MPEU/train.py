@@ -25,7 +25,6 @@ import haiku as hk
 # import custom functions
 from jraph_MPEU.models.loading import create_model
 from jraph_MPEU.utils import (
-    #Time_logger,
     replace_globals,
     get_valid_mask,
     save_config
@@ -34,7 +33,6 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     DataReader,
 )
-from jraph_MPEU.inference import get_results_df
 
 # maximum loss, if training batch loss exceeds this, stop training
 _MAX_TRAIN_LOSS = 1e10
@@ -71,11 +69,10 @@ class Updater:
         """Updates the state using some data and returns metrics."""
         rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
-        hk_state = state['hk_state']
-        (loss, (_, hk_state)), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, hk_state, rng, data, self._net_apply)
+        (loss, (_, new_state)), grad = jax.value_and_grad(
+            self._loss_fn, has_aux=True)(params, state, rng, data, self._net_apply)
 
-        updates, opt_state = self._opt.update(grad, state['opt_state'])
+        updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
 
         new_state = {
@@ -83,7 +80,7 @@ class Updater:
             'rng': new_rng,
             'opt_state': opt_state,
             'params': params,
-            'hk_state': hk_state
+            'hk_state': new_state['hk_state']
         }
 
         metrics = {
@@ -247,7 +244,7 @@ class Evaluater:
         and MAE over batch"""
         state['rng'], new_rng = jax.random.split(state['rng'])
         (mean_loss, (mae, _)) = self._loss_fn(
-            state['params'], state['hk_state'], new_rng, graphs, self._net_apply)
+            state['params'], state, new_rng, graphs, self._net_apply)
         return [mean_loss, mae]
 
     def evaluate_split(
@@ -259,7 +256,7 @@ class Evaluater:
         RMSE, second value is MAE, both scaled back using std of dataset."""
 
         reader = DataReader(
-            data=graphs, batch_size=batch_size, repeat=False)
+            data=graphs, batch_size=batch_size, repeat=False, seed=0)
 
         loss_list = []
         weights_list = []
@@ -268,7 +265,14 @@ class Evaluater:
             weights_list.append(batch_size - jraph.get_number_of_padding_with_graphs_graphs(batch))
             loss_list.append(self._evaluate_step(state, batch))
         averaged = np.average(loss_list, axis=0, weights=weights_list)
-        return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
+        # NOTE: this part only works for scalar loss at the moment
+        match self._metric_names:
+            case 'RMSE/MAE':
+                return self._loss_scalar*np.array([np.sqrt(averaged[0]), averaged[1]])
+            case 'NLL/MAE':
+                return np.array([averaged[0], self._loss_scalar[0]*averaged[1]])
+            case 'BCE/Acc.':
+                return np.array([averaged[0], averaged[1]])
 
     def evaluate_model(
             self,
@@ -405,16 +409,21 @@ def create_optimizer(
 
     if config.optimizer == 'adam':
         return optax.adam(learning_rate=learning_rate)
+    elif config.optimizer == 'adamw':
+        return optax.adamw(
+            learning_rate=learning_rate, weight_decay=config.weight_decay)
+
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 
 def loss_fn_mse(params, state, rng, graphs, net_apply):
     """Mean squared error loss function for regression."""
+    hk_state = state['hk_state']
     labels = graphs.globals
     graphs = replace_globals(graphs)
 
     mask = get_valid_mask(graphs)
-    pred_graphs, new_state = net_apply(params, state, rng, graphs)
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
     sq_diff = jnp.square((predictions - labels)*mask)
@@ -424,19 +433,20 @@ def loss_fn_mse(params, state, rng, graphs, net_apply):
     absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
     mae = absolute_error /jnp.sum(mask)
 
-    return mean_loss, (mae, new_state)
+    state['hk_state'] = new_state
+    return mean_loss, (mae, state)
 
 
 def loss_fn_bce(params, state, rng, graphs, net_apply):
     """Binary cross entropy loss function for classification."""
+    hk_state = state['hk_state']
     labels = graphs.globals
     graphs = replace_globals(graphs)
     targets = jax.nn.one_hot(labels, 2)
 
     # try get_valid_mask function instead
     mask = jraph.get_graph_padding_mask(graphs)
-    pred_graphs, new_state = net_apply(params, state, rng, graphs)
-    print(jnp.shape(pred_graphs.globals))
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
     # compute class probabilities
     preds = jax.nn.log_softmax(pred_graphs.globals)
     # Cross entropy loss, note: we average only over valid (unmasked) graphs
@@ -445,7 +455,47 @@ def loss_fn_bce(params, state, rng, graphs, net_apply):
     # Accuracy taking into account the mask.
     accuracy = jnp.sum(
         (jnp.argmax(pred_graphs.globals, axis=1) == labels) * mask)/jnp.sum(mask)
-    return loss, (accuracy, new_state)
+    state['hk_state'] = new_state
+    return loss, (accuracy, state)
+
+
+def loss_fn_nll(params, state, rng, graphs, net_apply):
+    """Negative log likelihood loss.
+    
+    net_apply has to output a dict with estimated mean (key: mu),
+    and estimated standard deviation (squared) for aleatoric uncertainty
+    (key: sigma).
+    TODO: use step value in state to interpolate between MSE and NLL loss.
+    Ref.: Jonas Busk et al 2022 Mach. Learn.: Sci. Technol. 3 015012"""
+    hk_state = state['hk_state']
+    target = jnp.expand_dims(graphs.globals, 1)  # shape (N, 1) N=batch_size
+    graphs = replace_globals(graphs)  # make sure no information leaks to model
+
+    mask = get_valid_mask(graphs)  # shape (N, 1) with 1's for valid graphs, 0's otherwise
+    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
+    predictions = pred_graphs.globals
+    mu_hat = predictions['mu']  # shape (N, 1), predicted mean
+    sigma_sq_hat = predictions['sigma']  # shape (N, 1), predicted variance, non-negative, >1e-6
+    # avoid division by zero on the globals of padding graphs
+    sigma_sq_hat = jnp.where(mask, sigma_sq_hat, 1)
+
+    sq_diff = jnp.square(mu_hat - target)  # shape (N, 1), squared difference
+    nll_loss = jnp.sum((sq_diff/sigma_sq_hat + jnp.log(sigma_sq_hat))*mask)  # eq. 3 in ref.
+    mse_loss = jnp.sum(sq_diff*mask)
+
+    # interpolate loss function based on step counter (eq. 4 in ref)
+    interpolation_steps = 1_000_000
+    step = state['step']
+    mse_factor = jnp.clip(2 - step/interpolation_steps, 0, 1)
+    #loss = mse_factor*mse_loss + (1-mse_factor)*nll_loss
+    loss = nll_loss
+    mean_loss = loss/jnp.sum(mask)
+
+    absolute_error = jnp.sum(jnp.abs((mu_hat - target)*mask))
+    mae = absolute_error /jnp.sum(mask)
+
+    state['hk_state'] = new_state
+    return mean_loss, (mae, state)
 
 
 def init_state(
@@ -455,7 +505,7 @@ def init_state(
     """Initialize a TrainState object using hyperparameters in config,
     and the init_graphs. This is a representative batch of graphs."""
     # Initialize rng.
-    rng = jax.random.PRNGKey(config.seed)
+    rng = jax.random.PRNGKey(config.seed_weights)
 
     # Create and initialize network.
     logging.info('Initializing network.')
@@ -472,12 +522,17 @@ def init_state(
     optimizer = create_optimizer(config)
 
     # determine which loss function to use
-    if config.label_type == 'scalar':
-        loss_fn = loss_fn_mse
-        metric_names = 'RMSE/MAE'
-    else:
-        loss_fn = loss_fn_bce
-        metric_names = 'BCE/Acc.'
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            if config.model_str == 'MPEU_uq':
+                loss_fn = loss_fn_nll
+                metric_names = 'NLL/MAE'
+            else:
+                loss_fn = loss_fn_mse
+                metric_names = 'RMSE/MAE'
+        case _:
+            loss_fn = loss_fn_bce
+            metric_names = 'BCE/Acc.'
 
     updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
@@ -534,18 +589,15 @@ def train_and_evaluate(
         workdir: str) -> Dict:
     """Train the model and evaluate it."""
     logging.info('Loading datasets.')
-    datasets, _, std = get_datasets(config, workdir)
+    datasets, norm_dict = get_datasets(config, workdir)
     logging.info(f'Number of node classes: {config.max_atomic_number}')
-
-    # save the config in txt for later inspection
-    save_config(config, workdir)
 
     # initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],
         batch_size=config.batch_size,
         repeat=True,
-        seed=config.seed)
+        seed=config.seed_datareader)
 
     init_graphs = next(train_reader)
     # Initialize globals in graph to zero. Don't want to give the model
@@ -564,10 +616,11 @@ def train_and_evaluate(
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
-    if config.label_type == 'scalar':
-        evaluater.set_loss_scalar(std)
-    else:
-        evaluater.set_loss_scalar(1.0)
+    match config.label_type:
+        case 'scalar'|'scalar_non_negative':
+            evaluater.set_loss_scalar(norm_dict['std'])
+        case _:
+            evaluater.set_loss_scalar(1.0)
 
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.
@@ -575,7 +628,6 @@ def train_and_evaluate(
 
     # Begin training loop.
     logging.info('Starting training.')
-    # time_logger = Time_logger(config)
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         # Perform a training step. Get next training graphs.
@@ -586,7 +638,7 @@ def train_and_evaluate(
         state, loss_metrics = updater.update(state, graphs)
 
         # Log periodically the losses/step count.
-        is_last_step = (step == config.num_train_steps_max)
+        is_last_step = step == config.num_train_steps_max
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
@@ -596,10 +648,9 @@ def train_and_evaluate(
             logging.info('Invalid loss, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w'):
+                with open(workdir + '/ABORTED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
-
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
@@ -610,7 +661,7 @@ def train_and_evaluate(
             logging.info(f'Loss converged at step {step}, stopping early.')
             # create a file that signals that training stopped early
             if not os.path.exists(workdir + '/STOPPED_EARLY'):
-                with open(workdir + '/STOPPED_EARLY', 'w'):
+                with open(workdir + '/STOPPED_EARLY', 'w', encoding="utf-8"):
                     pass
             break
 
@@ -620,22 +671,9 @@ def train_and_evaluate(
             logging.info(
                 'Reached maximum number of steps without early stopping.')
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                with open(workdir + '/REACHED_MAX_STEPS', 'w'):
+                with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
                     pass
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
-
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
     return evaluater, lowest_val_loss

@@ -8,7 +8,10 @@ def get_config() -> ml_collections.ConfigDict():
     config = ml_collections.ConfigDict()
 
     # rng init
-    config.seed = 42
+    config.seed_splits = 42
+    config.seed_datareader = 42
+    config.seed_weights = 42
+    config.shuffle_val_seed = -1
 
     # Optimizer
     config.optimizer = 'adam'
@@ -22,14 +25,14 @@ def get_config() -> ml_collections.ConfigDict():
 
     # Training hyperparameters
     config.batch_size = 32
-    config.num_train_steps_max = 10_000_000
-    config.log_every_steps = 10_000
-    config.eval_every_steps = 50_000
-    config.early_stopping_steps = 1_000_000
-    config.checkpoint_every_steps = 100_000
+    config.num_train_steps_max = 500_000
+    config.log_every_steps = 500
+    config.eval_every_steps = 2_500
+    config.early_stopping_steps = 50_000
+    config.checkpoint_every_steps = 2_500
     config.num_checkpoints = 1
     # data split settings
-    config.data_file = 'aflow/graphs_all_12knn.db'
+    config.data_file = 'databases/aflow/graphs_12knn_vec.db'
     config.label_str = 'Egap'
     config.label_type = 'scalar'  # or 'class', also changes the loss function
     config.val_frac = 0.1 # fraction of total data used for validation
@@ -59,6 +62,7 @@ def get_config() -> ml_collections.ConfigDict():
     # Node embedding parameters
     config.max_atomic_number = 90
     config.use_layer_norm = False
+    config.use_batch_norm = False
     config.dropout_rate = 0.0
 
     # Logging options

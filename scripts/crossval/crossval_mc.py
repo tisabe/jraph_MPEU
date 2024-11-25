@@ -17,8 +17,8 @@ from ml_collections import config_flags
 import tensorflow as tf
 import jax
 
-from jraph_MPEU.utils import Config_iterator
-from jraph_MPEU.input_pipeline import save_split_dict, load_split_dict, split_dict_to_lists
+from jraph_MPEU import utils
+from jraph_MPEU.utils import ConfigIterator
 from jraph_MPEU.train import train_and_evaluate
 
 FLAGS = flags.FLAGS
@@ -67,23 +67,33 @@ def main(argv):
     # import split file from different workdir if the argument is given
     if FLAGS.split_file is not None:
         # load the splits dict from different workdir
-        with open(FLAGS.split_file, 'r') as splits_file:
+        with open(FLAGS.split_file, 'r', encoding="utf-8") as splits_file:
             splits_dict = json.load(splits_file, parse_int=True)
         # save the splits dict in this workdir
-        with open(os.path.join(FLAGS.workdir, 'splits.json'), 'w') as splits_file:
+        with open(os.path.join(FLAGS.workdir, 'splits.json'), 'w', encoding="utf-8") as splits_file:
             json.dump(splits_dict, splits_file, indent=4, separators=(',', ': '))
 
     # set the random seed, so in each run we get a different choice of config
     random.seed(FLAGS.index // FLAGS.n_fold)
 
-    iterator = Config_iterator(FLAGS.config)
+    iterator = ConfigIterator(FLAGS.config)
     # get all possible configs
     configs = [config for config in iterator]
     # get a random config
     config = random.choice(configs)
     # set the seed that determines which data fold is used
     # i.e. how data is split
-    config.seed = FLAGS.index % FLAGS.n_fold + config.base_data_seed
+    #config.seed = FLAGS.index % FLAGS.n_fold + config.base_data_seed
+
+    # if there is a config present in workdir, load it and ignore the passed config,
+    # otherwise, save the passed FLAGS.config
+    config_path = os.path.join(FLAGS.workdir, 'config.json')
+    if os.path.exists(config_path):
+        logging.info(f'Loading config file from {config_path}')
+        config = utils.load_config(FLAGS.workdir)
+    else:
+        utils.save_config(config, FLAGS.workdir)
+
     train_and_evaluate(config, FLAGS.workdir)
 
 

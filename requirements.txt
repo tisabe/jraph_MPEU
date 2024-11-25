@@ -13,3 +13,4 @@ ml_collections
 absl-py
 spglib
 seaborn
+tqdm

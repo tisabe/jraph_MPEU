@@ -10,7 +10,7 @@ def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default config
 
     # Training hyperparameters
-    config.num_train_steps_max = 20
+    config.num_train_steps_max = 50
     config.log_every_steps = 20
     config.eval_every_steps = 10
     config.checkpoint_every_steps = 10

@@ -89,9 +89,8 @@ def main(args):
     logging.set_verbosity(logging.INFO)
     workdir = args.folder
 
-    config = load_config(workdir)
     logging.info('Loading model.')
-    net, params, hk_state = load_model(workdir, is_training=False)
+    net, params, hk_state, config, _ = load_model(workdir, is_training=False)
     logging.info('Loading datasets.')
     #dataset, _, mean, std = load_data(workdir)
     with open(os.path.join(workdir, 'atomic_num_list.json'), 'r') as list_file:

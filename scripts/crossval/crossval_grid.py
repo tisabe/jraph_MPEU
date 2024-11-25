@@ -14,7 +14,7 @@ from ml_collections import config_flags
 import tensorflow as tf
 import jax
 
-from jraph_MPEU.utils import Config_iterator
+from jraph_MPEU.utils import ConfigIterator
 from jraph_MPEU.train import train_and_evaluate
 
 FLAGS = flags.FLAGS
@@ -56,7 +56,7 @@ def main(argv):
     logging.info('JAX host: %d / %d', jax.process_index(), jax.process_count())
     logging.info('JAX local devices: %r', jax.local_devices())
 
-    iterator = Config_iterator(FLAGS.config)
+    iterator = ConfigIterator(FLAGS.config)
     # get all possible configs
     configs = [config for config in iterator]
     # get a config from the grid

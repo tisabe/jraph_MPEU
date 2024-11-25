@@ -12,6 +12,7 @@ import numpy as np
 import sklearn.metrics
 from sklearn.metrics import RocCurveDisplay
 from sklearn.metrics import roc_auc_score
+from sklearn.calibration import CalibrationDisplay
 
 from jraph_MPEU.utils import str_to_list
 from jraph_MPEU.inference import get_results_df
@@ -23,7 +24,7 @@ flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
 flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
     read from the database.')
 flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
-flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+flags.DEFINE_integer('tick_size', 12, 'tick size to use in labels')
 
 
 def main(argv):
@@ -56,6 +57,9 @@ def main(argv):
     # softmax outputs probability, the threshold is exactly 1/2
     df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
     df['class_correct'] = df['class_true'] == df['class_pred']
+    df['Egap_bin'] = pd.cut(df['Egap'], 20)
+    print(df['Egap_bin'])
+
     print(df[df['class_correct'] == False][[
         'class_true', 'class_pred', 'class_correct']])
     df_test = df.loc[lambda df_temp: df_temp['split'] == 'test']
@@ -77,6 +81,7 @@ def main(argv):
     # calculate and display ROC curve
     y_pred = df_test['p_insulator'].to_numpy().reshape(-1, 1)
     y_true = df_test['class_true'].to_numpy()
+
     fig, ax = plt.subplots()
     _ = RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax)
     x_ref = np.linspace(*ax.get_xlim())
@@ -88,6 +93,46 @@ def main(argv):
     plt.tight_layout()
     plt.show()
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
+
+    # calculate binned egap plot
+    data = df_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate(
+        ['mean', 'min', 'max', 'count'])
+    print(data)
+    fig, ax = plt.subplots()
+    color = 'tab:blue'
+    ax.bar(
+        x=data['Egap']['min'],
+        height=data['class_correct']['mean'],
+        width=0.8,
+        align='edge')
+    ax.set_ylim([.9, 1.005])
+    ax.set_ylabel('Accuracy', color=color, fontsize=FLAGS.font_size)
+    ax.set_xlabel(r'$E_g$ (eV)', color='black', fontsize=FLAGS.font_size)
+    ax.tick_params(
+        axis='y', which='both', labelcolor=color, labelsize=FLAGS.tick_size)
+    ax.tick_params(
+        axis='x', which='both', labelcolor='black', labelsize=FLAGS.tick_size)
+
+    color = 'tab:orange'
+    ax2 = ax.twinx()  # instantiate a second Axes that shares the same x-axis
+    ax2.bar(
+        x=data['Egap']['min'],
+        height=data['Egap']['count'],
+        width=0.5,
+        align='edge',
+        color=color)
+    ax2.set_ylabel('Count', color=color, fontsize=FLAGS.font_size)
+    ax2.tick_params(axis='y', labelcolor=color, labelsize=FLAGS.tick_size)
+    plt.tight_layout()
+    plt.show()
+    fig.savefig(workdir+'/accuracy_binned.png', bbox_inches='tight', dpi=600)
+
+    # display calibration curve
+    fig, ax = plt.subplots()
+    _ = CalibrationDisplay.from_predictions(y_true, y_pred, n_bins=10, ax=ax)
+    ax.set_box_aspect(1)
+    plt.tight_layout()
+    plt.show()
 
     # print ROC-AUC score
     auc = roc_auc_score(y_true, y_pred)
