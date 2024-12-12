@@ -72,6 +72,9 @@ sample_err_file_cancelled = sample_err_file + '\nCANCELLED DUE TO TIME LIMIT'
 
 sample_err_file_cancelled_nothing_else = '\nCANCELLED DUE TO TIME LIMIT'
 
+sample_err_file_expired = ('\n ain.py:35] Started training on model that '
+                           '            reached maximum number of steps.')
+
 
 PATHS_TEXT_FILE = '/home/dts/Documents/hu/jraph_MPEU/tests/data/fake_profile_paths.txt'
 
@@ -164,21 +167,52 @@ class ParseProfileExperiments(unittest.TestCase):
             self.assertEqual(most_recent_error_file, temp_file_name)
 
 
+    def test_check_calc_finished(self):
+        most_recent_err_file = '\n something here.'
+        second_recent_err_file = '\n something also here.'
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_file_name = os.path.join(tmp_dir, '3535.err')
+            with open(temp_file_name, 'w') as fd:
+                fd.write(most_recent_err_file)
+            temp_file_name = os.path.join(tmp_dir, '12.err')
+            with open(temp_file_name, 'w') as fd:
+                fd.write(second_recent_err_file)
+            parent_path = Path(temp_file_name).parent.absolute()
+            second_recent_error_file = self.profiling_parser_object.get_second_most_recent_err_file(
+                temp_file_name, parent_path)
+            print(second_recent_error_file)
+            self.assertTrue(second_recent_error_file is not None)
+            self.assertEqual('\n something also here.', second_recent_err_file)
+
     def test_check_sim_time_lim(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_file_name_cancelled = os.path.join(tmp_dir, 'sample_err_file_cancelled.err')
             with open(temp_file_name_cancelled, 'w') as fd:
                 fd.write(sample_err_file_cancelled)
-            calc_expired = self.profiling_parser_object.check_sim_time_lim(
+            calc_expired, max_steps_bool = self.profiling_parser_object.check_sim_time_lim(
                 temp_file_name_cancelled)
             self.assertEqual(calc_expired, True)
+            self.assertEqual(max_steps_bool, False)
 
             temp_file_name = os.path.join(tmp_dir, 'sample_err_file.err')
             with open(temp_file_name, 'w') as fd:
                 fd.write(sample_err_file)
-            calc_expired = self.profiling_parser_object.check_sim_time_lim(
+            calc_expired, max_steps_bool = self.profiling_parser_object.check_sim_time_lim(
                 temp_file_name)
             self.assertEqual(calc_expired, False)
+            self.assertEqual(max_steps_bool, False)
+
+
+    def test_check_sim_time_lim_max_steps(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_file_name_expired = os.path.join(tmp_dir, 'sample_err_file_expired.err')
+            with open(temp_file_name_expired, 'w') as fd:
+                fd.write(sample_err_file_expired)
+            calc_expired, max_steps_bool = self.profiling_parser_object.check_sim_time_lim(
+                temp_file_name_expired)
+            self.assertEqual(calc_expired, False)
+            self.assertEqual(max_steps_bool, True)
 
 
     def test_gather_all_path_data_expired(self):

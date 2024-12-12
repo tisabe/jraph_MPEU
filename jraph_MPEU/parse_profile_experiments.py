@@ -184,10 +184,19 @@ class ProfilingParser():
         calc_ran_bool, most_recent_error_file = self.check_experiment_ran(
                 submission_path, parent_path)
         
-        calc_expired_bool = self.check_sim_time_lim(most_recent_error_file)
+        calc_expired_bool, max_steps_bool = self.check_sim_time_lim(
+            most_recent_error_file)
 
         if calc_ran_bool and calc_expired_bool:
             self.add_expired_path(submission_path)
+        # Check if the err file reached the maximum number of steps. If so
+        # we should get the second most recent .err file.
+        if max_steps_bool:
+            most_recent_error_file = self.get_second_most_recent_err_file(
+                submission_path, parent_path)
+            if most_recent_error_file is None:
+                print(f'Cannot find the second most recent error file.')
+                self.add_misbehaving_path(submission_path)
 
         elif calc_ran_bool and not calc_expired_bool:
             # Add time/day when this row of data was grabbed.
@@ -361,6 +370,40 @@ class ProfilingParser():
             fo.writelines(submission_path + '\n')
 
 
+    def get_second_most_recent_err_file(self, submission_path, parent_path):
+        """Check if simulation exited nicely.
+
+        We look to see if a .err file was created meaning the profiling
+        experiment was at least started.
+
+        Args:
+            path: (str) path to folder containing error files.
+
+        Returns:
+            calc_finished_bool: (bool) True if calc exited
+            nicely.
+        """
+        # Grab all .err files.
+
+        error_files = glob.glob(os.path.join(parent_path, '*.err'))
+        error_files.sort()
+        # If the error_files list is empty, return calc_finished is false.
+        if error_files is None:
+            second_recent_error_file = None
+        elif len(error_files) != 0: 
+            try:
+                second_recent_error_file = error_files[-2]
+            except IndexError:
+                print(f'This path has a most recent error file that reached '
+                      f'max steps. There is no second most recent error file.')
+                self.add_misbehaving_path(submission_path)
+        else:
+            self.add_unsubmitted_path(submission_path)
+            raise ValueError(
+                'unexpected non zero length and no none glob output')
+        return second_recent_error_file
+
+
     def check_experiment_ran(self, submission_path, parent_path):
         """Check if simulation exited nicely.
 
@@ -416,23 +459,31 @@ class ProfilingParser():
         Returns:
         expired_time_bool: (bool) True if the sim ran out of time.
             False otherwise.
+        max_num_steps_already_reached: (bool) True if sim tries to run a model
+            that already reached a maximum number of steps.
         """
 
         # Now go through each line in the most recent djob.err.*
         # file in the folder and see if we can spot the marker.
         first_marker = 'CANCELLED'
         second_marker = 'DUE TO TIME LIMIT'
+
+        max_steps_marker = 'reached maximum number of steps.'
         # By default the bool we return is False since we
         # haven't seen markers.
         expired_time_bool = False
+        max_steps_bool = False
         # Get the path to most recent djob error.
         if most_recent_error_file is not None:
             with open(most_recent_error_file, 'r') as fd:
                 for line in reversed(fd.readlines()):
                     if first_marker in line and second_marker in line:
                         expired_time_bool = True
-                        break
-        return expired_time_bool
+                    if max_steps_marker in line:
+                        max_steps_bool = True
+
+
+        return expired_time_bool, max_steps_bool
 
     def connect_to_db(self):
         """Write simulation data to a ASE database.
