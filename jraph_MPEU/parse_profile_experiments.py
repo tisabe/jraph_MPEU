@@ -187,10 +187,6 @@ class ProfilingParser():
         calc_expired_bool, max_steps_bool = self.check_sim_time_lim(
             most_recent_error_file)
 
-        if calc_ran_bool and calc_expired_bool:
-            self.add_expired_path(submission_path)
-        # Check if the err file reached the maximum number of steps. If so
-        # we should get the second most recent .err file.
         if max_steps_bool:
             most_recent_error_file = self.get_second_most_recent_err_file(
                 submission_path, parent_path)
@@ -198,6 +194,13 @@ class ProfilingParser():
                 print(f'Cannot find the second most recent error file.')
                 self.add_misbehaving_path(submission_path)
 
+        print('here')
+        # print('here')
+        # print(f"most recent error file is: {most_recent_error_file} dfa")
+        if calc_ran_bool and calc_expired_bool:
+            self.add_expired_path(submission_path)
+        # Check if the err file reached the maximum number of steps. If so
+        # we should get the second most recent .err file.
         elif calc_ran_bool and not calc_expired_bool:
             # Add time/day when this row of data was grabbed.
             data_dict['time_day'] = time_and_day
@@ -324,7 +327,9 @@ class ProfilingParser():
         """Parse information about the batching method and size.
 
         Sample path:
-        /mpnn/aflow/dynamic/64/gpu_a100/iteration_5"""
+        /mpnn/aflow/dynamic/round_True/64/gpu_a100/iteration_5"""
+
+        # print(f'The parent path is {parent_path}')
         settings_list = parent_path.split('/')
         data_dict['iteration'] = int(settings_list[-1].split('_')[-1])
         data_dict['computing_type'] = settings_list[-2]

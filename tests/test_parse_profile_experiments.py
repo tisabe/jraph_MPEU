@@ -75,6 +75,27 @@ sample_err_file_cancelled_nothing_else = '\nCANCELLED DUE TO TIME LIMIT'
 sample_err_file_expired = ('\n ain.py:35] Started training on model that '
                            '            reached maximum number of steps.')
 
+recreated_second_most_recent_err = (
+    """I0322 00:23:22.118516 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:23:25.266852 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:23:27.051969 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:23:46.216533 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:23:50.187336 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:23:57.717127 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:24:56.713622 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:25:25.552412 23380167612224 train.py:77] LOG Message: Recompiling!
+    I0322 00:26:13.965305 23380167612224 train.py:150] Serializing experiment state to /u/dansp/batching_both_models_both_datasets_100k_steps_21_3_2024//profiling_experiments/schnet/aflow/static/round_True/64/gpu_a100/iteration_0/checkpoints/checkpoint_0100000.pkl
+    I0322 00:26:13.969925 23380167612224 train.py:646] Step 100000 train loss: 0.058370236307382584
+    I0322 00:29:06.929774 23380167612224 train.py:367] RMSE/MAE train: [0.21240777 0.11414406]
+    I0322 00:29:06.930040 23380167612224 train.py:367] RMSE/MAE validation: [0.22652273 0.11767302]
+    I0322 00:29:06.930185 23380167612224 train.py:367] RMSE/MAE test: [0.21605205 0.11936048]
+    I0322 00:29:06.994865 23380167612224 train.py:674] Reached maximum number of steps without early stopping.
+    I0322 00:29:06.995151 23380167612224 train.py:681] Lowest validation loss: 0.22652273080134477
+    I0322 00:29:07.003067 23380167612224 train.py:684] Median batching time: 0.0011341571807861328
+    I0322 00:29:07.007253 23380167612224 train.py:687] Mean batching time: 0.0011794448590278625
+    I0322 00:29:07.012785 23380167612224 train.py:690] Median update time: 0.0027108192443847656
+    I0322 00:29:07.016522 23380167612224 train.py:693] Mean update time: 0.007863979549407958""")
+
 
 PATHS_TEXT_FILE = '/home/dts/Documents/hu/jraph_MPEU/tests/data/fake_profile_paths.txt'
 
@@ -167,7 +188,7 @@ class ParseProfileExperiments(unittest.TestCase):
             self.assertEqual(most_recent_error_file, temp_file_name)
 
 
-    def test_check_calc_finished(self):
+    def test_check_calc_finished_second_most_recent(self):
         most_recent_err_file = '\n something here.'
         second_recent_err_file = '\n something also here.'
 
@@ -183,7 +204,7 @@ class ParseProfileExperiments(unittest.TestCase):
                 temp_file_name, parent_path)
             print(second_recent_error_file)
             self.assertTrue(second_recent_error_file is not None)
-            self.assertEqual('\n something also here.', second_recent_err_file)
+            self.assertEqual('\n something also here.', second_recent_err_file) 
 
     def test_check_sim_time_lim(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -246,6 +267,46 @@ class ParseProfileExperiments(unittest.TestCase):
                 data_dict['iteration'], 5)
             self.assertEqual(
                 data_dict['batching_round_to_64'], 'False')
+
+
+    def test_gather_all_path_data_second_most_recent(self):
+        """Test what happens when most recent error file reached max num steps.
+        
+        The method should check that there is a second most recent err file.
+        """
+        most_recent_err_file = '\n reached maximum number of steps.'
+
+        sub_dir = 'mpnn/aflow/dynamic/round_True/64/gpu_a100/iteration_5'
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+
+            from pathlib import Path
+            Path(os.path.join(
+                tmp_dir, sub_dir)).mkdir(
+                    parents=True, exist_ok=True)
+
+
+            temp_file_name = os.path.join(tmp_dir, sub_dir, '123.err')
+            
+            print(f'the temp file name is {temp_file_name}')
+            with open(temp_file_name, 'w') as fd:
+                fd.write(most_recent_err_file)
+            temp_file_name = os.path.join(tmp_dir, sub_dir, '12.err')
+            with open(temp_file_name, 'w') as fd:
+                fd.write(recreated_second_most_recent_err)
+
+            profiling_parser_object = ppe.ProfilingParser(
+                paths_txt_file=PATHS_TEXT_FILE,
+                csv_filename=None,
+                save_directory=tmp_dir)
+
+            data_dict = profiling_parser_object.gather_all_path_data(
+                os.path.join(tmp_dir, sub_dir, 'submission.sh'))
+            print('the data dict')
+            print(data_dict)
+            self.assertEqual(
+                data_dict['step_100000_batching_time_mean'], 0.0011794448590278625)
+
 
     def test_create_header(self):
         """Test writing the header to the CSV."""
