@@ -60,7 +60,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 source /u/dansp/batch_stats/activate_env.sh
-srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
+srun python3.9 /u/dansp/batch_stats/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
