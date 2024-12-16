@@ -33,7 +33,7 @@ def dict_to_ase(aflow_dict):
     """Return ASE atoms object from a pandas dict, produced by AFLOW json response."""
     cell = str_to_array(aflow_dict['geometry'])
     positions = str_to_array(aflow_dict['positions_fractional'])
-    symbols = aflow_dict['compound']
+    symbols = ast.literal_eval(aflow_dict['compound']
     structure = Atoms(
         symbols=symbols,
         scaled_positions=positions,
@@ -106,6 +106,7 @@ def main(args):
         # add information about cutoff
         prop_dict['cutoff_type'] = FLAGS.cutoff_type
         prop_dict['cutoff_val'] = cutoff
+        prop_dict['energy'] = row['energy']
 
         # save in new database
         db_out.write(atoms, key_value_pairs=prop_dict, data=data)

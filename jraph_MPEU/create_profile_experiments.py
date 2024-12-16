@@ -246,7 +246,7 @@ def get_settings_list(
                 for batching_method in batching_method_list:
                     for static_round_to_multiple in static_round_to_multiple_list:
                         for computing_type in computing_type_list:
-                            for iteration in range(10):
+                            for iteration in range(1):
                                 settings_dict = {
                                     'network_type': network_type,
                                     'dataset': dataset,

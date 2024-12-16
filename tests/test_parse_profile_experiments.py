@@ -476,5 +476,6 @@ class ParseProfileExperiments(unittest.TestCase):
                 self.assertEqual(len(parsed_resubmit_paths), 1)
                 self.assertEqual(parsed_resubmit_paths[0], os.path.join(temp_dir_for_err_file, 'submission_MgO.sh\n'))
 
+
 if __name__ == '__main__':
     unittest.main()
