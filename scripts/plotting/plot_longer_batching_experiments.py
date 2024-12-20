@@ -27,7 +27,7 @@ BATCH_METHOD_LIST = ['dynamic', 'static']
 # COMPUTING_TYPE_LIST = ['gpu_a100', 'cpu']
 COMPUTING_TYPE_LIST = ['gpu_a100']
 
-DATASET_LIST = ['aflow']
+DATASET_LIST = ['aflow', 'qm9']
 
 DEFAULT_LONGER_BATCHING_CSV = "/home/dts/Documents/hu/jraph_MPEU/batch_data"
 
@@ -94,11 +94,11 @@ def plot_curves(
                 point_style = 'o'
                 markerfacecolor = 'red'
 
-            for batch_size in batch_size_list:
+            for x_shift, batch_size in enumerate(batch_size_list):
                 avg_rmse_df, std_rmse_df = get_avg_std_rmse(
                     df, model, batch_method, compute_type, batch_size, dataset,
                     data_split)
-                x_shift = BATCH_SIZE_DICT[str(batch_size)]
+                # x_shift = BATCH_SIZE_DICT[str(batch_size)]
                 print(f'x_shift is {x_shift}')
                 # Ok we now have a df with multiple columns and a single value
                 # we need to convert the columns into steps.
@@ -125,7 +125,7 @@ def plot_curves(
 
     # Set the axlimits the same for each side of the plot
     for x in range(0,4):
-        axs[x, 0].set_ylabel('RMSE (eV/atom)')
+        axs[x, 0].set_ylabel('RMSE (eV/atom)', fontsize=12)
         axs[x, 1].yaxis.tick_right()
         axs[x, 1].tick_params(left=False)
         axs[x, 0].tick_params(right=False)
@@ -135,11 +135,15 @@ def plot_curves(
         axs[x, 1].set_ylim(0, 0.3)
         # ax[1].set_yticks([1E-4, 1E-3, 1E-2, 1E-1, 1E0, 1E1, 1E2], minor=False)
         axs[x, 1].set_yticks([], minor=False)
-    
-    plt.legend(["dynamic", "static"])
+        axs[x, 0].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
+            verticalalignment='center', transform=axs[x, 0].transAxes, fontsize=12)
+        axs[x, 1].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
+            verticalalignment='center', transform=axs[x, 1].transAxes, fontsize=12)
+            
+    plt.legend(["dynamic", "static"], loc='lower left')
 
-    axs[3, 0].set_xlabel('Training steps (thousands)')
-    axs[3, 1].set_xlabel('Training steps (thousands)')
+    axs[3, 0].set_xlabel('Training steps (thousands)', fontsize=12)
+    axs[3, 1].set_xlabel('Training steps (thousands)', fontsize=12)
     plt.tight_layout()
 
     plt.show()
