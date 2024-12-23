@@ -364,6 +364,7 @@ class DataReader:
             batch_size: int, repeat: Boolean, seed: int = None,
             dynamic_batch: bool = True,
             static_round_to_multiple: bool = True,
+            num_estimation_graphs: int = 1000,
             compile_batching=False,
             ):
         self.data = data[:]  # Pass a copy of the list.
@@ -385,7 +386,7 @@ class DataReader:
 
         self.budget = estimate_padding_budget_for_batch_size(
             self.data, batch_size,
-            num_estimation_graphs=1000)
+            num_estimation_graphs=num_estimation_graphs)
 
         self.dynamic_batch = dynamic_batch
         # From outside of DataReader

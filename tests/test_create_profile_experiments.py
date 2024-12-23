@@ -43,15 +43,18 @@ def test_create_config_file_path(tmp_path):
     folder_base_path = tmp_path / "test_dir"
     folder_base_path.mkdir()
     setting = {
-        'network_type': 'mpnn',
+        'network_type': 'MPEU',
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
         'static_round_to_multiple': False,
         'computing_type': 'gpu:a100',
+        'num_estimation_graphs': 10000,
         'iteration': 1,
     }
-    config_file_path = cpe.create_config_file_path(setting, folder_base_path)
+    number_of_training_steps = 100
+    config_file_path = cpe.create_config_file_path(
+        setting, folder_base_path, number_of_training_steps)
     assert config_file_path == folder_base_path / 'config_aflow_static_32.py'
     assert os.path.isfile(config_file_path)
     with open(config_file_path, 'r') as fd:
@@ -102,46 +105,55 @@ def test_create_folder_and_files_for_setting(tmp_path):
     job_list_path  = job_script_folder / 'jobs_list.txt'
 
     settings_list = [
-        {'network_type': 'mpnn',
+        {'network_type': 'MPEU',
         'dataset': 'aflow',
         'batch_size': 32,
         'batching_method': 'static',
         'static_round_to_multiple': True,
         'computing_type': 'gpu:a100',
+        'num_estimation_graphs': 1000,
         'iteration': 1},
-        {'network_type': 'mpnn',
+        {'network_type': 'MPEU',
         'dataset': 'aflow',
         'batch_size': 64,
         'batching_method': 'static',
         'static_round_to_multiple': False,
         'computing_type': 'gpu:a100',
+        'num_estimation_graphs': 1000,
         'iteration': 2}]
-
+    number_of_training_steps = 10000
     cpe.create_folder_and_files_for_setting(
-        settings_list, folder_base_path, job_list_path)
+        settings_list, folder_base_path, job_list_path,
+        number_of_training_steps)
     assert os.path.isfile(job_list_path)
     with open(job_list_path, 'r') as fd:
         job_files = fd.readlines()
         print(job_files)
         assert len(job_files) == 2
+        print(str(folder_base_path) + '/profiling_experiments/MPEU/aflow/' + \
+            'static/round_True/32/gpu_a100/iteration_1/profiling_job.sh\n')
         assert (
-            str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
+            str(folder_base_path) + '/profiling_experiments/MPEU/aflow/' + \
             'static/round_True/32/gpu_a100/iteration_1/profiling_job.sh\n') in job_files
+        print('here')
+
+        print(str(folder_base_path) + '/profiling_experiments/MPEU/aflow/' + \
+            'static/round_False/64/gpu_a100/iteration_2/profiling_job.sh')
         assert (
-            str(folder_base_path) + '/profiling_experiments/mpnn/aflow/' + \
+            str(folder_base_path) + '/profiling_experiments/MPEU/aflow/' + \
             'static/round_False/64/gpu_a100/iteration_2/profiling_job.sh') in job_files
     # Open one of the job paths and check the job script is good.
     with open(
         str(folder_base_path) + \
-        '/profiling_experiments/mpnn/aflow/' + \
+        '/profiling_experiments/MPEU/aflow/' + \
         'static/round_True/32/gpu_a100/iteration_1/profiling_job.sh', 'r') as fd:
         job_script = fd.readlines()
         print(job_script)
         assert '#SBATCH --gres=gpu:a100:4\n' in job_script
         expected_srun_statement = (
             'srun python3.9 scripts/main.py' + ' --workdir=' + str(folder_base_path) + \
-            '/profiling_experiments/mpnn/aflow/static/round_True/32/gpu_a100/iteration_1' + \
+            '/profiling_experiments/MPEU/aflow/static/round_True/32/gpu_a100/iteration_1' + \
             ' --config=' + str(folder_base_path) + '/' + \
-            'profiling_experiments/mpnn/aflow/static/round_True/32/gpu_a100/iteration_1/config_aflow_static_32.py\n')
+            'profiling_experiments/MPEU/aflow/static/round_True/32/gpu_a100/iteration_1/config_aflow_static_32.py\n')
         print(expected_srun_statement)
         assert expected_srun_statement in job_script

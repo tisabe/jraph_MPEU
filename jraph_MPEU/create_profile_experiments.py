@@ -40,6 +40,9 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     'number_of_training_steps', 'None',
     'How many training steps to run.')
+flags.DEFINE_integer(
+    'num_estimation_graphs', 1000,
+    'How many graphs to analyze to determine dynamic batching budget')
 
 
 JOB_SCRIPT = """#!/bin/bash -l
@@ -125,6 +128,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
+    config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
     # MPNN hyperparameters we use the defaults.
@@ -157,7 +161,11 @@ def create_config_file_path(
         "\'" + str(setting['computing_type'].replace(':', '_') + "\'")
     )
     config = config.replace(
-        '<number_of_training_steps>', number_of_training_steps)
+        '<num_estimation_graphs>',
+        str(setting['num_estimation_graphs'])
+    )
+    config = config.replace(
+        '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
         data_file = "\'aflow/graphs_knn.db\'"
         label_str = "\'enthalpy_formation_atom\'"
@@ -234,7 +242,7 @@ def create_folder_for_setting(base_dir, setting):
 def get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list, static_round_to_multiple_list,
-        computing_type_list):
+        computing_type_list, num_estimation_graphs=1000):
     """Get a list of n-tuples of settings to use in profiling experiments.
 
     a list e.g. [("mpnn", "aflow", 32, "static", "gpu:v100"), ...]
@@ -256,7 +264,8 @@ def get_settings_list(
                                     'batching_method': batching_method,
                                     'static_round_to_multiple': ast.literal_eval(static_round_to_multiple),
                                     'computing_type': computing_type,
-                                    'iteration': iteration}
+                                    'iteration': iteration,
+                                    'num_estimation_graphs': num_estimation_graphs}
                                     
                                 settings_list.append(settings_dict)
     return settings_list
@@ -301,11 +310,14 @@ def main(argv):
     number_of_training_steps = FLAGS.number_of_training_steps
     print(f'Number of training steps to run: {number_of_training_steps}')
 
+    num_estimation_graphs = FLAGS.num_estimation_graphs
+    print(f'Number of graphs to determine dynamic batching budget.')
+
     settings_list = get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
         static_round_to_multiple_list,
-        computing_type_list)
+        computing_type_list, num_estimation_graphs)
     
     experiment_dir = FLAGS.experiment_dir
     job_list_path = Path(experiment_dir) / "profiling_jobs_list.txt"
