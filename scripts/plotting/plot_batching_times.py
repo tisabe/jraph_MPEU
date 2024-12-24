@@ -24,18 +24,22 @@ Let's use the dataframes directly.
 """
 from absl import app
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
 import pandas as pd
 
 
-BASE_DIR = '/home/dts/Documents/hu'
+BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
 # STATIC_NP_PROFILING_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_23_05__27_06_2024.csv'
 # PROFILING_JNP_CSV = 'parsed_profiling_qm9_aflow_schnet_100k_steps_23_54__8_03_2024.csv'
 # ROUND_PROFILING_JNP_CSV = 'parsed_profiling_round_to_multiple_qm9_aflow_schnet_100k_steps_23_54__8_03_2024.csv'
 
-COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_16_05__12_12_2024.csv'
+# COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_16_05__12_12_2024.csv'
+
+COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_11_31__23_12_2024.csv'
+# COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
 
 BATCH_SIZE_DICT = {
     '16': 0,
@@ -50,7 +54,9 @@ BATCH_SIZE_LIST = [16, 32, 64, 128]
 MODEL_TYPE_LIST = ['schnet', 'MPEU']
 
 # BATCH_METHOD_LIST = ['dynamic', 'static']
-BATCH_METHOD_LIST = ['dynamic', 'static']
+BATCH_METHOD_LIST = ['dynamic', 'static-64', 'static']
+# BATCH_METHOD_LIST = ['static-2']
+
 # COMPUTING_TYPE_LIST = ['gpu_a100', 'cpu']
 COMPUTING_TYPE_LIST = ['gpu_a100']
 
@@ -75,7 +81,8 @@ def plot_four_plots(df):
 
 
 def get_avg_std_of_profile_column(
-        df, profile_column, model, batch_method, compute_type, batch_size, dataset, batching_round_to_64):
+        df, profile_column, model, batch_method, compute_type, batch_size,
+        dataset, batching_round_to_64):
 
     # Now keep only the rows we want.
     # df = df[
@@ -89,6 +96,11 @@ def get_avg_std_of_profile_column(
         'batching': 'step_100000_batching_time_mean',
         'update': 'step_100000_update_time_mean'
     }
+
+    # profile_column_dict = {
+    #     'batching': 'step_2000000_batching_time_mean',
+    #     'update': 'step_2000000_update_time_mean'
+    # }
 
     gpu_profiling_df = df[
         (df['dataset'] == dataset) & (df['model'] == model) &
@@ -148,19 +160,34 @@ def plot_batching_update_subplot(df, model, compute_type):
     plot_content_list = [('aflow', 'batching'), ('qm9', 'batching'), ('aflow', 'update'),
                          ('qm9', 'update')]
     # color_list = ['k', 'r', 'b', 'y']
-    color_list = ['k', 'r']
-    marker_list = ['x', '^']
+    color_list = ['k', 'r', 'b']
+    marker_list = ['x', '^', '.']
 
 
 
     for plot_num in range(len(axes_list)):
         dataset = plot_content_list[plot_num][0]  # Should be either AFLOW or qm9
         profile_column = plot_content_list[plot_num][1]  # Either `batching` or `update`
-        batching_round_to_64 = True
+        batching_round_to_64 = False
         for color_counter, batch_method in enumerate(BATCH_METHOD_LIST):
             y_mean_list = []
             y_std_list = []
+            label = batch_method
+            if batch_method == 'static-64':
+                batching_round_to_64 = True
+                batch_method = 'static'
+            elif batch_method == 'static':
+                batching_round_to_64 = False
+                batch_method = 'static'
+            # elif batch_method == 'static':
+            #     batching_round_to_64 = True
+            else:
+                batching_round_to_64 = True
+                # sys.err(f'error wrong batch method {batch_method}')
             for batch_size in BATCH_SIZE_LIST:
+
+                print(f'batch rond to 64 is set to {batching_round_to_64}')
+
                 y_mean, y_std = get_avg_std_of_profile_column(
                     df, profile_column, model, batch_method, compute_type,
                     batch_size, dataset, batching_round_to_64)
@@ -174,14 +201,15 @@ def plot_batching_update_subplot(df, model, compute_type):
             axes_list[plot_num].plot(BATCH_SIZE_LIST, np.multiply(y_mean_list, 1000),
                                      marker_list[color_counter],
                                      markersize=11, alpha=1,
-                                     color=color_list[color_counter])
+                                     color=color_list[color_counter],
+                                     label=label)
     
     # ax[0, 0].set_xlim(0, 5)
     # ax[0, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
     ax[0, 0].set_ylabel('Time (ms)', fontsize=12)
     # ax[0, 0].set_yscale('log')
     # ax[0, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
-    ax[0, 0].set_ylim(0, 3)
+    ax[0, 0].set_ylim(0, 5)
 
 
     # ax[0, 1].set_xlim(0, 5)
@@ -190,7 +218,7 @@ def plot_batching_update_subplot(df, model, compute_type):
     # ax[0, 1].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
 
     # ax[0, 1].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
-    ax[0, 1].set_ylim(0, 3)
+    ax[0, 1].set_ylim(0, 5)
 
     # ax[1, 0].set_xlim(0, 5)
     # ax[1, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
@@ -198,25 +226,40 @@ def plot_batching_update_subplot(df, model, compute_type):
     ax[1, 0].set_ylabel('Time (ms)', fontsize=12)
     # ax[1, 0].set_yscale('log')
     # ax[1, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
-    ax[1, 0].set_ylim(0, 10)
+    ax[1, 0].set_ylim(0, 18)
 
     # ax[1, 1].set_xlim(0, 5)
     # ax[1, 1].set_ylim(0, 100)
-    # ax[1, 1].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
+    # ax[1, 1].set_xticklabels(['16', '32', '64', '128'], minor=False)
     ax[1, 1].set_xlabel('Batch size', fontsize=12)
     # ax[1, 1].set_yscale('log')
     # ax[1, 1].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
 
-    ax[1, 1].set_ylim(0, 10)
+    ax[1, 1].set_ylim(0, 18)
+    ax[1, 0].text(0.3, 0.9, f'update time', horizontalalignment='center',
+        verticalalignment='center', transform=ax[1, 0].transAxes, fontsize=12)
+    ax[1, 1].text(0.3, 0.9, f'update time', horizontalalignment='center',
+        verticalalignment='center', transform=ax[1, 1].transAxes, fontsize=12)
+    ax[0, 1].text(0.3, 0.9, f'batching time', horizontalalignment='center',
+        verticalalignment='center', transform=ax[0, 1].transAxes, fontsize=12)
+    ax[0, 0].text(0.3, 0.9, f'batching time', horizontalalignment='center',
+        verticalalignment='center', transform=ax[0, 0].transAxes, fontsize=12)
 
+    ax[1, 1].legend(loc='upper right')
+    plt.savefig(
+        '/home/dts/Documents/theory/batching_paper/figs/profiling_100k_schnet_gpu_aflow_left_qm9_right.png',
+        dpi=600)
     plt.show()
+
 
 def main(argv):
     # plot learning curves
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
     # Ok now let's plot the batching times. Let's plot 4 graphs.
     # AFLOW / SchNet (GPU / CPU)
-    plot_batching_update_subplot(df, model='MPEU', compute_type='gpu_a100')
+    plot_batching_update_subplot(df, model='schnet',
+                                #  compute_type='cpu')
+                                 compute_type='gpu_a100')
 
 
 if __name__ == '__main__':
