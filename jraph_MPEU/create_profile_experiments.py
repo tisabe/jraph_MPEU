@@ -85,6 +85,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
+    config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
 
@@ -311,7 +312,7 @@ def main(argv):
     print(f'Number of training steps to run: {number_of_training_steps}')
 
     num_estimation_graphs = FLAGS.num_estimation_graphs
-    print(f'Number of graphs to determine dynamic batching budget.')
+    print(f'Number of graphs to determine dynamic batching budget. {num_estimation_graphs}')
 
     settings_list = get_settings_list(
         network_type_list, dataset_list,
