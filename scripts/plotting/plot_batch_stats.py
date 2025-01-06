@@ -29,6 +29,15 @@ BATCH_METHOD_LIST = ['static', 'dynamic']
 N_BINS = 100
 DATASET_LIST = ['AFLOW', 'qm9']
 
+# import matplotlib.font_manager as font_manager
+# font = font_manager.FontProperties(family=FONT,
+#                                 # weight='bold',
+#                                 style='normal', size=12)
+FONTSIZE = 12
+# FONT = 'Times'
+# FONT = 'Times new roman'
+FONT = 'serif'
+
 # def create_histogram(
 #         base_dir, model_type='MPEU', batch_stats_col='num_node_before_batching', dataset='aflow'):
 #     batching_round_to_64 = False
@@ -73,20 +82,22 @@ def create_histogram_num_graphs_dynamic(
     batching_round_to_64 = False
     batch_size = 32
     dataset = 'aflow'
+    # dataset = 'qm9'
+
     model_type = 'MPEU'
     # fig, ax = plt.subplots(2, 1, figsize=(6.472, 4), sharex=True, sharey=True)
-    fig, ax = plt.subplots(1, 1, figsize=(6.472, 4))
-
+    fig, ax = plt.subplots(1, 1, figsize=(5.1, 4))
+    x_lims = [0, 32]
     # ax[1].text(0.1, 0.1, 'dynamic', fontsize=32)   
     # batch size 32, qm9
-    bins=np.arange(500,620)+0.5 
+    bins=np.arange(x_lims[0], x_lims[1], step=0.5)+0.5 
     # batch size 64, qm9
     # bins=np.arange(1050,1200)+0.5
     # batch size 32, aflow
     # bins=np.arange(100,400)+0.5 
 
 
-    bins = 100   
+    # bins = 100   
 
     # ax[0].text(0.1, 0.1, 'static', fontsize=32)                
 
@@ -95,11 +106,14 @@ def create_histogram_num_graphs_dynamic(
         batch_size, model_type)
     ax.hist(
         stats_array, bins, density=True, histtype='bar')
-    ax.set_xlabel('Number of graphs in batch before batching', fontsize=12)
-    ax.set_ylabel('Density', fontsize=12)
+    ax.set_xlabel('Number of graphs in batch before batching', fontsize=12, font=FONT)
+    ax.set_ylabel('Density', fontsize=12, font=FONT)
 
-    ax.text(0.8, 0.8, 'dynamic', horizontalalignment='center',
-        verticalalignment='center', transform=ax.transAxes, fontsize=12)
+    ax.set_xlim(x_lims)
+
+
+    # ax.text(0.8, 0.8, 'dynamic', horizontalalignment='center',
+    #     verticalalignment='center', transform=ax.transAxes, fontsize=12)
     # ax[1].set_xlim([8000, 12000])
 
     # ax[0].set_ylim([0, 0.002])               
@@ -113,19 +127,26 @@ def create_histogram_num_graphs_dynamic(
 
 
 def create_histogram(
-        base_dir, model_type='MPEU', batch_stats_col='num_edge_before_batching', dataset='aflow'):
+        base_dir, model_type='MPEU',
+        batch_stats_col='num_edge_before_batching',
+        dataset='aflow',
+        x_lims=(500,620),
+        y_lims=(0, 0.05),
+        batch_size = 32
+        ):
     batching_round_to_64 = False
-    batch_size = 32
-    dataset = 'qm9'
-    model_type = 'MPEU'
-    fig, ax = plt.subplots(2, 1, figsize=(6.472, 4), sharex=True, sharey=True)
+    # batch_size = 32
+    # dataset = 'qm9'
+    # model_type = 'MPEU'
+    # fig, ax = plt.subplots(2, 1, figsize=(6.472, 4), sharex=True, sharey=True)
+    fig, ax = plt.subplots(2, 1, figsize=(5.1, 5.1), sharex=True, sharey=True)
 
 
     # ax[1].text(0.1, 0.1, 'dynamic', fontsize=32)   
     # batch size 32, qm9
-    bins=np.arange(0,32) 
+    # bins=np.arange(0,32) 
     # batch size 64, qm9
-    # bins=np.arange(1050,1200)+0.5
+    bins=np.arange(x_lims[0],x_lims[1])+0.5
     # batch size 32, aflow
     # bins=np.arange(100,400)+0.5 
 
@@ -139,8 +160,8 @@ def create_histogram(
         batch_size, model_type)
     ax[0].hist(
         stats_array, bins, density=True, histtype='bar')
-    ax[1].text(0.8, 0.8, 'static', horizontalalignment='center',
-        verticalalignment='center', transform=ax[0].transAxes, fontsize=12)    
+    # ax[1].text(0.8, 0.8, 'static', horizontalalignment='center',
+    #     verticalalignment='center', transform=ax[0].transAxes, fontsize=12)    
 
     # ax[0].text(0.1, 0.1, 'static', fontsize=32)                
 
@@ -149,9 +170,10 @@ def create_histogram(
         batch_size, model_type)
     ax[1].hist(
         stats_array, bins, density=True, histtype='bar')
-    ax[1].set_xlabel('Number of edges in batch before batching', fontsize=12)
-    ax[0].set_ylabel('Density', fontsize=12)
-    ax[1].set_ylabel('Density', fontsize=12)
+    ax[1].set_xlabel(f'Number of {batch_stats_col.split("_")[1]}s in batch before batching',
+                     fontsize=12, font=FONT)
+    ax[0].set_ylabel('Density', fontsize=12, font=FONT)
+    ax[1].set_ylabel('Density', fontsize=12, font=FONT)
 
     # stats_array = get_stats_for_single_batch_size(base_dir,
     #     'num_node_after_batching', 'dynamic', dataset, batching_round_to_64,
@@ -159,19 +181,22 @@ def create_histogram(
     # print(stats_array[0:10])
     # ax[1].hist(
     #     stats_array, bins, density=True, histtype='bar')
-    ax[1].text(0.8, 0.8, 'dynamic', horizontalalignment='center',
-        verticalalignment='center', transform=ax[1].transAxes, fontsize=12)
+    # ax[1].text(0.8, 0.8, 'dynamic', horizontalalignment='center',
+    #     verticalalignment='center', transform=ax[1].transAxes, fontsize=12)
     # ax[1].set_xlim([500, 620]) bs 32, qm9
 
     # ax[0].set_ylim([0, 0.05])               
     # ax[1].set_ylim([0, 0.05])  
 
-    ax[1].set_xlim([8000, 12000])
+    # ax[1].set_xlim([8000, 12000])
+    ax[1].set_xlim([x_lims[0], x_lims[1]])
+    # ax[0].set_ylim([0, 0.002])               
+    # ax[1].set_ylim([0, 0.002])       
+    ax[0].set_ylim([y_lims[0], y_lims[1]])               
+    ax[1].set_ylim([y_lims[0], y_lims[1]])     
 
-    ax[0].set_ylim([0, 0.002])               
-    ax[1].set_ylim([0, 0.002])       
-
-    plt.savefig('/home/dts/Documents/theory/batching_paper/figs/batch_stats_num_edges_before_batching_size_32_qm9.png', dpi=600)
+    plt.tight_layout()
+    plt.savefig(f'/home/dts/Documents/theory/batching_paper/figs/batch_stats_{batch_stats_col}_size_{str(batch_size)}_{dataset}.png', dpi=600)
     plt.show()
 
 
@@ -226,11 +251,17 @@ def get_csv_name_single_batch(
 def main(argv):
     # base_dir = 'tests/data'
     base_dir = '/home/dts/Documents/hu/batch_stats/batch_stats_data_dec_18_2024/u/dansp/batch_stats/batching_stats_mpeu_qm9_aflow'
+
+
     # create_histogram(
     #         base_dir, model_type='MPEU',
-    #         batch_stats_col='num_edge_before_batching', dataset='qm9')
+    #         batch_stats_col='num_node_before_batching', dataset='qm9',
+    #         x_lims=(500, 620),
+    #         y_lims=(0, 0.05))
+
+
     create_histogram_num_graphs_dynamic(base_dir, model_type='MPEU',
-            batch_stats_col='num_graphs_before_batching', dataset='qm9')
+            batch_stats_col='num_graphs_before_batching', dataset='AFLOW')
 
 if __name__ == '__main__':
     app.run(main)

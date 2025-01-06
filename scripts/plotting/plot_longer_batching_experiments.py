@@ -4,6 +4,7 @@ import pickle
 from absl import flags
 from absl import app
 import pandas as pd
+import scienceplots
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +16,9 @@ flags.DEFINE_string(
     'None',
     'Where to store data as csv that has been parsed.')
 
+
+BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
+COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
 
 # BATCH_SIZE_LIST = [16, 32, 64, 128]
 BATCH_SIZE_LIST = [16, 32, 64, 128]
@@ -36,12 +40,22 @@ TRAINING_STEP = [
     '1_100', '1_200', '1_300', '1_400', '1_500', '1_600', '1_700', '1_800',
     '1_900', '2_000']
 
+TRAINING_STEP_dot = list(np.arange(0, 2, 0.1))
+# [
+#     '0.1', '0.2', '0.3', '400', '500', '600', '700', '800', '900', '1_000',
+#     '1.1', '1.2', '1_300', '1_400', '1_500', '1_600', '1_700', '1_800',
+#     '1.9', '2.0']
+
 BATCH_SIZE_DICT = {
     '16': 0,
     '32': 1,
     '64': 2,
     '128': 3,
 }
+
+FONTSIZE = 12
+FONT = 'serif'
+
 
 def get_column_list(data_split):
     """Get a list of columns to keep in the dataframe."""
@@ -75,11 +89,11 @@ def get_lowest_loss_error_curve(
     df[df.S==df.S.min()]
 
 def plot_curves(
-        csv_file, model_types, batch_size_list, batch_method_list,
+        df, model_types, batch_size_list, batch_method_list,
         compute_type, dataset, data_split='training'):
     # load the dataframe
-    df = pd.read_csv(csv_file)
-    fig, axs = plt.subplots(4, 2, figsize=(8, 8))
+    # df = pd.read_csv(csv_file)
+    fig, axs = plt.subplots(4, 2, figsize=(5.1, 7.65))
     for model in model_types:
         if model == 'schnet':
             y_shift = 1
@@ -102,7 +116,8 @@ def plot_curves(
                 print(f'x_shift is {x_shift}')
                 # Ok we now have a df with multiple columns and a single value
                 # we need to convert the columns into steps.
-                step_list = [int(step) for step in TRAINING_STEP]
+                # step_list = [int(step) for step in TRAINING_STEP]
+                step_list = TRAINING_STEP_dot
                 avg_metric_list = []
                 std_metric_list = []
                 for col in get_column_list(data_split):
@@ -118,34 +133,48 @@ def plot_curves(
                 axs[x_shift, y_shift].plot(step_list, avg_metric_list,
                                           marker=point_style,
                                           linestyle='dashed',
-                                          markerfacecolor=markerfacecolor)
+                                          markerfacecolor=markerfacecolor,
+                                          alpha=0.4)
                 
                 # errorbar(step_list, avg_metric_list,
                 #                 std_metric_list)
 
     # Set the axlimits the same for each side of the plot
     for x in range(0,4):
-        axs[x, 0].set_ylabel('RMSE (eV/atom)', fontsize=12)
+        axs[x, 0].set_ylabel('RMSE', fontsize=12, font=FONT)
         axs[x, 1].yaxis.tick_right()
         axs[x, 1].tick_params(left=False)
         axs[x, 0].tick_params(right=False)
-        axs[x, 0].set_xlim(0, 2000)
-        axs[x, 1].set_xlim(0, 2000)
-        axs[x, 0].set_ylim(0, 0.3)
-        axs[x, 1].set_ylim(0, 0.3)
+        axs[x, 0].set_xlim(0, 2)
+        axs[x, 1].set_xlim(0, 2)
+        axs[x, 0].set_ylim(0, 0.7)
+        axs[x, 1].set_ylim(0, 0.7)
         # ax[1].set_yticks([1E-4, 1E-3, 1E-2, 1E-1, 1E0, 1E1, 1E2], minor=False)
         axs[x, 1].set_yticks([], minor=False)
-        axs[x, 0].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
-            verticalalignment='center', transform=axs[x, 0].transAxes, fontsize=12)
-        axs[x, 1].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
-            verticalalignment='center', transform=axs[x, 1].transAxes, fontsize=12)
-            
-    plt.legend(["dynamic", "static"], loc='lower left')
+        for y in range(0, 2):
+            plt.setp(axs[x, y].get_xticklabels(), fontsize=12, font=FONT) 
+            plt.setp(axs[x,  y].get_yticklabels(), fontsize=12, font=FONT)
+        # axs[x, 0].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
+        #     verticalalignment='center', transform=axs[x, 0].transAxes, fontsize=12)
+        # axs[x, 1].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
+        #     verticalalignment='center', transform=axs[x, 1].transAxes, fontsize=12)
 
-    axs[3, 0].set_xlabel('Training steps (thousands)', fontsize=12)
-    axs[3, 1].set_xlabel('Training steps (thousands)', fontsize=12)
+
+    import matplotlib.font_manager as font_manager
+    font = font_manager.FontProperties(family=FONT,
+                                    # weight='bold',
+                                    style='normal', size=12)
+    plt.legend(["dynamic", "static"], loc='upper right', prop=font, edgecolor="black", fancybox=False)
+
+    axs[3, 0].set_xlabel('Steps (millions)', fontsize=12, font=FONT)
+    axs[3, 1].set_xlabel('Steps (millions)', fontsize=12, font=FONT)
+    plt.style.use(["science", "grid"])
+
     plt.tight_layout()
 
+    plt.savefig(
+        '/home/dts/Documents/theory/batching_paper/figs/longer_batching_test_qm9_gpu.png',
+        dpi=600)
     plt.show()
 
 def main(args):
@@ -153,10 +182,12 @@ def main(args):
     # fig, ax = plt.subplots(2)
     rmse_all = []
     mae_all = []
+    df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
+
     # COMPUTING_TYPE_LIST
     plot_curves(
-        FLAGS.csv_filename, MODEL_TYPE_LIST, BATCH_SIZE_LIST, BATCH_METHOD_LIST,
-        COMPUTING_TYPE_LIST[0], DATASET_LIST[0], data_split='test')
+        df, MODEL_TYPE_LIST, BATCH_SIZE_LIST, BATCH_METHOD_LIST,
+        COMPUTING_TYPE_LIST[0], DATASET_LIST[1], data_split='test')
 
     # try:
     #     metrics_path = args.file
