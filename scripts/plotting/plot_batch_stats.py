@@ -106,7 +106,7 @@ def create_histogram_num_graphs_dynamic(
         batch_size, model_type)
     ax.hist(
         stats_array, bins, density=True, histtype='bar')
-    ax.set_xlabel('Number of graphs in batch before batching', fontsize=12, font=FONT)
+    ax.set_xlabel('Number of graphs in batch before padding', fontsize=12, font=FONT)
     ax.set_ylabel('Density', fontsize=12, font=FONT)
 
     ax.set_xlim(x_lims)
@@ -170,7 +170,7 @@ def create_histogram(
         batch_size, model_type)
     ax[1].hist(
         stats_array, bins, density=True, histtype='bar')
-    ax[1].set_xlabel(f'Number of {batch_stats_col.split("_")[1]}s in batch before batching',
+    ax[1].set_xlabel(f'Number of {batch_stats_col.split("_")[1]}s in batch before padding',
                      fontsize=12, font=FONT)
     ax[0].set_ylabel('Density', fontsize=12, font=FONT)
     ax[1].set_ylabel('Density', fontsize=12, font=FONT)
