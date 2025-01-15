@@ -37,7 +37,7 @@ FONTSIZE = 12
 # FONT = 'Times'
 # FONT = 'Times new roman'
 FONT = 'serif'
-
+ticksize=12
 # def create_histogram(
 #         base_dir, model_type='MPEU', batch_stats_col='num_node_before_batching', dataset='aflow'):
 #     batching_round_to_64 = False
@@ -200,6 +200,80 @@ def create_histogram(
     plt.show()
 
 
+def create_nodes_and_edges_histogram(base_dir, model_type='MPEU',
+        dataset='aflow',
+        x1_lims=(500,620),
+        x2_lims=(8000,12000),
+        y1_lims=(0, 0.05),
+        y2_lims=(0, 0.002),
+        batch_size=32):
+    batching_round_to_64 = False
+
+
+    # Column names to pull
+    num_edges_col= 'num_edge_before_batching'
+    num_nodes_col= 'num_node_before_batching'
+
+    fig, ax = plt.subplots(2, 1, figsize=(5.1, 5.1), sharex=False, sharey=False)
+
+    bins_lhs = np.arange(x1_lims[0], x1_lims[1])+0.5
+
+    bins_rhs = 120 # np.arange(x2_lims[0], x2_lims[1])+0.5
+
+    node_stats_array_static = get_stats_for_single_batch_size(base_dir,
+        num_nodes_col, 'static', dataset, batching_round_to_64,
+        batch_size, model_type)
+    node_stats_array_dynamic = get_stats_for_single_batch_size(base_dir,
+        num_nodes_col, 'dynamic', dataset, batching_round_to_64,
+        batch_size, model_type)
+    ax[0].hist(
+        node_stats_array_static, bins_lhs, density=True, histtype='bar', alpha=0.5, label='static')
+    ax[0].hist(
+        node_stats_array_dynamic, bins_lhs, density=True, histtype='bar', alpha=0.5, label='dynamic')
+
+    edge_stats_array_static = get_stats_for_single_batch_size(base_dir,
+        num_edges_col, 'static', dataset, batching_round_to_64,
+        batch_size, model_type)
+    edge_stats_array_dynamic = get_stats_for_single_batch_size(base_dir,
+        num_edges_col, 'dynamic', dataset, batching_round_to_64,
+        batch_size, model_type)
+
+
+    ax[1].hist(
+        edge_stats_array_static, bins_rhs, density=True, histtype='bar', alpha=0.5, label='static')
+    ax[1].hist(
+        edge_stats_array_dynamic, bins_rhs, density=True, histtype='bar', alpha=0.5, label='dynamic')
+    
+    ax[0].set_xlabel(f'Nodes in batch before padding',
+                     fontsize=12, font=FONT)
+    ax[1].set_xlabel(f'Edges in batch before padding',
+                     fontsize=12, font=FONT)
+    ax[0].set_ylabel('Density', fontsize=12, font=FONT)
+    ax[1].set_ylabel('Density', fontsize=12, font=FONT)
+
+    # ax[0].tick_params(which='both', labelsize=ticksize)
+    # ax[1].tick_params(which='both', labelsize=ticksize)
+
+    ax[0].set_xlim([x1_lims[0], x1_lims[1]])
+
+    ax[1].set_xlim([x2_lims[0], x2_lims[1]])
+    
+    ax[0].set_ylim([y1_lims[0], y1_lims[1]])                    
+    ax[1].set_ylim([y2_lims[0], y2_lims[1]])                    
+    ax[1].set_xticks([8000, 9000, 10000, 11000, 12000])
+    import matplotlib.font_manager as font_manager
+    font = font_manager.FontProperties(family=FONT,
+                                    # weight='bold',
+                                    style='normal', size=12)
+    # ax.legend(prop=font)
+
+    ax[1].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
+    fig.align_labels()
+    plt.tight_layout()
+    plt.savefig(f'/home/dts/Documents/theory/batching_paper/figs/batch_stats_nodes_edges_size_{str(batch_size)}_{dataset}.png', dpi=600)
+    plt.show()
+
+
 
 def get_batch_stats_data(
         base_dir, batch_stats_col, batching_method, dataset, batching_round_to_64,
@@ -259,9 +333,11 @@ def main(argv):
     #         x_lims=(500, 620),
     #         y_lims=(0, 0.05))
 
+    create_nodes_and_edges_histogram(base_dir, model_type='MPEU', dataset='qm9')
 
-    create_histogram_num_graphs_dynamic(base_dir, model_type='MPEU',
-            batch_stats_col='num_graphs_before_batching', dataset='AFLOW')
+
+    # create_histogram_num_graphs_dynamic(base_dir, model_type='MPEU',
+    #         batch_stats_col='num_graphs_before_batching', dataset='AFLOW')
 
 if __name__ == '__main__':
     app.run(main)
