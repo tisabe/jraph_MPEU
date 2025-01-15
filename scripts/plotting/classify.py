@@ -95,7 +95,10 @@ def main(argv):
     fig.savefig(workdir+'/roc_curve.png', bbox_inches='tight', dpi=600)
 
     # calculate binned egap plot
-    data = df_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate(
+    df_metal_test = df_test[df_test['class_true'] == 0]
+    print("Accuracy on actual metals: ", df_metal_test['class_correct'].mean())
+    df_ins_test = df_test[df_test['class_true'] == 1]
+    data = df_ins_test.groupby(by='Egap_bin')[['class_correct', 'Egap']].aggregate(
         ['mean', 'min', 'max', 'count'])
     print(data)
     fig, ax = plt.subplots()
@@ -105,7 +108,7 @@ def main(argv):
         height=data['class_correct']['mean'],
         width=0.8,
         align='edge')
-    ax.set_ylim([.9, 1.005])
+    ax.set_ylim([.7, 1.005])
     ax.set_ylabel('Accuracy', color=color, fontsize=FLAGS.font_size)
     ax.set_xlabel(r'$E_g$ (eV)', color='black', fontsize=FLAGS.font_size)
     ax.tick_params(
@@ -116,9 +119,9 @@ def main(argv):
     color = 'tab:orange'
     ax2 = ax.twinx()  # instantiate a second Axes that shares the same x-axis
     ax2.bar(
-        x=data['Egap']['min'],
+        x=data['Egap']['min']+0.2,
         height=data['Egap']['count'],
-        width=0.5,
+        width=0.3,
         align='edge',
         color=color)
     ax2.set_ylabel('Count', color=color, fontsize=FLAGS.font_size)

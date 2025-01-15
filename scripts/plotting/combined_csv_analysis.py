@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 from scipy import stats
+from ase.formula import Formula
+from ase.phasediagram import PhaseDiagram
 
 
 FLAGS = flags.FLAGS
@@ -24,6 +26,81 @@ flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data 
 flags.DEFINE_bool('redo', False, 'If the csv combine should be redone')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 16, 'font size to use in labels')
+
+
+def plot_chull(df):
+    """Plot the convex hull using actual and predicted formation energies
+    from the dataframe."""
+    df['n_elements'] = df['formula'].map(
+        lambda x: len(Formula(str(x)).count()),
+        na_action='ignore')
+    df['elements'] = df['formula'].map(
+        lambda x: list(Formula(str(x)).count().keys()),
+        na_action='ignore')
+    df_binaries = df[df['n_elements'] == 2]
+    counts = df_binaries['elements'].value_counts()
+    print(counts)
+    common_binary = counts.index[20]
+    print(common_binary)
+    df_binaries['has_a'] = df_binaries['formula'].map(
+        lambda x: common_binary[0] in Formula(x).count(),
+        na_action='ignore')
+    df_binaries['has_b'] = df_binaries['formula'].map(
+        lambda x: common_binary[1] in Formula(x).count(),
+        na_action='ignore')
+    df_chull = df_binaries[df_binaries['has_a'] & df_binaries['has_b']]
+    print(df_chull['formula'].value_counts())
+
+    if 'ef_pred' in df:
+        col_pred = 'ef_pred'
+    else:
+        col_pred = 'prediction'
+    df_chull = df_chull.dropna(subset=[col_pred, 'enthalpy_formation_atom'])
+
+    formula_list = df_chull['formula'].to_list()
+    ef_list = df_chull['enthalpy_formation_atom'].to_list()
+    ef_pred_list = df_chull[col_pred].to_list()
+
+    refs = [(formula, ef) for formula, ef in zip(formula_list, ef_list)]
+    pd = PhaseDiagram(refs, verbose=False)
+    fig, ax = plt.subplots()
+    pd.plot(ax=ax)
+    fig.savefig('results/aflow/chull_true.png', bbox_inches='tight', dpi=600)
+
+    refs = [(formula, ef) for formula, ef in zip(formula_list, ef_pred_list)]
+    pd = PhaseDiagram(refs, verbose=False)
+    fig, ax = plt.subplots()
+    pd.plot(ax=ax)
+    fig.savefig('results/aflow/chull_pred.png', bbox_inches='tight', dpi=600)
+
+
+def get_energy_classification(df):
+    """Check if the model identifies the polymorph with the lowest energy."""
+    if 'ef_pred' in df:
+        col_pred = 'ef_pred'
+    else:
+        col_pred = 'prediction'
+    for split in ['train', 'validation', 'test']:
+        print(f'Split: {split}')
+        df_split = df[df['split'] == split]
+        print('Num rows: ', len(df_split))
+        grouped = df_split.groupby('formula')
+        # filter out groups with only one row/formulas that appear only once
+        df_split = grouped.filter(lambda x: len(x) > 1)
+
+        df_split = df_split.sort_values('enthalpy_formation_atom')
+        # re-group since the filtering split up the groups
+        grouped = df_split.groupby('formula')
+        df_true_min = grouped[['auid', 'formula']].aggregate('first')
+        auids_true = set(df_true_min['auid'].to_list())
+
+        df_split = df_split.sort_values(col_pred)
+        grouped = df_split.groupby('formula')
+        df_pred_min = grouped[['auid', 'formula']].aggregate('first')
+        auids_pred = set(df_pred_min['auid'].to_list())
+        percentage = len(auids_true.intersection(auids_pred)) / len(auids_true) * 100
+        print(len(auids_true.intersection(auids_pred)), '/',
+            len(auids_true), f' ({percentage}%)')
 
 
 def plot_ef_parity(df):
@@ -125,14 +202,20 @@ def main(_):
     plt.rc('legend', title_fontsize=FLAGS.font_size)
     plt.rc('axes', labelsize=FLAGS.font_size)
 
-    df['p_insulator'] = 1 - df['egap_class_pred']
-    # calculate the class prediction by applying a threshold. Because of the
-    # softmax outputs probability, the threshold is exactly 1/2
-    df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
-    df_ins = df[df['class_pred'] == 1]
-    print(f"Number of entries predicted to be insulators: {len(df_ins)}")
-    df['Predicted class'] = df['class_pred'].map(
-        {0: 'metal', 1: 'non-metal'})
+    if 'chull' in FLAGS.plots or FLAGS.plots[0] == 'all':
+        plot_chull(df)
+    if 'ef_class' in FLAGS.plots or FLAGS.plots[0] == 'all':
+        get_energy_classification(df)
+
+    if 'p_insulator' in df and 'egap_class_pred' in df:
+        df['p_insulator'] = 1 - df['egap_class_pred']
+        # calculate the class prediction by applying a threshold. Because of the
+        # softmax outputs probability, the threshold is exactly 1/2
+        df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
+        df_ins = df[df['class_pred'] == 1]
+        print(f"Number of entries predicted to be insulators: {len(df_ins)}")
+        df['Predicted class'] = df['class_pred'].map(
+            {0: 'metal', 1: 'non-metal'})
 
     if 'ef' in FLAGS.plots or FLAGS.plots[0] == 'all':
         plot_ef_parity(df)
