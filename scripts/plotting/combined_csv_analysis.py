@@ -83,21 +83,31 @@ def get_energy_classification(df):
     for split in ['train', 'validation', 'test']:
         print(f'Split: {split}')
         df_split = df[df['split'] == split]
-        print('Num rows: ', len(df_split))
+        print('Num rows total: ', len(df_split))
+        df_split = df_split.groupby(
+            ['formula', 'spacegroup_relax'], as_index=False
+        ).aggregate(
+            formula=pd.NamedAgg(column="formula", aggfunc="first"),
+            sg=pd.NamedAgg(column="spacegroup_relax", aggfunc="first"),
+            ef=pd.NamedAgg(column="enthalpy_formation_atom", aggfunc="mean"),
+            prediction=pd.NamedAgg(column="prediction", aggfunc="mean")
+        )
+        print('Num sg+formula unique: ', len(df_split))
         grouped = df_split.groupby('formula')
         # filter out groups with only one row/formulas that appear only once
         df_split = grouped.filter(lambda x: len(x) > 1)
+        print('Num sg+formula unique, >1 sg: ', len(df_split))
 
-        df_split = df_split.sort_values('enthalpy_formation_atom')
+        df_split = df_split.sort_values('ef')
         # re-group since the filtering split up the groups
         grouped = df_split.groupby('formula')
-        df_true_min = grouped[['auid', 'formula']].aggregate('first')
-        auids_true = set(df_true_min['auid'].to_list())
+        df_true_min = grouped[['sg', 'formula']].aggregate('first')
+        auids_true = set(df_true_min['sg'].to_list())
 
         df_split = df_split.sort_values(col_pred)
         grouped = df_split.groupby('formula')
-        df_pred_min = grouped[['auid', 'formula']].aggregate('first')
-        auids_pred = set(df_pred_min['auid'].to_list())
+        df_pred_min = grouped[['sg', 'formula']].aggregate('first')
+        auids_pred = set(df_pred_min['sg'].to_list())
         percentage = len(auids_true.intersection(auids_pred)) / len(auids_true) * 100
         print(len(auids_true.intersection(auids_pred)), '/',
             len(auids_true), f' ({percentage}%)')

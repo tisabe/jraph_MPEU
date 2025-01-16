@@ -8,7 +8,6 @@ from absl import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from ase.formula import Formula
 
 
 FLAGS = flags.FLAGS
@@ -17,6 +16,15 @@ flags.DEFINE_list('labels', None, 'labels for the prediction columns', required=
 flags.DEFINE_string('fig_path', None, 'pathe where the plotted figure is saved.', required=True)
 flags.DEFINE_integer('font_size', 14, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
+
+
+FORMULA_DICT = {
+    'O8Si4': r'Si$_{4}$O$_{8}$',
+    'O24Si12': r'Si$_{12}$O$_{24}$',
+    'O16Si8': r'Si$_{8}$O$_{16}$',
+    'O6Si3': r'Si$_{3}$O$_{6}$',
+    'BiFeO3': r'BiFeO$_{3}$',
+}
 
 
 def get_axis_labels(label):
@@ -66,21 +74,27 @@ def plot_common_polymorph(df_list, label_list):
                 xerr=df_common[label]['std'],
                 yerr=df_common['prediction']['std'],
                 fmt='o')
-            formula_display = fr"{Formula(formula).format('abc').format('latex')}"
+            formula_display = FORMULA_DICT[formula]
             # custom limits for specific subplots
             match (formula, label):
                 case ['O8Si4', 'enthalpy_formation_atom']:
-                    lim = [-2.9, -2.3]
-                    ticks = [-2.8, -2.4]
+                    lim = [-3, -2.2]
+                    ticks = [-3, -2.6, -2.2]
                 case ['O24Si12', 'enthalpy_formation_atom']:
                     lim = [-3, -1]
-                    ticks = [-2.5, -1.5]
+                    ticks = [-3, -2, -1]
                 case ['BiFeO3', 'enthalpy_formation_atom']:
-                    lim = [-0.85, -0.52]
-                    ticks = [-0.8, -0.6]
+                    lim = [-0.9, -0.5]
+                    ticks = [-0.9, -0.7, -0.5]
                 case ['O8Si4', 'Egap']:
-                    lim = [3.6, 6.1]
-                    ticks = [4, 6]
+                    lim = [3.6, 6.0]
+                    ticks = [3.6, 4.8, 6]
+                case ['O16Si8', 'Egap']:
+                    lim = [5.3, 6.3]
+                    ticks = [5.3, 5.8, 6.3]
+                case ['O6Si3', 'Egap']:
+                    lim = [5.5, 5.8]
+                    ticks = [5.5, 5.65, 5.8]
                 case _:
                     lim = None
                     ticks = None
