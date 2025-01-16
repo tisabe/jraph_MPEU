@@ -1,32 +1,29 @@
+"""This script converts a csv file that has aflow data (previously generated
+with get_aflow_csv.py) and turns it into a ase.db with graph features."""
+
 from functools import partial
+from ast import literal_eval
 
 import numpy as np
 import pandas
 import ase
 from ase import Atoms
-from ase.visualize import view
-from tqdm import tqdm
 
 from absl import app
 from absl import flags
 from absl import logging
-
-from absl import app
-from absl import flags
-from absl import logging
-
-from ast import literal_eval
 
 from jraph_MPEU.input_pipeline import (
-    get_graph_fc,
     get_graph_cutoff,
     get_graph_knearest
 )
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('file_in', None, 'input csv filename')
-flags.DEFINE_string('file_out', None, 'output ase.db filename')
+flags.DEFINE_string(
+    'file_in', 'databases/aflow/default.csv', 'input csv filename')
+flags.DEFINE_string(
+    'file_out', 'databases/aflow/graphs_12knn_vec.db', 'output ase.db filename')
 flags.DEFINE_string('cutoff_type', 'knearest', 'choose the cutoff type, \
     knearest or const')
 flags.DEFINE_float('cutoff', 12.0, 'cutoff value for knearest or const cutoff')
@@ -51,7 +48,7 @@ def dict_to_ase(aflow_dict):
 
 
 def convert_row(row_df, cutoff, cutoff_type):
-    i, row = row_df
+    _, row = row_df
     atoms = dict_to_ase(row)  # get the atoms object from each row
     row = row.to_dict()
     row.pop('geometry', None)
@@ -66,7 +63,8 @@ def convert_row(row_df, cutoff, cutoff_type):
         cutoff = int(cutoff)
         _, _, edges, senders, receivers = get_graph_knearest(atoms, cutoff)
     elif cutoff_type == 'fc':
-        _, _, edges, senders, receivers = get_graph_fc(atoms)
+        raise ValueError(f'Cutoff type {cutoff_type} only available for \
+            non-periodic systems.')
     else:
         raise ValueError(f'Cutoff type {cutoff_type} not recognised.')
 
