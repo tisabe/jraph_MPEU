@@ -9,7 +9,7 @@ import ase.db
 import pandas as pd
 
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 
 # We define a blacklist for keys that should be excluded from being plotted.
 # This can be extended if additional data is pulled.
@@ -23,105 +23,161 @@ keys_blacklist = [
     'mp-id'
 ]
 
+AFLOW_DB = '/home/dts/Documents/hu/batch_stats/graphs_knn.db'
+qm9_DB = '/home/dts/Documents/hu/batch_stats/qm9_graphs_fc.db'
+DB_LIST = [AFLOW_DB, qm9_DB]
+# DB_LIST = [qm9_DB]
 
-def main(args):
+DB_LABEL_LIST = ['aflow', 'qm9']
+
+FONTSIZE = 12
+# FONT = 'Times'
+# FONT = 'Times new roman'
+FONT = 'serif'
+ticksize=12
+
+
+def create_histogram_of_datasets(limit=10):
     """Main function for database connection and plotting."""
-    file = args.file
-    folder = file.replace('.db', '')  # make a name for the plot output folder
-    folder = 'scripts/figs/'+folder
-    Path(folder).mkdir(parents=True, exist_ok=True)
-    limit = args.limit
-    key = args.key
+    # file = args.file
+    # folder = file.replace('.db', '')  # make a name for the plot output folder
+    # folder = 'scripts/figs/'+folder
+    # Path(folder).mkdir(parents=True, exist_ok=True)
+    # limit = args.limit
+    # key = args.key
+
+    bins_bottom = bins_top = 100
+
+    plt.rc('xtick', labelsize=16)
+    plt.rc('ytick', labelsize=16)
+    plt.rc('legend', fontsize=18)
+    plt.rc('legend', title_fontsize=18)
+    plt.rc('axes', labelsize=18)
 
     num_nodes = []
     num_edges = []
     atomic_numbers_all = np.array([])
-    edges_all = np.array([]) # collect all edge distances for histogram
+    edges_all = [] # collect all edge distances for histogram
     key_val_list = [] # list of key-value-pairs
 
-    with ase.db.connect(file) as asedb:
-        for i, row in enumerate(asedb.select(limit=limit)):
-            if i%10000 == 0:
-                print(f'Reading step {i}')
-            key_value_pairs = row.key_value_pairs
-            key_val_list.append(key_value_pairs)
-            data = row.data
-            atomic_numbers = row.numbers
-            atomic_numbers_all = np.concatenate(
-                (atomic_numbers_all, atomic_numbers), axis=None)
-            num_nodes.append(row.natoms)
-            #senders = data['senders']
-            #receivers = data['receivers']
-            edges = data['edges']
-            num_edges.append(len(edges))
-            edges_all = np.concatenate((edges_all, np.array(edges)))
 
-    fig, ax = plt.subplots()
-    ax.hist(edges_all, bins=100, log=True)
-    ax.set_xlabel('distance (Ang)', fontsize=12)
-    ax.set_ylabel('Number of edges', fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(folder+'/dist_hist.png', bbox_inches='tight', dpi=600)
+    for db_label, database in zip(DB_LABEL_LIST, DB_LIST):
+        with ase.db.connect(database) as asedb:
+            for i, row in enumerate(asedb.select(limit=limit)):
+                if i % 10000 == 0:
+                    print(f'Reading step {i}')
+                key_value_pairs = row.key_value_pairs
+                key_val_list.append(key_value_pairs)
+                data = row.data
+                atomic_numbers = row.numbers
+                atomic_numbers_all = np.concatenate(
+                    (atomic_numbers_all, atomic_numbers), axis=None)
+                num_nodes.append(int(row.natoms))
+                #senders = data['senders']
+                #receivers = data['receivers']
+                edges = data['edges']
+                num_edges.append(len(edges))
+                edges_all.append(np.array(edges))
+        print(f'Database: {db_label}')
+        print(f'Database location: {database}')
+        print(edges_all[0:6])
+        print('concatenate')
+        edges_all = np.concatenate(edges_all, axis=0)
+        print(edges_all[0:6])
+        print('np lin alg norm')
+        dists = np.linalg.norm(edges_all, axis=1)
 
-    fig, ax = plt.subplots()
-    ax.hist(atomic_numbers_all, bins=int(max(atomic_numbers_all))+1, log=True)
-    ax.set_xlabel('Atomic number', fontsize=12)
-    ax.set_ylabel('Number of nodes', fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(folder+'/species_hist.png', bbox_inches='tight', dpi=600)
+        fig, ax = plt.subplots(2, 1)
+        # Plot the histogram of nodes
+        ax[0].hist(
+            num_nodes, bins_top, density=True, histtype='bar',
+            alpha=0.5, label=db_label)
 
-    key_df = pd.DataFrame(key_val_list)
-    print(key_df.head())
-    print(key_df.describe())
-    for key_i in key_df.keys():
-        if not key_i in keys_blacklist:
-            print(key_i)
+        ax[0].set_xlabel('Number of nodes', fontsize=12, font=FONT)
+        ax[0].set_ylabel('Density', fontsize=12, font=FONT)
 
-            key_y = key_df.get(key_i).to_numpy()
-            units = ''#input("Type units of key: ")
-            fig, ax = plt.subplots()
-            if isinstance(key_y[0], float):
-                ax.hist(key_y, bins=100, log=True)
-            elif isinstance(key_y[0], str):
-                sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
-                plt.xticks(rotation=90)
-                plt.yscale('log')
-            else:
-                sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
-                plt.yscale('log')
-            ax.set_xlabel(f'{key_i} ({units})', fontsize=12)
-            ax.set_ylabel('Number of graphs', fontsize=12)
-            plt.tight_layout()
-            plt.show()
-            fig.savefig(folder+f'/{key_i}_hist.png', bbox_inches='tight', dpi=600)
+        # Now plot the histogram of edges
+        ax[1].hist(
+            dists, bins_bottom, density=True, histtype='bar', alpha=0.5, label=db_label)
+        ax[1].set_xlabel('Number of nodes', fontsize=12, font=FONT)
+        ax[1].set_ylabel('Density', fontsize=12, font=FONT)
 
-    fig, ax = plt.subplots(2, 1)
-    ax[0].hist(num_nodes, bins=100, log=True)
-    ax[0].set_xlabel('Number of nodes', fontsize=12)
-    ax[1].hist(num_edges, bins=100, log=True)
-    ax[1].set_xlabel('Number of edges', fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(folder+'/graph_stat_hist.png', bbox_inches='tight', dpi=600)
+        import matplotlib.font_manager as font_manager
+        font = font_manager.FontProperties(family=FONT,
+                                        # weight='bold',
+                                        style='normal', size=12)
+        ax[1].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
 
-    fig, ax = plt.subplots()
-    ax.scatter(num_nodes, num_edges)
-    ax.set_xlabel('Number of nodes', fontsize=12)
-    ax.set_ylabel('Number of edges', fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(folder+'/edges_per_node.png', bbox_inches='tight', dpi=600)
+        plt.tight_layout()
+        fig.align_labels()
+
+        plt.show()
+        
+        fig.savefig(
+            '/home/dts/Documents/theory/batching_paper/figs/histogram_of_datasets.png',
+            bbox_inches='tight', dpi=600)
+
+        # fig, ax = plt.subplots()
+        # ax.hist(atomic_numbers_all, bins=int(max(atomic_numbers_all))+1, log=True)
+        # ax.set_xlabel('Atomic number')
+        # ax.set_ylabel('Number of nodes')
+        # plt.tight_layout()
+        # plt.show()
+
+        # key_df = pd.DataFrame(key_val_list)
+        # print(key_df.head())
+        # print(key_df.describe())
+        # for key_i in key_df.keys():
+        #     if not key_i in keys_blacklist:
+        #         print(key_i)
+
+        #         key_y = key_df.get(key_i).to_numpy()
+        #         units = ''#input("Type units of key: ")
+        #         fig, ax = plt.subplots()
+        #         if isinstance(key_y[0], float):
+        #             ax.hist(key_y, bins=100, log=True)
+        #         elif isinstance(key_y[0], str):
+        #             sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
+        #             plt.xticks(rotation=90)
+        #             plt.yscale('log')
+        #         else:
+        #             sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
+        #             plt.yscale('log')
+        #         ax.set_xlabel(f'{key_i} ({units})')
+        #         ax.set_ylabel('Number of graphs')
+        #         plt.tight_layout()
+        #         plt.show()
+        #         fig.savefig(folder+f'/{key_i}_hist.png', bbox_inches='tight', dpi=600)
+
+        # fig, ax = plt.subplots(2, 1)
+        # ax[0].hist(num_nodes, bins=20, log=False)
+        # ax[0].set_xlabel('Number of nodes')
+        # ax[0].set_ylabel('Count')
+        # ax[1].hist(num_edges, bins=20, log=False)
+        # ax[1].set_xlabel('Number of edges')
+        # ax[1].set_ylabel('Count')
+        # plt.tight_layout()
+        # plt.show()
+        # fig.savefig(folder+'/graph_stat_hist.png', bbox_inches='tight', dpi=600)
+
+        # fig, ax = plt.subplots()
+        # ax.scatter(num_nodes, num_edges)
+        # ax.set_xlabel('Number of nodes')
+        # ax.set_ylabel('Number of edges')
+        # plt.tight_layout()
+        # plt.show()
+        # fig.savefig(folder+'/edges_per_node.png', bbox_inches='tight', dpi=600)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Show data analysis plots.')
-    parser.add_argument('-f', '-F', type=str, dest='file', default='QM9/qm9_graphs.db',
-                        help='data directory name')
-    parser.add_argument('-limit', type=int, dest='limit', default=None,
-                        help='limit number of database entries to be selected')
-    parser.add_argument('-key', type=str, dest='key', default=None,
-                        help='key name to plot')
-    args_main = parser.parse_args()
-    main(args_main)
+    # parser = argparse.ArgumentParser(description='Show data analysis plots.')
+    # parser.add_argument('-f', '-F', type=str, dest='file',
+    #                     default='databases/QM9/graphs_fc_vec.db',
+    #                     help='data directory name')
+    # parser.add_argument('-limit', type=int, dest='limit', default=None,
+    #                     help='limit number of database entries to be selected')
+    # parser.add_argument('-key', type=str, dest='key', default=None,
+    #                     help='key name to plot')
+    # args_main = parser.parse_args()
+    # main(args_main)
+    create_histogram_of_datasets()
