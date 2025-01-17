@@ -29,6 +29,10 @@ flags.DEFINE_list(
     'static_round_to_multiple', 'False',
     'Round static batching to multiple or power.')
 flags.DEFINE_list(
+    'static_constant_batch', 'False',
+    'Static batch to a constant padding size?'
+)
+flags.DEFINE_list(
     'batching_method', 'None',
     'Can be either "static" or "dynamic".')
 flags.DEFINE_list(
@@ -88,7 +92,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
-
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters
     config.model_str = 'SchNet'
     config.message_passing_steps = 3
@@ -132,6 +136,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters we use the defaults.
 
     return config
@@ -141,6 +146,8 @@ def create_config_file_path(
         setting, folder_name, number_of_training_steps):
     if setting['batching_method'] == 'dynamic':
         dynamic_batch = True
+    elif setting['batching_method'] == 'static_constant':
+        static_constant_batch = True
     else:
         dynamic_batch = False
     if setting['network_type'] == 'schnet':
@@ -156,6 +163,10 @@ def create_config_file_path(
     config = config.replace(
         '<static_round_to_multiple>',
         str(setting['static_round_to_multiple'])
+    )
+    config = config.replace(
+        '<static_constant_batch>',
+        str(static_constant_batch)
     )
     config = config.replace(
         '<compute_device>',

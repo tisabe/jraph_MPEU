@@ -296,6 +296,33 @@ def pad_graph_to_nearest_power_of_two(
                                  pad_graphs_to)
 
 
+def pad_graph_to_constant_size(
+        graphs_tuple: jraph.GraphsTuple, pad_nodes_to, pad_edges_to) -> jraph.GraphsTuple:
+    """Pads a batched `GraphsTuple` to the nearest power of two.
+    For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
+    would pad the `GraphsTuple` nodes and edges:
+        7 nodes --> 8 nodes (2^3)
+        5 edges --> 8 edges (2^3)
+    And since padding is accomplished using `jraph.pad_with_graphs`, an extra
+    graph and node is added:
+        8 nodes --> 9 nodes
+        3 graphs --> 4 graphs
+    Args:
+        graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
+    Returns:
+        A graphs_tuple batched to the nearest power of two.
+    """
+    # Add 1 since we need at least one padding node for pad_with_graphs.
+    # Note, the plus one should be insid ethe operator since we want a power of
+    # two returned.
+    pad_nodes_to = pad_nodes_to + 1
+    # edge_budget
+    # Add 1 since we need at least one padding graph for pad_with_graphs.
+    # We do not pad to nearest power of two because the batch size is fixed.
+    pad_graphs_to = graphs_tuple.n_node.shape[0] + 1
+    return jraph.pad_with_graphs(graphs_tuple, pad_nodes_to, pad_edges_to,
+                                 pad_graphs_to)
+
 class GraphsTupleSize(NamedTuple):
     """Helper class to represent padding and graph sizes."""
     n_node: int
@@ -396,6 +423,40 @@ def estimate_padding_budget_for_batch_size(
         n_graph=batch_size)
     return padding_budget
 
+
+def get_static_budget_for_constant_size(
+        dataset,
+        batch_size: int,
+) -> GraphsTupleSize:
+    """Gets padding budget for static batching based on largest graph in dataset.
+    Args:
+        dataset: A dataset of unbatched GraphsTuples.
+        batch_size: The intended batch size. Note that no batching is performed by
+        this function.
+    Returns:
+        padding_budget: The padding budget for batching and padding the graphs
+        in this dataset to the given batch size.
+    """
+
+    if batch_size <= 1:
+        raise ValueError('Batch size must be > 1 to account for padding graphs.')
+
+    max_nodes = 0
+    max_edges = 0
+
+    for graph in dataset:
+        graph_size = get_graphs_tuple_size(graph)
+        if graph_size.n_graph != 1:
+            raise ValueError('Dataset contains batched GraphTuples.')
+
+        max_nodes = max((max_nodes, graph_size.n_node))
+        max_edges = max((max_edges, graph_size.n_edge))
+
+
+    pad_nodes_to = max_nodes * batch_size
+    pad_edges_to = max_edges * batch_size
+
+    return pad_nodes_to, pad_edges_to
 
 def add_labels_to_graphs(graphs, labels):
     """Return a list of jraph.GraphsTuple with the labels as globals."""

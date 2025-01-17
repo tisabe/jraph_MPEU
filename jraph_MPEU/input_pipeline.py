@@ -30,9 +30,11 @@ import functools
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
     get_node_edge_distribution_for_batch,
+    get_static_budget_for_constant_size,
     load_config,
     pad_graph_to_nearest_power_of_two,
     pad_graph_to_nearest_multiple_of_64,
+    pad_graph_to_constant_size,
     get_normalization_metrics,
     normalize_graphs,
     load_config
@@ -364,6 +366,7 @@ class DataReader:
             batch_size: int, repeat: Boolean, seed: int = None,
             dynamic_batch: bool = True,
             static_round_to_multiple: bool = True,
+            static_constant_batch: bool = False,
             num_estimation_graphs: int = 1000,
             compile_batching=False,
             ):
@@ -383,7 +386,8 @@ class DataReader:
         self._num_edges_per_batch_after_batching = []
 
         self.static_round_to_multiple = static_round_to_multiple
-
+        self.static_constant_batch = static_constant_batch
+        
         self.budget = estimate_padding_budget_for_batch_size(
             self.data, batch_size,
             num_estimation_graphs=num_estimation_graphs)
@@ -399,7 +403,16 @@ class DataReader:
                 self.budget.n_edge,
                 self.budget.n_graph)
 
-        else:
+        elif self.static_constant_batch is True:
+            # Get the padding limits:
+            self.pad_nodes_to, self.pad_edges_to = get_static_budget_for_constant_size(self.data, batch_size)
+            self.batch_generator = self.static_batch_constant(
+                self._generator,
+                self.batch_size,
+                self.pad_nodes_to,
+                self.pad_edges_to,
+            )
+        else:  # This works for static-2^N/static-64
             self.batch_generator = self.static_batch(
                 self._generator,
                 self.batch_size
@@ -442,6 +455,42 @@ class DataReader:
 
             else:
                 accumulated_graphs.append(graph)
+
+
+    def static_batch_constant(
+            self, graphs_tuple_iterator: Iterator[gn_graph.GraphsTuple],
+            batch_size: int, pad_nodes_to: int, pad_edges_to: int) -> Generator[gn_graph.GraphsTuple, None, None]:
+
+        batch_size_minus_one = batch_size-1
+        # Curious if we should initialize this. [None]*batch_size_minus_one
+        # It seems like MCPCDF is not too worried about it.
+        accumulated_graphs = []
+
+        for graph in graphs_tuple_iterator:
+            
+            if len(accumulated_graphs) == batch_size_minus_one:
+                # Call get number of nodes/edges in the list.
+                # Append to the list. self._num_nodes_per_batch
+                
+                # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
+                #     accumulated_graphs)
+
+                # self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
+                # self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
+
+                accumulated_graphs = jraph.batch_np(accumulated_graphs)
+                # Call get number of nodes/edges in the new list.
+                # Append to the list self._num_nodes_per_batch_after_batching.
+
+                # How do i get the data out?
+                yield pad_graph_to_constant_size(accumulated_graphs, pad_nodes_to, pad_edges_to)
+                accumulated_graphs = []
+
+            else:
+                accumulated_graphs.append(graph)
+
+
+
 
     def __iter__(self):
         return self

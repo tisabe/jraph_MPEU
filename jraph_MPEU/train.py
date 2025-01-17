@@ -275,6 +275,7 @@ class Evaluater:
             seed=config.seed,
             dynamic_batch=config.dynamic_batch,
             static_round_to_multiple=config.static_round_to_multiple,
+            static_constant_batch=config.static_constant_batch,
             num_estimation_graphs=config.num_estimation_graphs,
             compile_batching=False)
 
@@ -578,6 +579,7 @@ def train_and_evaluate(
         seed=config.seed,
         dynamic_batch=config.dynamic_batch,
         static_round_to_multiple=config.static_round_to_multiple,
+        static_constant_batch=config.static_constant_batch,
         num_estimation_graphs=config.num_estimation_graphs,
         compile_batching=compile_batching)
 
