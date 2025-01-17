@@ -1,44 +1,54 @@
 # jraph_MPEU
+
 Message Passing Graph Neural Network with Edge Updates in Jraph.
 
-This code implements a graph neural network with the architecture described in
-https://arxiv.org/pdf/1806.03146.pdf
-"Neural Message Passing with Edge Updates for
-Predicting Properties of Molecules and Materials"
+This code implements tools for running and analysing a neural architecture search (NAS), focused on the regression of electronic band gaps and formation energies of solids in the AFLOW materials database. There are also some scripts to work with Materials Project data (the often used MP2018 snapshot), and the benchmark QM9 data.
+
+Main architectures implemented here are:
+
+"Neural Message Passing with Edge Updates for Predicting Properties of Molecules and Materials" https://arxiv.org/pdf/1806.03146.pdf
+and
+"PaiNN" https://proceedings.mlr.press/v139/schutt21a.html (Thanks to Gianluca Galletti for the porting into JAX. Check out https://github.com/gerkone/painn-jax/.)
 
 All this code is experimental, run at your own risk!
 
-Only tested on Python 3.7.3
+## How to get this running:
 
-## Python library requirements:  
-See requirements.txt. Only GPU version of JAX has been tested.
+### Python installation and libraries
 
-If any other libraries are missing, just pip install them, the above list might not be complete.
+1. We recommend using a Conda environment to create a Python 3.11 installation, from which a virtual environment (venv) is created:
+    1.1 Install Conda as described in https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
+    1.2 Create a Conda environment:
+    `>>> conda create --name py3-11 python=3.11`
+    1.3 Activate the environment:
+    `>>> conda activate py3-11`
+    1.4 create and activate a python venv:
+    `>>> python -m venv venv`
+    `>>> conda deactivate`
+    `>>> source venv/bin/activate`
+    1.5 update pip:
+    `>>> pip install --upgrade pip`
+2. Install the right JAX version for you, as described in https://jax.readthedocs.io/en/latest/installation.html (if you are in the venv, you can leave out the `-U` option)
+    - The cpu version works with this code, but is probably too slow for most applications, so gpu version of JAX is recommended
+3. Install the library in this repository:
+    `>>> pip install -e .`
+4. Install the rest of the required libraries:
+    `>>> pip install -r requirements.txt`
 
-We use:
-- Optax for the training optimizer.
-- Jraph for the graph neural network.
-- Haiku for the fully connected neural networks (used to compute edge/message updates and for the readout function).
+### AFLOW dataset
 
+1. pull the "benchmark" AFLOW data using:
+`>>> python scripts/data/get_aflow_csv.py`
+2. convert the csv data into a ASE database file (also pre-computes graph data, this might take some minutes):
+`>>> python scripts/data/aflow_to_graphs.py`
+Here there are some options for file names and how the graph adjacency should be generated.
 
-## How to get this running:  
-At the moment this can be run with two different datasets: QM9 and aflow.
+### QM9 dataset
 
-## Datasets
-The QM9 dataset is pulled from spektral and converted into graphs.
-To get the QM9 dataset run datahandler_QM9.py. You might have to specify and make output file by hand.
+This will be added in a future update of this README.
 
-The aflow dataset is just a small testset of materials pulled directly with the alfow API with a json response.
-To do this first run datapuller.py, you may have to make a directory "aflow".
-Then run datahandler.py to convert the raw data from the pull into graphs.
+### Training
 
-## Training
-To train a model run train.py, this defaults to the QM9 dataset, but does not automatically pull it. You have to specify config directory, where parameters are pulled and working directory, where results are stored.
-
-The config directory can be one of the two files in configs.
-
-## Hardware:  
-Only validated on NVIDIA Quadro RTX 4000 with 8GB of VRAM. Quadro P400 with 2GB of VRAM runs out of memory.
-
+`>>> python scripts/train.py --workdir=results/my_first_run --config=jraph_MPEU_configs/aflow_ef_default.py`
 
 
