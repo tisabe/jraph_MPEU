@@ -149,6 +149,7 @@ def create_config_file_path(
         dynamic_batch = True
     elif setting['batching_method'] == 'static_constant':
         static_constant_batch = True
+        dynamic_batch = False
     else:
         dynamic_batch = False
     if setting['network_type'] == 'schnet':
