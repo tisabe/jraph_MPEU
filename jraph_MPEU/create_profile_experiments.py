@@ -144,6 +144,7 @@ def get_config() -> ml_collections.ConfigDict():
 
 def create_config_file_path(
         setting, folder_name, number_of_training_steps):
+    static_constant_batch = False
     if setting['batching_method'] == 'dynamic':
         dynamic_batch = True
     elif setting['batching_method'] == 'static_constant':
