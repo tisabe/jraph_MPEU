@@ -90,6 +90,7 @@ def create_histogram_num_graphs_dynamic(
     x_lims = [0, 32]
     # ax[1].text(0.1, 0.1, 'dynamic', fontsize=32)   
     # batch size 32, qm9
+    # I think I should use step = 1!!!!
     bins=np.arange(x_lims[0], x_lims[1], step=0.5)+0.5 
     # batch size 64, qm9
     # bins=np.arange(1050,1200)+0.5

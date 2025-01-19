@@ -23,21 +23,21 @@ keys_blacklist = [
     'mp-id'
 ]
 
-AFLOW_DB = '/home/dts/Documents/hu/batch_stats/graphs_knn.db'
+AFLOW_DB = '/home/dts/Documents/hu/batch_stats/graphs_knn_for_histogram.db'
 qm9_DB = '/home/dts/Documents/hu/batch_stats/qm9_graphs_fc.db'
 DB_LIST = [AFLOW_DB, qm9_DB]
 # DB_LIST = [qm9_DB]
 
-DB_LABEL_LIST = ['aflow', 'qm9']
+DB_LABEL_LIST = ['AFLOW', 'QM9']
 
-FONTSIZE = 12
+FONTSIZE = 16
 # FONT = 'Times'
 # FONT = 'Times new roman'
 FONT = 'serif'
 ticksize=12
 
 
-def create_histogram_of_datasets(limit=10):
+def create_histogram_of_datasets(limit=None):
     """Main function for database connection and plotting."""
     # file = args.file
     # folder = file.replace('.db', '')  # make a name for the plot output folder
@@ -46,7 +46,19 @@ def create_histogram_of_datasets(limit=10):
     # limit = args.limit
     # key = args.key
 
-    bins_bottom = bins_top = 100
+    # bins_bottom = 800
+    # bins_top = 50
+
+    # x_lims = [0, 32]
+    # ax[1].text(0.1, 0.1, 'dynamic', fontsize=32)   
+    # batch size 32, qm9
+    x1_lims = [0, 100]
+    x2_lims = [0, 1000]
+    # bins_top=np.arange(x1_lims[0], x1_lims[1], step=0.5)+0.5 
+    bins_top=np.arange(x1_lims[0], x1_lims[1], step=1)+0.5 
+
+    # bins_bottom=np.arange(x2_lims[0], x2_lims[1], step=20)+0.5 
+    bins_bottom=np.arange(x2_lims[0], x2_lims[1], step=10)+0.5 
 
     plt.rc('xtick', labelsize=16)
     plt.rc('ytick', labelsize=16)
@@ -54,14 +66,15 @@ def create_histogram_of_datasets(limit=10):
     plt.rc('legend', title_fontsize=18)
     plt.rc('axes', labelsize=18)
 
-    num_nodes = []
-    num_edges = []
-    atomic_numbers_all = np.array([])
-    edges_all = [] # collect all edge distances for histogram
-    key_val_list = [] # list of key-value-pairs
+    fig, ax = plt.subplots(2, 1)
 
 
     for db_label, database in zip(DB_LABEL_LIST, DB_LIST):
+        num_nodes = []
+        num_edges = []
+        atomic_numbers_all = np.array([])
+        edges_all = [] # collect all edge distances for histogram
+        key_val_list = [] # list of key-value-pairs
         with ase.db.connect(database) as asedb:
             for i, row in enumerate(asedb.select(limit=limit)):
                 if i % 10000 == 0:
@@ -79,43 +92,47 @@ def create_histogram_of_datasets(limit=10):
                 num_edges.append(len(edges))
                 edges_all.append(np.array(edges))
         print(f'Database: {db_label}')
-        print(f'Database location: {database}')
-        print(edges_all[0:6])
-        print('concatenate')
+        # print(f'Database location: {database}')
+        # print(edges_all[0:6])
+        # print('concatenate')
         edges_all = np.concatenate(edges_all, axis=0)
-        print(edges_all[0:6])
-        print('np lin alg norm')
+        # print(edges_all[0:6])
+        # print('np lin alg norm')
         dists = np.linalg.norm(edges_all, axis=1)
 
-        fig, ax = plt.subplots(2, 1)
+        print(
+            f'dataset: {database}, has this many num_nodes entries: {len(num_nodes)}'
+            f' and this many num_edges: {len(num_edges)}')
         # Plot the histogram of nodes
         ax[0].hist(
-            num_nodes, bins_top, density=True, histtype='bar',
+            num_nodes, bins_top, density=False, histtype='bar',
             alpha=0.5, label=db_label)
 
-        ax[0].set_xlabel('Number of nodes', fontsize=12, font=FONT)
-        ax[0].set_ylabel('Density', fontsize=12, font=FONT)
 
         # Now plot the histogram of edges
         ax[1].hist(
-            dists, bins_bottom, density=True, histtype='bar', alpha=0.5, label=db_label)
-        ax[1].set_xlabel('Number of nodes', fontsize=12, font=FONT)
-        ax[1].set_ylabel('Density', fontsize=12, font=FONT)
+            num_edges, bins_bottom, density=False, histtype='bar', alpha=0.5, label=db_label)
+
 
         import matplotlib.font_manager as font_manager
         font = font_manager.FontProperties(family=FONT,
                                         # weight='bold',
                                         style='normal', size=12)
-        ax[1].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
+    ax[1].legend(loc='upper right', prop=font, edgecolor="black", fancybox=False)
+    ax[1].set_xlabel('Number of edges', fontsize=12, font=FONT)
+    ax[1].set_ylabel('Count', fontsize=12, font=FONT)
 
-        plt.tight_layout()
-        fig.align_labels()
+    ax[0].set_xlabel('Number of nodes', fontsize=12, font=FONT)
+    ax[0].set_ylabel('Count', fontsize=12, font=FONT)
+    # ax[0].set_xlim(0, 100)
+    plt.tight_layout()
+    fig.align_labels()
 
-        plt.show()
-        
-        fig.savefig(
-            '/home/dts/Documents/theory/batching_paper/figs/histogram_of_datasets.png',
-            bbox_inches='tight', dpi=600)
+    plt.show()
+    
+    fig.savefig(
+        '/home/dts/Documents/theory/batching_paper/figs/histogram_of_datasets.png',
+        bbox_inches='tight', dpi=600)
 
         # fig, ax = plt.subplots()
         # ax.hist(atomic_numbers_all, bins=int(max(atomic_numbers_all))+1, log=True)
