@@ -21,6 +21,7 @@ import ml_collections
 import numpy as np
 import optax
 import haiku as hk
+import pandas as pd
 import time
 
 # import custom functions
@@ -614,24 +615,20 @@ def train_and_evaluate(
     # Begin training loop.
     logging.info('Starting training.')
 
+    step_number_list = [0]
+
     for step in range(initial_step, config.num_train_steps_max + 1):
+        step_number_list.append(step)
         start_loop_time = time.time()
         graphs = next(train_reader)
-        # Update the weights after a gradient step and report the
-        # state/losses/optimizer gradient. The loss returned here is the loss
-        # on a batch not on the full training dataset.
-        state['step'].block_until_ready()
 
-        after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
         state, loss_metrics = updater.update(state, graphs)
 
         state['step'].block_until_ready()
-        after_running_update = time.time()
-        train_reader._timing_measurements_batching.append(
-            after_getting_graphs-start_loop_time)
-        train_reader._update_measurements.append(
-            after_running_update-start_loop_time)
+        after_getting_graphs_and_running_update = time.time()
+        train_reader._timing_measurements_combined_batching_update.append(
+            after_getting_graphs_and_running_update-start_loop_time)
 
         # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
         #     graphs)
@@ -685,43 +682,15 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
-    median_batching_time = np.median(train_reader._timing_measurements_batching)
-    logging.info(f'Median batching time: {median_batching_time}')
-
-    mean_batching_time = np.mean(train_reader._timing_measurements_batching)
-    logging.info(f'Mean batching time: {mean_batching_time}')
-
-    median_updating_time = np.median(train_reader._update_measurements)
-    logging.info(f'Median update time: {median_updating_time}')
-
-    mean_updating_time = np.mean(train_reader._update_measurements)
-    logging.info(f'Mean update time: {mean_updating_time}')
-
-    # Temp test. let's just try logging the whole list:
-    # logging.info(f'Node distrubution before batching: '
-    #              f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
-
-    # logging.info(f'Edge distrubution before batching: '
-    #              f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
-
-    # Let's save the node distribution/edge distrubtion after batching to file.
-    # df = pd.DataFrame({
-    #         'node_before_batching': train_reader._num_nodes_per_batch_after_batching
-    #         'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
-    # })
-    # graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
+    median_combined_time = np.median(train_reader._timing_measurements_combined_batching_update)
+    logging.info(f'Median combined time: {median_combined_time}')
 
 
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
+    df = pd.DataFrame({
+            'step_number': step_number_list,
+            'combined_time': train_reader._timing_measurements_combined_batching_update
+    })
+    save_path_timing_measurements = f'{workdir}/combined_times_list_batch_size_{config.batch_size}_dynamic_{config.dynamic_batch}_constant_{config.static_constant_batch}.csv'
+    df.to_csv(save_path_timing_measurements)
+
     return evaluater, lowest_val_loss

@@ -377,8 +377,9 @@ class DataReader:
         self.seed = seed
         self._generator = self._make_generator()
         self.compile_batching = compile_batching
-        self._timing_measurements_batching = []
-        self._update_measurements = []
+        # self._timing_measurements_batching = []
+        # self._update_measurements = []
+        self._timing_measurements_combined_batching_update = []
 
         self._num_nodes_per_batch_before_batching = []
         self._num_edges_per_batch_before_batching = []
@@ -387,16 +388,16 @@ class DataReader:
 
         self.static_round_to_multiple = static_round_to_multiple
         self.static_constant_batch = static_constant_batch
-        
-        self.budget = estimate_padding_budget_for_batch_size(
-            self.data, batch_size,
-            num_estimation_graphs=num_estimation_graphs)
 
         self.dynamic_batch = dynamic_batch
+
         # From outside of DataReader
         # we interface with this batch generator, but this batch_generator
         # needs an iterator itself which is also defined in this class.
         if self.dynamic_batch is True:
+            self.budget = estimate_padding_budget_for_batch_size(
+                self.data, batch_size,
+                num_estimation_graphs=num_estimation_graphs)
             self.batch_generator = jraph.dynamically_batch(
                 self._generator,
                 self.budget.n_node,
