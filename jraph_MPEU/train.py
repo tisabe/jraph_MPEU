@@ -615,7 +615,7 @@ def train_and_evaluate(
     # Begin training loop.
     logging.info('Starting training.')
 
-    step_number_list = [0]
+    step_number_list = []
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         step_number_list.append(step)
