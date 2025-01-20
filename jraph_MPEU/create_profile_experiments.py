@@ -186,7 +186,7 @@ def create_config_file_path(
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
     elif setting['dataset'] == 'qm9':
-        data_file = "\'cd /u/dansp/jraph_MPEU/qm9/qm9_graphs_fc.db\'"
+        data_file = "\'/u/dansp/jraph_MPEU/qm9/qm9_graphs_fc.db\'"
         label_str = "\'U0\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
