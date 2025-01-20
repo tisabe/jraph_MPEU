@@ -60,16 +60,16 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=12:00:00
+#SBATCH --time=04:00:00
 <gres>
 <constraint>
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-cd /u/dansp/jraph_MPEU
+# cd /u/dansp/jraph_MPEU
 # Load the environment with modules and python packages.
-source activate_jax.sh
-srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/combined_profiling/combined_venv/bin/activate
+srun python3 /u/dansp/combined_profiling/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
