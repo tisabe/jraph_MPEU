@@ -37,13 +37,8 @@ from matplotlib import rc, font_manager
 
 
 BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
-# STATIC_NP_PROFILING_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_23_05__27_06_2024.csv'
-# PROFILING_JNP_CSV = 'parsed_profiling_qm9_aflow_schnet_100k_steps_23_54__8_03_2024.csv'
-# ROUND_PROFILING_JNP_CSV = 'parsed_profiling_round_to_multiple_qm9_aflow_schnet_100k_steps_23_54__8_03_2024.csv'
-
-# COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_16_05__12_12_2024.csv'
-
-COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_15_12__30_12_2024.csv'
+## The 2 million profiling steps data:
+COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_combined_19_01_2025.csv'
 # COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_11_31__23_12_2024.csv'
 # COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
 
@@ -111,8 +106,8 @@ def get_avg_std_of_profile_column(
     # return df.mean(skipna = True), df.std(skipna = True)
 
     profile_column_dict = {
-        'batching': f'step_100000_batching_time_{mean_or_median}',
-        'update': f'step_100000_update_time_{mean_or_median}',
+        'batching': f'step_2_000_000_batching_time_{mean_or_median}',
+        'update': f'step_2_000_000_update_time_{mean_or_median}',
         'recompilation': 'recompilation_counter',
     }
 
@@ -206,7 +201,7 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
             # elif batch_method == 'static':
             #     batching_round_to_64 = True
             else:
-                batching_round_to_64 = True
+                batching_round_to_64 = False  # Different than the 200k experiments.
                 # sys.err(f'error wrong batch method {batch_method}')
             for batch_size in BATCH_SIZE_LIST:
 
@@ -234,7 +229,7 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
     
     # ax[0, 0].set_xlim(0, 5)
     # ax[0, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
-    ax[0, 0].set_ylabel('Time (ms)', fontsize=FONTSIZE, font=FONT)
+    ax[0, 0].set_ylabel('Batching time (ms)', fontsize=FONTSIZE, font=FONT)
     # ax[0, 0].set_yscale('log')
     # ax[0, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
     ax[0, 0].set_ylim(0, 5)
@@ -252,7 +247,7 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
     # ax[1, 0].set_xlim(0, 5)
     # ax[1, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
     ax[1, 0].set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
-    ax[1, 0].set_ylabel('Time (ms)', fontsize=FONTSIZE, font=FONT)
+    ax[1, 0].set_ylabel('Update time (ms)', fontsize=FONTSIZE, font=FONT)
     # ax[1, 0].set_yscale('log')
     # ax[1, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
     ax[1, 0].set_ylim(0, 18)
@@ -277,18 +272,18 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
     import matplotlib.font_manager as font_manager
     font = font_manager.FontProperties(family=FONT,
                                     # weight='bold',
-                                    style='normal', size=12)
+                                    style='normal', size=FONTSIZE)
     # ax.legend(prop=font)
 
     ax[1, 0].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
     # ax[1, 1].legend(loc='lower right')
     for i in range(2):
         for j in range(2):
-            ax[i, j].tick_params(axis='both', which='minor', labelsize=12)
-            ax[i, j].tick_params(axis='both', which='major', labelsize=12)
-            plt.setp(ax[i,j].get_xticklabels(), fontsize=12, font=FONT) 
+            ax[i, j].tick_params(axis='both', which='minor', labelsize=FONTSIZE-2)
+            ax[i, j].tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
+            plt.setp(ax[i,j].get_xticklabels(), fontsize=FONTSIZE-2, font=FONT) 
                     # horizontalalignment="left")
-            plt.setp(ax[i,j].get_yticklabels(), fontsize=12, font=FONT)
+            plt.setp(ax[i,j].get_yticklabels(), fontsize=FONTSIZE-2, font=FONT)
                     # horizontalalignment="left")
         # for label in ax[i, j].get_xticklabels():
         #     label.set_fontproperties(ticks_font)
@@ -301,9 +296,11 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
     # plt.yticks(fontname = FONT, fontsize=12)  # This argument will change the font. 
 
     plt.style.use(["science", "grid"])
+    fig.align_labels()
+
     plt.tight_layout()
     plt.savefig(
-        f'/home/dts/Documents/theory/batching_paper/figs/profiling_100k_mpeu_gpu_aflow_left_qm9_right_{mean_or_median}.png',
+        f'/home/dts/Documents/theory/batching_paper/figs/profiling_2mill_{model}_gpu_aflow_left_qm9_right_{mean_or_median}.png',
         dpi=600)
     plt.show()
 
@@ -352,22 +349,22 @@ def plot_recompilation_bar_plot(df):
     import matplotlib.font_manager as font_manager
     font = font_manager.FontProperties(family=FONT,
                                     # weight='bold',
-                                    style='normal', size=12)
+                                    style='normal', size=FONTSIZE)
 
     # ax.legend(["dynamic", "static", "static-64"]);
     plt.legend(
-        ["dynamic", "static", "static-64"], fontsize=12,
+        ["dynamic", "static", "static-64"], fontsize=FONTSIZE,
         prop=font, edgecolor="black", fancybox=False)
-    ax.set_xlabel('Batch size', fontsize=12, font=FONT)
-    ax.set_ylabel('Number of recompilations', fontsize=12, font=FONT)
+    ax.set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
+    ax.set_ylabel('Number of recompilations', fontsize=FONTSIZE, font=FONT)
 
 
-    ax.tick_params(axis='both', which='minor', labelsize=12)
-    ax.tick_params(axis='both', which='major', labelsize=12)
+    ax.tick_params(axis='both', which='minor', labelsize=FONTSIZE-2)
+    ax.tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
 
-    plt.setp(ax.get_xticklabels(), fontsize=12, font=FONT) 
+    plt.setp(ax.get_xticklabels(), fontsize=FONTSIZE-2, font=FONT) 
             # horizontalalignment="left")
-    plt.setp(ax.get_yticklabels(), fontsize=12, font=FONT)
+    plt.setp(ax.get_yticklabels(), fontsize=FONTSIZE-2, font=FONT)
     plt.tight_layout()
     plt.savefig(
         '/home/dts/Documents/theory/batching_paper/figs/recompilation_count.png',
@@ -380,7 +377,7 @@ def main(argv):
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
     # Ok now let's plot the batching times. Let's plot 4 graphs.
     # AFLOW / SchNet (GPU / CPU)
-    plot_batching_update_subplot(df, model='MPEU',
+    plot_batching_update_subplot(df, model='schnet',
                                  compute_type='gpu_a100',
                                  mean_or_median='mean')
                                 #  compute_type='gpu_a100')

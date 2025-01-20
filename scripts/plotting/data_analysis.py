@@ -60,13 +60,13 @@ def create_histogram_of_datasets(limit=None):
     # bins_bottom=np.arange(x2_lims[0], x2_lims[1], step=20)+0.5 
     bins_bottom=np.arange(x2_lims[0], x2_lims[1], step=10)+0.5 
 
-    plt.rc('xtick', labelsize=16)
-    plt.rc('ytick', labelsize=16)
-    plt.rc('legend', fontsize=18)
-    plt.rc('legend', title_fontsize=18)
-    plt.rc('axes', labelsize=18)
+    plt.rc('xtick', labelsize=FONTSIZE-2)
+    plt.rc('ytick', labelsize=FONTSIZE-2)
+    plt.rc('legend', fontsize=FONTSIZE)
+    plt.rc('legend', title_fontsize=FONTSIZE)
+    plt.rc('axes', labelsize=FONTSIZE)
 
-    fig, ax = plt.subplots(2, 1)
+    fig, ax = plt.subplots(2, 1, figsize=(5.1, 5.1))
 
 
     for db_label, database in zip(DB_LABEL_LIST, DB_LIST):
@@ -119,11 +119,11 @@ def create_histogram_of_datasets(limit=None):
                                         # weight='bold',
                                         style='normal', size=12)
     ax[1].legend(loc='upper right', prop=font, edgecolor="black", fancybox=False)
-    ax[1].set_xlabel('Number of edges', fontsize=12, font=FONT)
-    ax[1].set_ylabel('Count', fontsize=12, font=FONT)
+    ax[1].set_xlabel('Number of edges', fontsize=FONTSIZE, font=FONT)
+    ax[1].set_ylabel('Count', fontsize=FONTSIZE, font=FONT)
 
-    ax[0].set_xlabel('Number of nodes', fontsize=12, font=FONT)
-    ax[0].set_ylabel('Count', fontsize=12, font=FONT)
+    ax[0].set_xlabel('Number of nodes', fontsize=FONTSIZE, font=FONT)
+    ax[0].set_ylabel('Count', fontsize=FONTSIZE, font=FONT)
     # ax[0].set_xlim(0, 100)
     plt.tight_layout()
     fig.align_labels()
