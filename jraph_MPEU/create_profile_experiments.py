@@ -66,10 +66,9 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-# cd /u/dansp/jraph_MPEU
 # Load the environment with modules and python packages.
-source /u/dansp/combined_profiling/combined_venv/bin/activate
-srun python3 /u/dansp/combined_profiling/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/seb_improved_profiling/seb_venv/bin/activate
+srun python3 /u/dansp/seb_improved_profiling/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
