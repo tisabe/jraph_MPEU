@@ -685,8 +685,11 @@ def train_and_evaluate(
     median_combined_time = np.median(train_reader._timing_measurements_combined_batching_update)
     logging.info(f'Median combined time: {median_combined_time}')
     mean_combined_time = np.mean(train_reader._timing_measurements_combined_batching_update)
-    logging.info(f'Mean combined time: {median_combined_time}')
-
+    logging.info(f'Mean combined time: {mean_combined_time}')
+    # stdev_combined_time = np.std(train_reader._timing_measurements_combined_batching_update)
+    # logging.info(f'stdev combined time: {mean_combined_time}')
+    # five_percent_quantile = np.quantile(train_reader._timing_measurements_combined_batching_update, 0.05)
+    # nintey_five_percent_quantile = np.quantile(train_reader._timing_measurements_combined_batching_update, 0.95)
 
     df = pd.DataFrame({
             'step_number': step_number_list,
