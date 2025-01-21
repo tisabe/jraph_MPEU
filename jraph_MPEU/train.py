@@ -615,8 +615,6 @@ def train_and_evaluate(
     # Begin training loop.
     logging.info('Starting training.')
 
-    step_number_list = []
-
     start_loop_time = time.time()
 
     graphs = next(train_reader)
@@ -636,20 +634,20 @@ def train_and_evaluate(
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
         # catch a NaN or too high loss, stop training if it happens
-        if (np.isnan(loss_metrics["loss"]) or
-                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
-            logging.info('Invalid loss, stopping early.')
-            # create a file that signals that training stopped early
-            if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w'):
-                    pass
-            break
+        # if (np.isnan(loss_metrics["loss"]) or
+        #         (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+        #     logging.info('Invalid loss, stopping early.')
+        #     # create a file that signals that training stopped early
+        #     if not os.path.exists(workdir + '/ABORTED_EARLY'):
+        #         with open(workdir + '/ABORTED_EARLY', 'w'):
+        #             pass
+        #     break
 
 
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
-        early_stop = evaluater.update(state, datasets, eval_splits, config)
+        # early_stop = evaluater.update(state, datasets, eval_splits, config)
 
         if is_last_step:
             logging.info(
@@ -665,20 +663,7 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
-    median_combined_time = np.median(train_reader._timing_measurements_combined_batching_update)
-    logging.info(f'Median combined time: {median_combined_time}')
-    mean_combined_time = np.mean(train_reader._timing_measurements_combined_batching_update)
-    logging.info(f'Mean combined time: {mean_combined_time}')
-    # stdev_combined_time = np.std(train_reader._timing_measurements_combined_batching_update)
-    # logging.info(f'stdev combined time: {mean_combined_time}')
-    # five_percent_quantile = np.quantile(train_reader._timing_measurements_combined_batching_update, 0.05)
-    # nintey_five_percent_quantile = np.quantile(train_reader._timing_measurements_combined_batching_update, 0.95)
-
-    df = pd.DataFrame({
-            'step_number': step_number_list,
-            'combined_time': train_reader._timing_measurements_combined_batching_update
-    })
-    save_path_timing_measurements = f'{workdir}/combined_times_list_batch_size_{config.batch_size}_dynamic_{config.dynamic_batch}_constant_{config.static_constant_batch}.csv'
-    df.to_csv(save_path_timing_measurements)
+    training_time = after_training - start_loop_time
+    logging.info(f'Training time: {training_time}')
 
     return evaluater, lowest_val_loss
