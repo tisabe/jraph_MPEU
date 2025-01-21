@@ -617,30 +617,18 @@ def train_and_evaluate(
 
     step_number_list = []
 
+    start_loop_time = time.time()
+
+    graphs = next(train_reader)
+
+
     for step in range(initial_step, config.num_train_steps_max + 1):
-        step_number_list.append(step)
-        start_loop_time = time.time()
-        graphs = next(train_reader)
+        # step_number_list.append(step)
 
         # This needs to get passed to pmap, where it is jitted.
         state, loss_metrics = updater.update(state, graphs)
 
-        state['step'].block_until_ready()
-        after_getting_graphs_and_running_update = time.time()
-        train_reader._timing_measurements_combined_batching_update.append(
-            after_getting_graphs_and_running_update-start_loop_time)
-
-        # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-        #     graphs)
-
-        # logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
-        # logging.info(f'type: {type(sum_of_nodes_in_batch)}')
-        # logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
-
-        # train_reader._num_nodes_per_batch_after_batching.append(
-        #     sum_of_nodes_in_batch)
-        # train_reader._num_edges_per_batch_after_batching.append(
-        #     sum_of_edges_in_batch)
+        graphs = next(train_reader)
 
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
@@ -663,21 +651,16 @@ def train_and_evaluate(
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits, config)
 
-        # if early_stop:
-        #     logging.info(f'Loss converged at step {step}, stopping early.')
-        #     # create a file that signals that training stopped early
-        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
-        #         with open(workdir + '/STOPPED_EARLY', 'w'):
-        #             pass
-        #     break
-        # No need to break if it's the last step since the loop terminates
-        # automatically when reaching the last step.
         if is_last_step:
             logging.info(
                 'Reached maximum number of steps without early stopping.')
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
                 with open(workdir + '/REACHED_MAX_STEPS', 'w'):
                     pass
+
+    state['step'].block_until_ready()
+    after_training = time.time()
+
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
