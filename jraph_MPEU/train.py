@@ -684,6 +684,8 @@ def train_and_evaluate(
 
     median_combined_time = np.median(train_reader._timing_measurements_combined_batching_update)
     logging.info(f'Median combined time: {median_combined_time}')
+    mean_combined_time = np.mean(train_reader._timing_measurements_combined_batching_update)
+    logging.info(f'Mean combined time: {median_combined_time}')
 
 
     df = pd.DataFrame({
