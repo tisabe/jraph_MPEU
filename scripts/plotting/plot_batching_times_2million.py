@@ -63,7 +63,7 @@ COMPUTING_TYPE_LIST = ['gpu_a100']
 
 DATASET_LIST = ['aflow']
 
-FONTSIZE = 12
+FONTSIZE = 14
 # FONT = 'Times'
 # FONT = 'Times new roman'
 FONT = 'serif'
@@ -95,26 +95,15 @@ def plot_four_plots(df):
 
 def get_avg_std_of_profile_column(
         df, profile_column, model, batch_method, compute_type, batch_size,
-        dataset, batching_round_to_64, mean_or_median='mean'):
+        dataset, batching_round_to_64, mean_or_median='mean', combined=False):
 
-    # Now keep only the rows we want.
-    # df = df[
-    #     (df['model'] == model) & (df['batching_type'] == batch_method)
-    #     & (df['computing_type'] == compute_type) & (df['batch_size'] == batch_size)
-    #     & (df['dataset'] == dataset)]
-    # Now get the standard devation across different rows.
-    # return df.mean(skipna = True), df.std(skipna = True)
 
     profile_column_dict = {
         'batching': f'step_2_000_000_batching_time_{mean_or_median}',
         'update': f'step_2_000_000_update_time_{mean_or_median}',
+        'combined': f'step_2_000_000_update_time_{mean_or_median}',
         'recompilation': 'recompilation_counter',
     }
-
-    # profile_column_dict = {
-    #     'batching': 'step_2000000_batching_time_mean',
-    #     'update': 'step_2000000_update_time_mean'
-    # }
 
     gpu_profiling_df = df[
         (df['dataset'] == dataset) & (df['model'] == model) &
@@ -122,33 +111,19 @@ def get_avg_std_of_profile_column(
         (df['computing_type'] == compute_type) &
         (df['batch_size'] == batch_size) &
         (df['batching_round_to_64'] == batching_round_to_64)]
-    # gpu_profiling_df = gpu_profiling_df[gpu_profiling_df['computing_type'] == compute_type]
-    # gpu_profiling_df = gpu_profiling_df[gpu_profiling_df['model'] == model]
-    # gpu_profiling_df = gpu_profiling_df[gpu_profiling_df['batching_round_to_64'] == batching_round_to_64]
-    # gpu_profiling_df = gpu_profiling_df[gpu_profiling_df['batch_size'] == batch_size]
-    gpu_profiling_df = gpu_profiling_df[profile_column_dict[profile_column]]
 
+    gpu_profiling_df_col = gpu_profiling_df[profile_column_dict[profile_column]]
 
-    # TODO, fix this so that we are using the averages over the ten iterations.
-    # gpu_profiling_df = gpu_profiling_df.rename(columns={
-    #     "batch_size": "Batch size", "batching_type": "Algorithm",
-    #     'step_100000_batching_time_mean': 'Mean batching time (s)',
-    #     'step_100000_update_time_mean': 'Mean update time (s)'})
-
-    # gpu_profiling_df_grouped = gpu_profiling_df.groupby(['Algorithm', 'Batch size'])
-    # list_of_cols_to_display = ['Batch size', 'Algorithm', 'Mean batching time (s)', 'Mean update time (s)']
-
-    # pd.options.display.float_format = "{:,.5f}".format
-
-    # gpu_profiling_df_grouped = gpu_profiling_df_grouped[list_of_cols_to_display]
-
-    # gpu_profiling_df_grouped.mean()
-
-    # print(f'raw data before average: {gpu_profiling_df}')
     if mean_or_median == 'mean':
-        mean_result, std_result = gpu_profiling_df.mean(), gpu_profiling_df.std()
+        mean_result, std_result = gpu_profiling_df_col.mean(), gpu_profiling_df_col.std()
+        if profile_column == 'update':
+            ## Then we need to subtract the mean batching time and add the batching time standard dev.
+            gpu_profiling_df_batching = gpu_profiling_df[profile_column_dict['batching']]
+            mean_batching, std_batching = gpu_profiling_df_batching.mean(), gpu_profiling_df_batching.std()
+            mean_result = mean_result - mean_batching
+            std_result = std_result + std_batching            
     elif mean_or_median == 'median':
-        mean_result, std_result = gpu_profiling_df.median(), gpu_profiling_df.std()
+        mean_result, std_result = gpu_profiling_df_col.median(), gpu_profiling_df_col.std()
     else:
         raise(ValueError)
     return mean_result, std_result
@@ -168,21 +143,29 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
 
     aflow_batch_axes = [0, 0]
     # previously was 7,7
-    fig, ax = plt.subplots(2, 2, figsize=(5.1, 5.1)) #, gridspec_kw={'height_ratios': [1]})
+    fig, ax = plt.subplots(3, 2, figsize=(5.1, 7.65)) #, gridspec_kw={'height_ratios': [1]})
 
     aflow_batching_axes = ax[0, 0]
     qm9_batching_axes = ax[0, 1]
     aflow_update_axes = ax[1, 0]
     qm9_update_axes = ax[1, 1]
+    aflow_combined_axes = ax[2, 0]
+    qm9_combined_axes = ax[2, 1]
 
-    axes_list = [aflow_batching_axes, qm9_batching_axes, aflow_update_axes, qm9_update_axes]
+    axes_list = [
+        aflow_batching_axes,
+        qm9_batching_axes,
+        aflow_update_axes,
+        qm9_update_axes,
+        aflow_combined_axes,
+        qm9_combined_axes]
     plot_content_list = [('aflow', 'batching'), ('qm9', 'batching'), ('aflow', 'update'),
-                         ('qm9', 'update')]
+                         ('qm9', 'update'), ('aflow', 'combined'), ('qm9', 'combined')]
     # color_list = ['k', 'r', 'b', 'y']
     color_list = ['k', 'r', 'b']
     marker_list = ['x', '^', '.']
 
-
+    xlim = [0, 140]
 
     for plot_num in range(len(axes_list)):
         dataset = plot_content_list[plot_num][0]  # Should be either AFLOW or qm9
@@ -220,44 +203,63 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
             print(f' the dataset is: {dataset}')
             print(f'The std is {y_std}\n')
 
-            axes_list[plot_num].plot(BATCH_SIZE_LIST,
-                                     np.multiply(y_mean_list, 1000),
-                                     marker_list[color_counter],
+            # axes_list[plot_num].plot(BATCH_SIZE_LIST,
+            #                          np.multiply(y_mean_list, 1000),
+            #                          marker_list[color_counter],
+            #                          markersize=11, alpha=0.8,
+            #                          color=color_list[color_counter],
+            #                          label=label)
+            axes_list[plot_num].errorbar(BATCH_SIZE_LIST,
+                                     np.multiply(y_mean_list, 1000), yerr=y_std,
+                                     marker=marker_list[color_counter],
                                      markersize=11, alpha=0.8,
                                      color=color_list[color_counter],
-                                     label=label)
-    
+                                     label=label, linestyle='')
+        
     # ax[0, 0].set_xlim(0, 5)
     # ax[0, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
     ax[0, 0].set_ylabel('Batching time (ms)', fontsize=FONTSIZE, font=FONT)
     # ax[0, 0].set_yscale('log')
     # ax[0, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
-    ax[0, 0].set_ylim(0, 5)
+    ax[0, 0].set_ylim(0, 7)
+    ax[0, 0].set_xticklabels([])
 
 
-    # ax[0, 1].set_xlim(0, 5)
-    # ax[0, 1].set_ylim(0, 10)
-    # ax[0, 1].set_yscale('log')
-    # ax[0, 1].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
-
-    # ax[0, 1].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
-    ax[0, 1].set_ylim(0, 5)
+    ax[0, 1].set_ylim(0, 7)
     ax[0, 1].set_yticklabels([])
-
-    # ax[1, 0].set_xlim(0, 5)
-    # ax[1, 0].set_xticklabels(['', '16', '32', '64', '128', ''], minor=False)
-    ax[1, 0].set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
+    ax[0, 1].set_xticklabels([])
+    ax[0, 0].set_xticks([16, 32, 64, 128])
+    ax[0, 1].set_xticks([16, 32, 64, 128])
+    ax[0, 0].set_xlim(xlim[0], xlim[1])
+    ax[0, 1].set_xlim(xlim[0], xlim[1]) 
     ax[1, 0].set_ylabel('Update time (ms)', fontsize=FONTSIZE, font=FONT)
-    # ax[1, 0].set_yscale('log')
-    # ax[1, 0].set_yticks([1E-1, 1E-0, 1E1, 1E2, 1E3], minor=False)
-    ax[1, 0].set_ylim(0, 18)
-    # ax[1, 0].set_ylim(0, 200)
-
-    ax[1, 1].set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
 
 
-    ax[1, 1].set_ylim(0, 18)
+    ax[1, 0].set_ylim(0, 7)
+
+    ax[1, 0].set_xticklabels([])
+    ax[1, 1].set_ylim(0, 7)
     ax[1, 1].set_yticklabels([])
+    ax[1, 1].set_xticklabels([])
+    ax[1, 0].set_xticks([16, 32, 64, 128])
+    ax[1, 1].set_xticks([16, 32, 64, 128])
+    ax[1, 0].set_xlim(xlim[0], xlim[1])
+    ax[1, 1].set_xlim(xlim[0], xlim[1]) 
+
+
+    ax[2, 0].set_ylim(0, 7)
+    ax[2, 1].set_ylim(0, 7)
+    ax[2, 1].set_yticklabels([])
+    ax[2, 0].set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
+
+    ax[2, 1].set_xlabel('Batch size', fontsize=FONTSIZE, font=FONT)
+    ax[2, 0].set_ylabel('Combined time (ms)', fontsize=FONTSIZE, font=FONT)
+    ax[2, 0].set_xlim(xlim[0], xlim[1])
+    ax[2, 1].set_xlim(xlim[0], xlim[1])   
+    ax[2, 0].set_xticklabels([16, 32, 64, 128], fontsize=FONTSIZE-1, rotation=0)
+    ax[2, 1].set_xticklabels([16, 32, 64, 128], fontsize=FONTSIZE-1, rotation=0)
+    ax[2, 0].set_xticks([16, 32, 64, 128])
+    ax[2, 1].set_xticks([16, 32, 64, 128])
 
     # ax[1, 1].set_ylim(0, 200)
 
@@ -275,9 +277,9 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
                                     style='normal', size=FONTSIZE)
     # ax.legend(prop=font)
 
-    ax[1, 0].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
+    ax[0, 1].legend(loc='upper left', prop=font, edgecolor="black", fancybox=False)
     # ax[1, 1].legend(loc='lower right')
-    for i in range(2):
+    for i in range(3):
         for j in range(2):
             ax[i, j].tick_params(axis='both', which='minor', labelsize=FONTSIZE-2)
             ax[i, j].tick_params(axis='both', which='major', labelsize=FONTSIZE-2)
