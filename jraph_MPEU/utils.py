@@ -437,7 +437,9 @@ def get_static_budget_for_constant_size(
         padding_budget: The padding budget for batching and padding the graphs
         in this dataset to the given batch size.
     """
-
+    def next_multiple_of_64(val: float):
+        """Returns the next multiple of 64 after val."""
+        return 64 * (1 + int(val // 64))
     if batch_size <= 1:
         raise ValueError('Batch size must be > 1 to account for padding graphs.')
 
@@ -453,8 +455,8 @@ def get_static_budget_for_constant_size(
         max_edges = max((max_edges, graph_size.n_edge))
 
 
-    pad_nodes_to = max_nodes * batch_size
-    pad_edges_to = max_edges * batch_size
+    pad_nodes_to = next_multiple_of_64(max_nodes * batch_size)
+    pad_edges_to = next_multiple_of_64(max_edges * batch_size)
 
     return pad_nodes_to, pad_edges_to
 
