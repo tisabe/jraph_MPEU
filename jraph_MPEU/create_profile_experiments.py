@@ -50,16 +50,14 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=12:00:00
+#SBATCH --time=6:00:00
 <gres>
 <constraint>
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-cd /u/dansp/jraph_MPEU
-# Load the environment with modules and python packages.
-source activate_jax.sh
-srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/parallel_gpu_py11/venv/bin/activate
+srun python3.11 /u/dansp/parallel_gpu_py11/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -111,10 +109,10 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
-    config.eval_every_steps = 100_000
-    config.num_train_steps_max = 100_000
-    config.log_every_steps = 100_000
-    config.checkpoint_every_steps = 100_000
+    config.eval_every_steps = 200_000
+    config.num_train_steps_max = 2_000_000
+    config.log_every_steps = 200_000
+    config.checkpoint_every_steps = 200_000
     config.limit_data = None
     config.selection = None
     config.data_file = <data_file>
