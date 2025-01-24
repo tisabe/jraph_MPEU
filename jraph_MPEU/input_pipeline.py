@@ -440,7 +440,7 @@ class DataReader:
                 # self._num_nodes_per_batch_before_batching.append(sum_of_nodes_in_batch)
                 # self._num_edges_per_batch_before_batching.append(sum_of_edges_in_batch)
 
-                accumulated_graphs = jraph.batch_np(accumulated_graphs)
+                accumulated_graphs = jraph.batch_np(accumulated_graphs, np_=jnp)
                 # Call get number of nodes/edges in the new list.
                 # Append to the list self._num_nodes_per_batch_after_batching.
 
