@@ -18,7 +18,8 @@ flags.DEFINE_string(
 
 
 BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
-COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
+# COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
+COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_combined_19_01_2025.csv'
 
 # BATCH_SIZE_LIST = [16, 32, 64, 128]
 BATCH_SIZE_LIST = [16, 32, 64, 128]
@@ -27,7 +28,7 @@ BATCH_SIZE_LIST = [16, 32, 64, 128]
 MODEL_TYPE_LIST = ['schnet', 'MPEU']
 
 # BATCH_METHOD_LIST = ['dynamic', 'static']
-BATCH_METHOD_LIST = ['dynamic', 'static']
+BATCH_METHOD_LIST = ['dynamic', 'static'] ##, 'static-64']
 # COMPUTING_TYPE_LIST = ['gpu_a100', 'cpu']
 COMPUTING_TYPE_LIST = ['gpu_a100']
 
@@ -67,7 +68,8 @@ def get_column_list(data_split):
 
 
 def get_avg_std_rmse(
-        df, model, batch_method, compute_type, batch_size, dataset, data_split):
+        df, model, batch_method, batching_round_to_64,
+        compute_type, batch_size, dataset, data_split):
     
     columns_to_keep = get_column_list(data_split)
     # print(columns_to_keep)
@@ -78,7 +80,7 @@ def get_avg_std_rmse(
     df = df[
         (df['model'] == model) & (df['batching_type'] == batch_method)
         & (df['computing_type'] == compute_type) & (df['batch_size'] == batch_size)
-        & (df['dataset'] == dataset)]
+        & (df['dataset'] == dataset) & (df['batching_round_to_64'] == batching_round_to_64)]
     # Now get the standard devation across different rows.
     # return df.mean(skipna = True), df.std(skipna = True)
     return df.mean(), df.std()
@@ -93,7 +95,9 @@ def plot_curves(
         compute_type, dataset, data_split='training'):
     # load the dataframe
     # df = pd.read_csv(csv_file)
-    fig, axs = plt.subplots(4, 2, figsize=(5.1, 7.65))
+    color_list = ['#1f77b4', '#ff7f0e', '#9467bd']
+
+    fig, axs = plt.subplots(4, 2, figsize=(5.1, 10.2))
     for model in model_types:
         if model == 'schnet':
             y_shift = 1
@@ -101,16 +105,31 @@ def plot_curves(
             y_shift = 0
         print(f'y_shift is {y_shift}')
         for batch_method in batch_method_list:
+            print(f'batch_method: {batch_method}')
             if batch_method == 'dynamic':
+                batching_round_to_64 = False
                 point_style = 'x'
-                markerfacecolor = 'blue'
-            else:
+                markerfacecolor = color_list[0]
+            label = batch_method
+            if batch_method == 'static-64':
+                batching_round_to_64 = True
+                batch_method = 'static'
+                label = 'static-$64$'
                 point_style = 'o'
-                markerfacecolor = 'red'
+                markerfacecolor = color_list[1]
+
+            elif batch_method == 'static':
+                batching_round_to_64 = False
+                batch_method = 'static'
+                label = 'static-$2^N$'
+                point_style = '^'
+                markerfacecolor = color_list[1]
+
 
             for x_shift, batch_size in enumerate(batch_size_list):
                 avg_rmse_df, std_rmse_df = get_avg_std_rmse(
-                    df, model, batch_method, compute_type, batch_size, dataset,
+                    df, model, batch_method, batching_round_to_64,
+                    compute_type, batch_size, dataset,
                     data_split)
                 # x_shift = BATCH_SIZE_DICT[str(batch_size)]
                 print(f'x_shift is {x_shift}')
@@ -132,28 +151,43 @@ def plot_curves(
 
                 axs[x_shift, y_shift].plot(step_list, avg_metric_list,
                                           marker=point_style,
-                                          linestyle='dashed',
-                                          markerfacecolor=markerfacecolor,
-                                          alpha=0.4)
+                                          markersize=9, linestyle='dashed',
+                                          color=markerfacecolor,
+                                          alpha=0.4, label=label)
                 
                 # errorbar(step_list, avg_metric_list,
                 #                 std_metric_list)
 
     # Set the axlimits the same for each side of the plot
     for x in range(0,4):
-        axs[x, 0].set_ylabel('RMSE', fontsize=12, font=FONT)
-        axs[x, 1].yaxis.tick_right()
-        axs[x, 1].tick_params(left=False)
-        axs[x, 0].tick_params(right=False)
+
+        axs[x, 0].set_ylabel('RMSE', fontsize=FONTSIZE, font=FONT)
+        # axs[x, 1].yaxis.tick_right()
+        # axs[x, 1].tick_params(left=False)
+        # axs[x, 0].tick_params(right=False)
         axs[x, 0].set_xlim(0, 2)
         axs[x, 1].set_xlim(0, 2)
-        axs[x, 0].set_ylim(0, 0.7)
-        axs[x, 1].set_ylim(0, 0.7)
+        axs[x, 0].set_ylim(0, 0.6)
+        axs[x, 1].set_ylim(0, 0.6)
+        axs[x, 1].set_yticks([0, 0.2, 0.4, 0.6])
+        axs[x, 0].set_yticks([0, 0.2, 0.4, 0.6])
+        axs[x, 0].set_yticklabels([0, 0.2, 0.4, 0.6])
+        axs[x, 1].set_yticklabels([])
+
+        axs[x, 1].text(0.5, 0.48, f'Batch size: {BATCH_SIZE_LIST[x]}', font=FONT, fontsize=FONTSIZE)
+
+        axs[x, 0].set_xticks([0, 0.5, 1.0, 1.5, 2.0])
+        axs[x, 1].set_xticks([0, 0.5, 1.0, 1.5, 2.0])
+        if x == 3:
+            axs[x, 0].set_xticklabels([0, 0.5, 1.0, 1.5, 2.0])
+            axs[x, 1].set_xticklabels([0, 0.5, 1.0, 1.5, 2.0])
+        else:
+            axs[x, 0].set_xticklabels([])
+            axs[x, 1].set_xticklabels([])
         # ax[1].set_yticks([1E-4, 1E-3, 1E-2, 1E-1, 1E0, 1E1, 1E2], minor=False)
-        axs[x, 1].set_yticks([], minor=False)
-        for y in range(0, 2):
-            plt.setp(axs[x, y].get_xticklabels(), fontsize=12, font=FONT) 
-            plt.setp(axs[x,  y].get_yticklabels(), fontsize=12, font=FONT)
+        # for y in range(0, 2):
+        #     plt.setp(axs[x, y].get_xticklabels(), fontsize=FONTSIZE, font=FONT) 
+        #     plt.setp(axs[x,  y].get_yticklabels(), fontsize=FONTSIZE, font=FONT)
         # axs[x, 0].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
         #     verticalalignment='center', transform=axs[x, 0].transAxes, fontsize=12)
         # axs[x, 1].text(0.8, 0.9, f'batch size {BATCH_SIZE_LIST[x]}', horizontalalignment='center',
@@ -163,12 +197,17 @@ def plot_curves(
     import matplotlib.font_manager as font_manager
     font = font_manager.FontProperties(family=FONT,
                                     # weight='bold',
-                                    style='normal', size=12)
-    plt.legend(["dynamic", "static"], loc='upper right', prop=font, edgecolor="black", fancybox=False)
+                                    style='normal', size=FONTSIZE)
 
-    axs[3, 0].set_xlabel('Steps (millions)', fontsize=12, font=FONT)
-    axs[3, 1].set_xlabel('Steps (millions)', fontsize=12, font=FONT)
-    plt.style.use(["science", "grid"])
+    axs[0, 0].set_title('AFLOW', font=FONT, fontsize=FONTSIZE)
+    axs[0, 1].set_title('QM9', font=FONT, fontsize=FONTSIZE)
+
+    axs[0, 0].legend(loc='upper right', prop=font, edgecolor="black", fancybox=False)
+
+    axs[3, 0].set_xlabel('Steps (millions)', fontsize=FONTSIZE, font=FONT)
+    axs[3, 1].set_xlabel('Steps (millions)', fontsize=FONTSIZE, font=FONT)
+    # plt.style.use(["science", "grid"])
+    fig.align_labels()
 
     plt.tight_layout()
 
@@ -178,76 +217,13 @@ def plot_curves(
     plt.show()
 
 def main(args):
-    # plot learning curves
-    # fig, ax = plt.subplots(2)
-    rmse_all = []
-    mae_all = []
+
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
 
     # COMPUTING_TYPE_LIST
     plot_curves(
         df, MODEL_TYPE_LIST, BATCH_SIZE_LIST, BATCH_METHOD_LIST,
         COMPUTING_TYPE_LIST[0], DATASET_LIST[1], data_split='test')
-
-    # try:
-    #     metrics_path = args.file
-    #     #metrics_path = 'results/mp/cutoff/lowlr/checkpoints/metrics.pkl'
-    #     with open(metrics_path, 'rb') as metrics_file:
-    #         metrics_dict = pickle.load(metrics_file)
-    #     print(metrics_path)
-
-    #     split = 'validation'
-    #     metrics = metrics_dict[split]
-    #     loss_rmse = [row[1][0] for row in metrics]
-    #     loss_mae = [row[1][1] for row in metrics]
-    #     step = [int(row[0]) for row in metrics]
-    #     min_step_index = np.argmin(loss_rmse)
-    #     print(f'Step with minimum loss: {step[min_step_index]}')
-    #     # TODO: import config and show hyperparameters
-    #     ax[0].plot(step, loss_rmse, label=metrics_path)
-    #     ax[1].plot(step, loss_mae, label=metrics_path)
-
-    #     #ax[0].legend()
-    #     #ax[1].legend()
-    #     ax[0].set_xlabel('gradient step', fontsize=12)
-    #     ax[1].set_xlabel('gradient step', fontsize=12)
-    #     ax[0].set_ylabel('RMSE (eV)', fontsize=12)
-    #     ax[1].set_ylabel('MAE (eV)', fontsize=12)
-    #     ax[0].set_yscale('log')
-    #     ax[1].set_yscale('log')
-
-    #     split = 'test'
-    #     metrics = metrics_dict[split]
-    #     loss_rmse = [row[1][0] for row in metrics]
-    #     loss_mae = [row[1][1] for row in metrics]
-
-    #     min_rmse = loss_rmse[min_step_index]
-    #     min_mae = loss_mae[min_step_index]
-    #     rmse_all.append(min_rmse)
-    #     mae_all.append(min_mae)
-    #     print(f'Minimum test RMSE: {min_rmse}')
-    #     print(f'Minimum test MAE: {min_mae}')
-
-    # except OSError:
-    #     print(f'{metrics_path} not a valid path, path is skipped.')
-    #     pass
-
-    # #ax[0].legend()
-    # #ax[1].legend()
-    # print(f'Average RMSE: {np.mean(rmse_all)} +- {np.std(rmse_all)}')
-    # print(f'Average MAE: {np.mean(mae_all)} +- {np.std(mae_all)}')
-    # ax[0].set_xlabel('gradient step', fontsize=12)
-    # ax[1].set_xlabel('gradient step', fontsize=12)
-    # ax[0].set_ylabel('MSE (eV)', fontsize=12)
-    # ax[1].set_ylabel('MAE (eV)', fontsize=12)
-    # ax[0].set_yscale('log')
-    # ax[1].set_yscale('log')
-    # plt.tight_layout()
-
-    # plt.show()
-    # fig.savefig(args.file+'/curves.png', bbox_inches='tight', dpi=600)
-
-    # return 0
 
 
 if __name__ == '__main__':

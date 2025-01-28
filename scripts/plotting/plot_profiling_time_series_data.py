@@ -23,7 +23,7 @@ DYNAMIC_CSV = 'time_series_dynamic_qm9_mpeu_gpu.csv'
 STATIC_64_CSV = 'time_series_static_64_qm9_mpeu_gpu.csv'
 STATIC_CSV = ''
 
-FONTSIZE = 14
+FONTSIZE = 12
 FONT = 'serif'
 
 
