@@ -3,53 +3,105 @@ inference script respectively. The model string in the passed config determines
 which model is chosen."""
 
 import pickle
+import os
+import json
 
+from absl import logging
 import haiku as hk
 import ml_collections
 
 from jraph_MPEU.models.gcn import GCN
 from jraph_MPEU.models.mpeu import MPEU
+from jraph_MPEU.models.mpeu_uq import MPEU_uq
 from jraph_MPEU.models.schnet import SchNet
-from jraph_MPEU.utils import load_config
+from jraph_MPEU.models.painn import get_painn
+from jraph_MPEU.utils import load_config, load_norm_dict
 
 
 def load_model(workdir, is_training):
     """Load model to evaluate on."""
-    state_dir = workdir+'/checkpoints/best_state.pkl'
-    with open(state_dir, 'rb') as state_file:
-        best_state = pickle.load(state_file)
+    config_path = os.path.join(workdir, 'config.json')
+    logging.info(f'loading config at {config_path}')
     config = load_config(workdir)
+
+    # get the correct max_atomic_number, it was changed from input config in
+    # input_pipeline
+    num_path = os.path.join(workdir, 'atomic_num_list.json')
+    logging.info(f'loading atomic_num_list at {num_path}')
+    with open(num_path, 'r', encoding="utf-8") as num_file:
+        num_list = json.load(num_file)
+        config.max_atomic_number = len(num_list)
+
     # load the model params
+    state_path = workdir+'/checkpoints/best_state.pkl'
+    logging.info(f'loading model parameters and state at {state_path}')
+    with open(state_path, 'rb') as state_file:
+        best_state = pickle.load(state_file)
     params = best_state['state']['params']
-    print(f'Loaded best state at step {best_state["state"]["step"]}')
-    if config.model_str == 'GCN':
-        net_fn = GCN(config, is_training)
-    elif config.model_str == 'MPEU':
-        net_fn = MPEU(config, is_training)
-    elif config.model_str == 'SchNet':
-        net_fn = SchNet(config, is_training)
-    else:
-        raise ValueError(
-            f'Model string {config.model_str} not recognized')
+    logging.info(f'Loaded best state at step {best_state["state"]["step"]}')
+    net_fn = create_model(config, is_training)
+
     # compatibility layer to load old models the were initialized without state
     try:
         hk_state = best_state['state']['hk_state']
         net = hk.transform_with_state(net_fn)
     except KeyError:
-        print('Loaded old stateless function. Converting to stateful.')
+        logging.info('Loaded old stateless function. Converting to stateful.')
         hk_state = {}
         net = hk.with_empty_state(hk.transform(net_fn))
-    return net, params, hk_state
+
+    # load target normalization dict
+    norm_path = os.path.join(workdir, 'normalization.json')
+    logging.info(f'loading norm_dict at {norm_path}')
+    norm_dict = load_norm_dict(norm_path)
+
+    return net, params, hk_state, config, num_list, norm_dict
+
+
+def load_ensemble(directory):
+    """Load an ensemble of models."""
+    net_list = []
+    params_list = []
+    hk_state_list = []
+    config_list = []
+    num_lists = []
+    norm_dict_list = []
+    with os.scandir(directory) as dirs:
+        for entry in dirs:
+            if entry.is_dir():
+                workdir = entry.path
+                if os.path.exists(workdir+'/checkpoints/best_state.pkl'):
+                    net, params, hk_state, config, num_list, norm_dict = load_model(
+                        workdir, is_training=False)
+                    net_list.append(net)
+                    params_list.append(params)
+                    hk_state_list.append(hk_state)
+                    config_list.append(config)
+                    num_lists.append(num_list)
+                    norm_dict_list.append(norm_dict)
+    return (
+        net_list,
+        params_list,
+        hk_state_list,
+        config_list[0],
+        num_lists[0],
+        norm_dict_list[0]
+    )
 
 
 def create_model(config: ml_collections.ConfigDict, is_training=True):
     """Return a function that applies the graph model."""
-    if config.model_str == 'GCN':
-        return GCN(config, is_training)
-    elif config.model_str == 'MPEU':
-        return MPEU(config, is_training)
-    elif config.model_str == 'SchNet':
-        return SchNet(config, is_training)
-    else:
-        raise ValueError(
-            f'Model string {config.model_str} not recognized')
+    match config.model_str:
+        case 'GCN':
+            return GCN(config, is_training)
+        case 'MPEU':
+            return MPEU(config, is_training)
+        case 'SchNet':
+            return SchNet(config, is_training)
+        case 'PaiNN':
+            return get_painn(config)
+        case 'MPEU_uq':
+            return MPEU_uq(config, is_training)
+        case _:
+            raise ValueError(
+                f'Model string {config.model_str} not recognized')

@@ -13,6 +13,7 @@ import jax
 from absl import logging
 import jax.numpy as jnp
 import jraph
+import haiku as hk
 
 from jraph_MPEU import train
 from jraph_MPEU.input_pipeline import get_datasets
@@ -28,8 +29,83 @@ class TestTrain(unittest.TestCase):
         self.assertEqual(self.config.batch_size, 32)
         # get testing datasets
         with tempfile.TemporaryDirectory() as test_dir:
-            datasets, _, _ = get_datasets(self.config, test_dir)
+            datasets, _ = get_datasets(self.config, test_dir)
             self.datasets = datasets
+
+    def test_nll(self):
+        """Test the negative log likelihood loss for uncertainty quantification."""
+        n_node = jnp.array([1, 1, 1, 1, 1, 1])
+        n_edge = jnp.array([1, 1, 1, 1, 1, 1])
+        #target = jnp.array([0, 0, 0, 0, 0, 0])
+        target = jnp.zeros((6))
+
+        graphs = jraph.GraphsTuple(
+            nodes=None,
+            edges=None,
+            n_node=n_node,
+            n_edge=n_edge,
+            receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+            senders=jnp.array([0, 1, 2, 3, 4, 5]),
+            globals=target
+        )
+        # pad the graphs with two additional one-node, one-edge graphs
+        graphs_padded = jraph.pad_with_graphs(graphs, 8, 8, 8)
+        mu_pred = jnp.ones((6,1))
+        sigma_pred = jnp.ones((6,1))*2.
+
+        mse_expected = 1/6*np.sum(np.square(jnp.expand_dims(target, 1)-mu_pred))
+        nll_expected = 1/6*np.sum(np.square(
+            jnp.expand_dims(target, 1)-mu_pred)/sigma_pred + np.log(sigma_pred))
+        mae_expected = np.mean(abs(jnp.expand_dims(target, 1) - mu_pred))
+
+        def net_apply(params, state, rng, graph):
+            """Dummy function that changes the global to fixed vector"""
+            del params, rng
+            graph = jraph.GraphsTuple(
+                nodes=None,
+                edges=None,
+                n_node=n_node,
+                n_edge=n_edge,
+                receivers=jnp.array([0, 1, 2, 3, 4, 5]),
+                senders=jnp.array([0, 1, 2, 3, 4, 5]),
+                globals={
+                    'mu': mu_pred,
+                    'sigma': sigma_pred}
+            )
+            graph = jraph.pad_with_graphs(graph, 8, 8, 8)
+            return graph, state
+        params = {}
+        rng = 1
+        interpolation_steps = 1_000_000
+        # At step 0 and step interpolation_steps, the loss should be equivalent to MSE.
+        # Since the target are always 0, and we predict mu 1, the MSE is exactly 6.
+        state = {'step': 0, 'hk_state': None}
+        mean_loss, (mae, new_state) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, mse_expected)
+        self.assertEqual(mae, mae_expected)
+        self.assertEqual(state, new_state)
+
+        state['step'] = interpolation_steps
+        mean_loss, (mae, _) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, mse_expected)
+        self.assertEqual(mae, mae_expected)
+
+        # At step 1.5*interpolation_steps, the loss should be halway between
+        # the nll loss and MSE
+        state['step'] = int(interpolation_steps*1.5)
+        mean_loss, (mae, _) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, (mse_expected+nll_expected)/2)
+        self.assertEqual(mae, mae_expected)
+
+        # At step 2*interpolation_steps, the loss should be just the nll
+        state['step'] = int(interpolation_steps*2)
+        mean_loss, (mae, new_state) = train.loss_fn_nll(
+            params, state, rng, graphs_padded, net_apply)
+        self.assertEqual(mean_loss, nll_expected)
+        self.assertEqual(mae, mae_expected)
 
     def test_cross_entropy(self):
         """Test the binary cross entropy loss function."""
@@ -66,7 +142,7 @@ class TestTrain(unittest.TestCase):
             return graph, state
         # test parameters
         params = {}
-        state = 'state'
+        state = {'hk_state': None}
         rng = 1
 
         loss, (acc, new_state) = train.loss_fn_bce(
@@ -81,18 +157,16 @@ class TestTrain(unittest.TestCase):
         self.assertAlmostEqual(loss, loss_expected)
         self.assertAlmostEqual(acc, acc_expected)
 
-
     def test_init_state(self):
         """Test that init optimizer state is the right class."""
         init_graphs = self.datasets['train'][0]
         with tempfile.TemporaryDirectory() as test_dir:
             _, state, _ = train.init_state(
                 self.config, init_graphs, test_dir)
-            opt_state = state['opt_state']
             # Ensure that the initialized state starts from step 0.
             self.assertEqual(state['step'], 0)
             self.assertIsInstance(state['rng'], type(jax.random.PRNGKey(0)))
-            self.assertIsInstance(opt_state, tuple)
+            self.assertIsInstance(state['opt_state'], tuple)
 
     def test_numerical_stability(self):
         """Test the minimum losses after 100 steps up to 5 decimal places.
@@ -109,10 +183,8 @@ class TestTrain(unittest.TestCase):
 
             self.assertIsInstance(evaluater.best_state, dict)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            print(type(lowest_val_loss))
             self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
             self.assertTrue(os.path.isfile(test_dir + '/REACHED_MAX_STEPS'))
-            #self.assertTrue(os.path.isfile(test_dir + '/result.csv'))
 
 
         # reset temp directory
@@ -121,10 +193,8 @@ class TestTrain(unittest.TestCase):
             evaluater, lowest_val_loss2 = train.train_and_evaluate(
                 config, test_dir)
             self.assertEqual(evaluater.best_state['step'], config.num_train_steps_max)
-            print(lowest_val_loss2 - lowest_val_loss)
             self.assertTrue(os.path.isfile(test_dir + '/REACHED_MAX_STEPS'))
-            #self.assertTrue(os.path.isfile(test_dir + '/result.csv'))
-            self.assertAlmostEqual(lowest_val_loss2, lowest_val_loss, places=4)
+            self.assertAlmostEqual(lowest_val_loss2, lowest_val_loss, places=6)
 
     def test_checkpoint_best_loss(self):
         """Test checkpointing of the best loss.
@@ -172,7 +242,6 @@ class TestTrain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             evaluater, _ = train.train_and_evaluate(
                 config, test_dir)
-            print(evaluater.loss_dict)
             self.assertCountEqual(
                 evaluater.loss_dict.keys(),
                 ['train', 'validation', 'test'])

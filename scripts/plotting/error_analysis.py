@@ -2,7 +2,6 @@
 using different metrics such as atomic numbers, number of species etc.
 """
 import os
-from collections import Counter
 
 from absl import app
 from absl import flags
@@ -72,7 +71,7 @@ def plot_regression(df, workdir, label_str, plot_name):
     if FLAGS.label == 'egap':
         xlim = [-0.5, 12.5]
         ylim = [-0.5, 12.5]
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         xlim = None
         ylim = None
     else:
@@ -96,11 +95,11 @@ def plot_regression(df, workdir, label_str, plot_name):
     if FLAGS.label == 'egap':
         g.ax_joint.set_xticks([0, 2, 4, 6, 8, 10, 12])
         g.ax_joint.set_yticks([0, 2, 4, 6, 8, 10, 12])
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         pass
-    else:
-        g.ax_joint.set_xticks([-4, -2, 0, 2])
-        g.ax_joint.set_yticks([-4, -2, 0, 2])
+    elif FLAGS.label == 'ef':
+        g.ax_joint.set_xticks([-4, -2, 0, 2, 4])
+        g.ax_joint.set_yticks([-4, -2, 0, 2, 4])
     x_ref = np.linspace(*g.ax_joint.get_xlim())
     g.ax_joint.plot(x_ref, x_ref, '--', alpha=0.2, color='grey')
     #plt.xlabel(CALCULATE_LABEL, fontsize=FLAGS.font_size)
@@ -142,6 +141,27 @@ def plot_space_groups(df, workdir, plot_name, counts):
     fig.savefig(workdir+plot_name, bbox_inches='tight', dpi=600)
 
 
+def spacegroup_scatter(df, workdir, plot_name):
+    """Plot mean error over number of entries in specific spacegroup."""
+    pmg_str = 'spacegroup_pmg'
+    sg_col = pmg_str if pmg_str in df.columns else 'spacegroup_relax'
+    df_grouped = df.groupby(sg_col).aggregate(
+        {'abs. error': 'mean', sg_col: 'count'})
+
+    fig, ax = plt.subplots()
+    sns.scatterplot(
+        x=sg_col,
+        y='abs. error',
+        data=df_grouped,
+        ax=ax
+    )
+    ax.set_xlabel(
+        'Number of training examples per spacegroup', fontsize=FLAGS.font_size)
+    ax.set_ylabel('MAE (Training split)', fontsize=FLAGS.font_size)
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_density(df, workdir, plot_name):
     fig, ax = plt.subplots()
     sns.histplot(
@@ -150,7 +170,7 @@ def plot_density(df, workdir, plot_name):
         data=df,
         ax=ax,
         cbar=True, cbar_kws={'label': 'Count'},
-        log_scale=True
+        log_scale=False if np.any(df['abs. error']==0) else True
     )
     ax.set_xlabel(r'Density $(g/cm^3)$', fontsize=FLAGS.font_size)
     ax.set_ylabel(ABS_ERROR_LABEL, fontsize=FLAGS.font_size)
@@ -192,7 +212,7 @@ def main(argv):
         PREDICT_LABEL = r'Predicted $E_g$ (eV)'
         CALCULATE_LABEL = r'Calculated $E_g$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
-    elif FLAGS.label == 'energy':
+    elif FLAGS.label == 'U0':
         PREDICT_LABEL = r'Predicted $U_0$ (eV)'
         CALCULATE_LABEL = r'Calculated $U_0$ (eV)'
         ABS_ERROR_LABEL = 'Abs. error (eV)'
@@ -225,13 +245,22 @@ def main(argv):
     labels = [
         'Triclinic', 'Monoclinic', 'Orthorhombic', 'Tetragonal',
         'Trigonal', 'Hexagonal', 'Cubic']
-    if 'spacegroup_relax' in df.columns:
+
+    if 'spacegroup_pmg' in df.columns:
+        print('Found pymatgen spacegroups...')
+        df['crystal system'] = pd.cut(df['spacegroup_pmg'], bins, labels=labels)
+    elif 'spacegroup_relax' in df.columns:
         df['crystal system'] = pd.cut(df['spacegroup_relax'], bins, labels=labels)
     else:
         print('Skipping spacegroup conversion.')
 
     if 'Egap_type' in df.columns:
-        df['Egap_type'] = df['Egap_type'].apply(lambda gap: gap.replace('_spin-polarized', ''))
+        def replace_fn(gap):
+            if isinstance(gap, str):
+                return gap.replace('_spin-polarized', '')
+            else:
+                return gap
+        df['Egap_type'] = df['Egap_type'].apply(replace_fn)
     else:
         print("Egap_type not found in properties, continuing without.")
     if 'dft_type' in df.columns:
@@ -265,10 +294,44 @@ def main(argv):
     median_err = df_test.median(0, numeric_only=True)['abs. error']
     print(f'Median error on test set: {median_err}')
 
+    if 'source_file' in df.columns:
+        source_files = set(df_test['source_file'].to_list())
+        for name in source_files:
+            df_test_db = df_test.loc[
+                lambda df_temp: df_temp['source_file'] == name]
+            mae_db = np.mean(df_test_db['abs. error'])
+            print(f'MAE for db {name}: {mae_db}')
+        if FLAGS.plot in ('all', 'scatter_dbs'):
+            fig, ax = plt.subplots()
+            sns.scatterplot(
+                x=config.label_str,
+                y='prediction',
+                data=df_test,
+                ax=ax,
+                hue='source_file'
+            )
+            plt.tight_layout()
+            plt.show()
+            fig.savefig(
+                workdir+'/regression_test_dbs.png', bbox_inches='tight', dpi=600)
+
     # print rows with highest errors
+    if 'auid' in df_test.columns:
+        col_to_print = ['auid', 'prediction', config.label_str, 'abs. error',
+        'formula', 'crystal system', 'Egap']
+    else:
+        col_to_print = ['prediction', config.label_str, 'abs. error', 'formula']
     df_test = df_test.sort_values(by='abs. error', axis='index')
-    print(df_test[-3:][['auid', 'prediction', config.label_str, 'abs. error',
-        'formula', 'crystal system', 'Egap']])
+    print(df_test[-3:][col_to_print])
+
+    if 'prediction_uq' in df_test:
+        sns.scatterplot(
+            x='abs. error',
+            y='prediction_uq',
+            data=df,
+            hue='split'
+        )
+        plt.show()
 
     if FLAGS.plot in ('all', 'natoms'):
         fig, ax = plt.subplots()
@@ -278,7 +341,7 @@ def main(argv):
             data=df_test,
             ax=ax,
             cbar=True, cbar_kws={'label': 'Count'},
-            log_scale=(False, True),
+            log_scale=False if np.any(df_test['abs. error']==0) else (False, True),
             bins=max(df_test['num_atoms'])
         )
         ax.set_xlabel('Number of atoms in unit cell', fontsize=FLAGS.font_size)
@@ -293,19 +356,19 @@ def main(argv):
             df_test, workdir, config.label_str, '/regression_test.png')
     if FLAGS.plot in ('all', 'spacegroup'):
         if 'spacegroup_relax' in df.columns:
-            col = df_train['crystal system']
-            counts = dict(Counter(col))
+            counts = df_train['crystal system'].value_counts(dropna=False)
             print(counts)
             plot_space_groups(df_test, workdir, '/error_vs_crystal.png', counts)
-            plt.pie(counts.values(), labels=counts.keys())
+            plt.pie(counts.values, labels=counts.index.to_list())
             plt.show()
         else:
             print('Skipping spacegroup plots.')
+    if FLAGS.plot in ('all', 'sg_scatter'):
+        spacegroup_scatter(df_train, workdir, '/sg_scatter.png')
     if FLAGS.plot in ('all', 'hist'):
         if 'Egap_type' in df.columns:
             plot_error_hist(df_test, workdir, '/error_hist.png', 'Egap_type')
-            col = df_train['Egap_type']
-            print(Counter(col))
+            print(df_train['Egap_type'].value_counts(dropna=False))
         else:
             plot_error_hist(df_test, workdir, '/error_hist.png', None)
     if FLAGS.plot in ('all', 'density'):
@@ -315,8 +378,7 @@ def main(argv):
             print('Skipping density plots.')
     if FLAGS.plot in ('all', 'ldau'):
         if 'ldau_type' in df.columns:
-            col = df_train['ldau_type']
-            print(Counter(col))
+            print(df_train['ldau_type'].value_counts(dropna=False))
             plot_ldau(df, workdir, '/error_vs_ldau.png')
         else:
             print('Skipping DFT+U plots.')

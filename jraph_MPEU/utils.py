@@ -2,11 +2,9 @@
 processing."""
 
 import os
-import time
 import json
-from ast import literal_eval
-import logging
-from typing import NamedTuple
+import pickle
+from typing import NamedTuple, List, Dict
 
 import jax.numpy as jnp
 import jraph
@@ -46,7 +44,7 @@ def dict_to_config(config_dict: dict) -> ml_collections.ConfigDict:
     return config
 
 
-class Config_iterator:
+class ConfigIterator:
     """Constructs an iterator for all combinations of elements in config.
 
     Essentially gives all the elements for a grid search.
@@ -64,31 +62,8 @@ class Config_iterator:
 
 
 def str_to_list(text):
+    """Convert a string into a list of integers, by removing [] and ' '."""
     return list(map(int, filter(None, text.lstrip('[').rstrip(']').split(' '))))
-
-
-def str_to_array(str_array):
-    '''Return a numpy array converted from a single string, representing an array.'''
-    return np.array(literal_eval(str_array))
-
-
-def str_to_array_replace(str_array):
-    '''Return a numpy array converted from a single string, representing an array,
-    while replacing spaces with commas.'''
-    str_array = str_array.replace('  ', ' ')
-    str_array = str_array.replace('[ ', '[')
-    str_array = str_array.replace(' ', ',')
-    return np.array(literal_eval(str_array))
-
-
-def str_to_array_float(str_array):
-    '''Return a numpy array converted from a single string, representing an array,
-    while replacing spaces with commas.'''
-    for _ in range(10):
-        str_array = str_array.replace('  ', ' ')
-    str_array = str_array.replace('[ ', '[')
-    str_array = str_array.replace(' ', ',')
-    return np.array(literal_eval(str_array))
 
 
 def save_config(config: ml_collections.ConfigDict, workdir: str):
@@ -97,13 +72,13 @@ def save_config(config: ml_collections.ConfigDict, workdir: str):
     File will be saved as config.json at workdir directory.
     """
     config_dict = vars(config)['_fields']
-    with open(os.path.join(workdir, 'config.json'), 'w') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'w', encoding="utf-8") as config_file:
         json.dump(config_dict, config_file, indent=4, separators=(',', ': '))
 
 
 def load_config(workdir: str) -> ml_collections.ConfigDict:
     """Load and return a config from the directory workdir."""
-    with open(os.path.join(workdir, 'config.json'), 'r') as config_file:
+    with open(os.path.join(workdir, 'config.json'), 'r', encoding="utf-8") as config_file:
         config_dict = json.load(config_file)
     config = dict_to_config(config_dict)
     return update_config_fields(config)
@@ -126,102 +101,146 @@ def dist_matrix(position_matrix):
       Euclidian distances between nodes as a jnp array.
         Size: (number of positions, number of positions)
     '''
-
-    row_norm_squared = jnp.sum(position_matrix * position_matrix, axis=-1)
+    row_norm_squared = np.sum(position_matrix * position_matrix, axis=-1)
     # Turn r into column vector
-    row_norm_squared = jnp.reshape(row_norm_squared, [-1, 1])
+    row_norm_squared = np.reshape(row_norm_squared, [-1, 1])
     # 2*pos*potT
-    distance_matrix = 2 * jnp.matmul(position_matrix, jnp.transpose(position_matrix))
-    distance_matrix = row_norm_squared + jnp.transpose(row_norm_squared) - distance_matrix
-    distance_matrix = jnp.abs(distance_matrix)  # to avoid negative numbers before sqrt
-    return jnp.sqrt(distance_matrix)
+    distance_matrix = 2 * np.matmul(position_matrix, np.transpose(position_matrix))
+    distance_matrix = row_norm_squared + np.transpose(row_norm_squared) - distance_matrix
+    distance_matrix = np.abs(distance_matrix)  # to avoid negative numbers before sqrt
+    return np.sqrt(distance_matrix)
 
 
-def normalize_targets_dict(graphs_dict, labels_dict, aggregation_type):
-    """Wrapper for normalize targets, when graphs and labels are dicts."""
-    # convert from dicts to arrays
-    inputs = list(graphs_dict.values())
-    outputs = list(labels_dict.values())
+def get_normalization_dict(graphs, normalization_type):
+    """Return the normalization dict given list of graphs and normalization
+    type.
+    
+    Args:
+      graphs: list of jraph.GraphsTuple with targets as global feature
+      normalization_type: string that describes which normalization to apply
+    
+    Returns:
+      dict with values for normalization (e.g. mean, standard deviation of 
+      features)
+    """
+    targets = np.array([graph.globals for graph in graphs])
 
-    res, mean, std = normalize_targets(inputs, outputs, aggregation_type)
+    match normalization_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node for graph in graphs])
+            scaled_targets = targets/n_nodes
+            norm_dict = {
+                "type": normalization_type,
+                "mean": np.mean(scaled_targets, axis=0),
+                "std": np.std(scaled_targets, axis=0)}
+        case 'standard'|'mean':
+            norm_dict = {
+                "type": normalization_type,
+                "mean": np.mean(targets, axis=0),
+                "std": np.std(targets, axis=0)}
+        case 'scalar_non_negative':
+            # this type is meant for fitting band gaps, or other non-zero targets,
+            # when the output of the last layer is also non-negative
+            norm_dict = {
+                "type": normalization_type,
+                "std": np.std(targets, axis=0)}
+        case _:
+            raise ValueError(
+                f"Unrecognized normalization type: {normalization_type}")
+    return norm_dict
 
-    # convert results back into dict
-    res_dict = {}
-    for id_single, label in zip(labels_dict.keys(), res):
-        res_dict[id_single] = label
 
-    return res_dict, mean, std
+def save_norm_dict(norm_dict, path):
+    """Save norm_dict at path."""
+    with open(path, 'w+', encoding="utf-8") as file:
+        json.dump(pickle.dumps(norm_dict).decode('latin-1'), file)
 
 
-def normalize_targets(inputs, outputs, aggregation_type):
-    """Return normalized outputs, based on aggregation type.
-
-    Also return mean and standard deviation for later rescaling.
-    Inputs, i.e. graphs, are used to get number of atoms,
-    for atom-wise scaling."""
-    outputs = np.reshape(outputs, len(outputs)) # convert to 1-D array
-    n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
-    for i in range(len(outputs)):
-        n_atoms[i] = inputs[i].n_node[0]
-
-    if aggregation_type == 'sum':
-        scaled_targets = np.array(outputs)/n_atoms
-    elif aggregation_type == 'mean':
-        scaled_targets = outputs
+def load_norm_dict(path):
+    """Load saved norm_dict at path."""
+    if os.path.exists(path):
+        with open(path, 'r', encoding="utf-8") as file:
+            norm_dict = pickle.loads(json.load(file).encode('latin-1'))
     else:
-        raise Exception(f"Unrecognized readout type: {aggregation_type}")
-    mean = np.mean(scaled_targets)
-    std = np.std(scaled_targets)
-
-    if aggregation_type == 'sum':
-        return (outputs - (mean*n_atoms))/std, mean, std
-    else:
-        return (scaled_targets - mean)/std, mean, std
+        norm_dict = {}
+    return norm_dict
 
 
-def get_normalization_metrics(graphs, aggregation_type):
-    """Wrapper for normalize_targets, when input is only graphs with globals."""
-    labels = [graph.globals for graph in graphs]
-    _, mean, std = normalize_targets(graphs, labels, aggregation_type)
-    return mean, std
+def normalize_targets(
+    graphs: List[jraph.GraphsTuple], targets: np.array, normalization: Dict
+    ) -> List[float]:
+    """Return normalized targets, based on normalization type.
+
+    Args:
+      graphs: list of jraph.GraphsTuple
+      targets: target values pre normalization, np.array of shape (N, F)
+      normalization: dict that contains values and description string to apply
+        normalization
+
+    Returns:
+      normalized targets, np.array of shape (N, F)
+    """
+    norm_type = normalization['type']
+    if 'mean' in normalization:
+        mean = normalization['mean']
+    if 'std' in normalization:
+        std = normalization['std']
+        # prevent division by zero
+        std = np.where(std==0, 1, std)
+
+    match norm_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node[0] for graph in graphs])
+            return (targets - np.outer(n_nodes, mean))/std
+        case 'standard'|'mean':
+            return (targets - mean)/std
+        case 'scalar_non_negative':
+            return targets/std
+        case _:
+            raise ValueError(f"Unrecognized normalization type: {norm_type}")
 
 
-def normalize_graphs(graphs, mean, std, aggregation_type):
-    """Return graphs with normalized global values."""
-    labels = []
-    for graph in graphs:
-        label = np.array(graph.globals)
-        if aggregation_type == 'sum':
-            label = (label - (mean*graph.n_node[0]))/std
-        elif aggregation_type == 'mean':
-            label = (label - mean)/std
-        else:
-            raise Exception(f"Unrecognized readout type: {aggregation_type}")
-        labels.append(label[0])
-    graphs = add_labels_to_graphs(graphs, labels)
-    return graphs
+def normalize_graph_globals(
+    graphs: List[jraph.GraphsTuple], normalization: Dict
+    ) -> List[jraph.GraphsTuple]:
+    """Return list of graphs with normalized globals according to normalization."""
+    targets = np.array([graph.globals for graph in graphs])
+    targets_norm = normalize_targets(graphs, targets, normalization)
+    graphs_norm = []
+    for graph, target in zip(graphs, targets_norm):
+        graph = graph._replace(globals=target)
+        graphs_norm.append(graph)
+    return graphs_norm
 
 
-def scale_targets(inputs, outputs, mean, std, aggregation_type):
-    '''Return scaled targets. Inverse of normalize_targets,
+def scale_targets(graphs, targets, normalization):
+    """Return scaled targets. Inverse of normalize_targets,
     scales targets back to the original size.
     Args:
-        inputs: list of jraph.GraphsTuple, to get number of atoms in graphs
-        outputs: 1D-array of normalized target values
-        mean: mean of original targets
-        std: standard deviation of original targets
-        aggregation_type: type of aggregation function
+        graphs: list of jraph.GraphsTuple, to get number of atoms in graphs
+        targets: array of normalized target values, np.array of shape (N, F)
+        normalization: dict that contains values and description string to apply
+            normalization
     Returns:
-        numpy.array of scaled target values
-    '''
-    outputs = np.reshape(outputs, len(outputs))
-    if aggregation_type == 'sum':
-        n_atoms = np.zeros(len(outputs)) # save all numbers of atoms in array
-        for i in range(len(outputs)):
-            n_atoms[i] = inputs[i].n_node
-        return np.reshape((outputs * std) + (n_atoms * mean), (len(outputs), 1))
-    else:
-        return (outputs * std) + mean
+        numpy.array of scaled target values, np.array of shape (N, F)
+    """
+    norm_type = normalization['type']
+    if 'mean' in normalization:
+        mean = normalization['mean']
+    if 'std' in normalization:
+        std = normalization['std']
+        std = np.where(std==0, 1, std)
+
+    match norm_type:
+        case 'per_atom_standard'|'sum':
+            n_nodes = np.array([graph.n_node[0] for graph in graphs])
+            return targets*std + np.outer(n_nodes, mean)
+        case 'standard'|'mean':
+            return targets*std + mean
+        case 'scalar_non_negative':
+            return targets*std
+        case _:
+            raise ValueError(f"Unrecognized normalization type: {norm_type}")
 
 
 def _nearest_bigger_power_of_two(num: int) -> int:
@@ -243,19 +262,19 @@ def _nearest_bigger_multiple_of_64(num: int) -> int:
 def pad_graph_to_nearest_multiple_of_64(
         graphs_tuple: jraph.GraphsTuple) -> jraph.GraphsTuple:
     """Pads a batched `GraphsTuple` to the nearest power of two.
-  For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
-  would pad the `GraphsTuple` nodes and edges:
-    7 nodes --> 8 nodes (2^3)
-    5 edges --> 8 edges (2^3)
-  And since padding is accomplished using `jraph.pad_with_graphs`, an extra
-  graph and node is added:
-    8 nodes --> 9 nodes
-    3 graphs --> 4 graphs
-  Args:
-    graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
-  Returns:
-    A graphs_tuple batched to the nearest power of two.
-  """
+    For example, if a `GraphsTuple` has 7 nodes, 5 edges and 3 graphs, this method
+    would pad the `GraphsTuple` nodes and edges:
+        7 nodes --> 8 nodes (2^3)
+        5 edges --> 8 edges (2^3)
+    And since padding is accomplished using `jraph.pad_with_graphs`, an extra
+    graph and node is added:
+        8 nodes --> 9 nodes
+        3 graphs --> 4 graphs
+    Args:
+        graphs_tuple: a batched `GraphsTuple` (can be batch size 1).
+    Returns:
+        A graphs_tuple batched to the nearest power of two.
+    """
     # Add 1 since we need at least one padding node for pad_with_graphs.
     # Note, the plus one should be insid ethe operator since we want a power of
     # two returned.
@@ -424,25 +443,3 @@ def get_valid_mask(
     graph_mask = jraph.get_graph_padding_mask(graphs)
 
     return jnp.expand_dims(graph_mask, 1)
-
-
-class Time_logger:
-    """Class to keep track of time spent per gradient step. WIP"""
-    def __init__(self, config):
-        self.start = time.time()
-        self.step_max = config.num_train_steps_max
-        self.time_limit = config.time_limit
-
-    def log_eta(self, step):
-        """Log the estimated time of arrival, with the maximum number of steps."""
-        time_elapsed = time.time() - self.start
-        eta = int(time_elapsed * (self.step_max/step - 1))
-        logging.info(f'step {step}, ETA: {eta//3600}h{(eta%3600)//60}m')
-
-    def get_time_stop(self):
-        """Return whether the time is over the time limit."""
-        time_elapsed = time.time() - self.start
-        if self.time_limit is not None:
-            return (time_elapsed/3600) > self.time_limit
-        else:
-            return False

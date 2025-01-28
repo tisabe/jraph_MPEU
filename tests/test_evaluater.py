@@ -11,12 +11,10 @@ import jax.numpy as jnp
 import jraph
 import haiku as hk
 
-import ml_collections
-
 from jraph_MPEU.utils import replace_globals, get_valid_mask
 from jraph_MPEU.input_pipeline import get_datasets, DataReader
-from jraph_MPEU_configs import default_test as cfg
 from jraph_MPEU.train import Evaluater, create_model
+from jraph_MPEU_configs import default_test as cfg
 
 
 def get_random_graph(n_node):
@@ -39,7 +37,8 @@ class UnitTests(unittest.TestCase):
         config = cfg.get_config()
 
         with tempfile.TemporaryDirectory() as test_dir:
-            datasets, mean, std = get_datasets(config, test_dir)
+            datasets, norm_dict = get_datasets(config, test_dir)
+            std = norm_dict['std']
 
             init_graphs = datasets['train'][0]
 

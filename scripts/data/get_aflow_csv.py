@@ -1,6 +1,7 @@
 """Pulling Data from AFLOW."""
 
-import json, sys, os
+import json
+from pathlib import Path
 from urllib.request import urlopen
 import pandas
 
@@ -21,18 +22,23 @@ print(summons)
 URL = SERVER+API+summons
 print("URL:", URL)
 response = json.loads(urlopen(URL).read())
-print(type(response))
 
 df = pandas.DataFrame(response)
-#print(df.head())
+print("Before removing aurl duplicates")
 print(df.describe())
 
 # remove duplicates by auid
 #df = df.drop_duplicates(subset='auid')
 df = df.drop_duplicates(subset='aurl')
 #print(df.head())
+print("After removing aurl duplicates")
 print(df.describe())
 
 if input("Save the dataset? [y/n]") == "y":
-    df.to_csv(
-        (input('Type directory and filename as "dir/filename.csv": ')))
+    if input("Use default path 'databases/aflow/default.csv'? [y/n]") == "y":
+        output_file = 'default.csv'
+        output_dir = Path('databases/aflow')
+        output_dir.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output_dir / output_file)
+    else:
+        df.to_csv(input('Type existing directory and new filename as "dir/filename.csv": '))

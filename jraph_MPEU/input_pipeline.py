@@ -35,15 +35,11 @@ from jraph_MPEU.utils import (
     pad_graph_to_nearest_multiple_of_64,
     get_normalization_metrics,
     normalize_graphs,
-    load_config
+    get_normalization_dict,
+    normalize_graph_globals,
+    save_norm_dict,
+    load_norm_dict
 )
-
-
-def load_data(workdir):
-    """Load datasets only using the working directory."""
-    config = load_config(workdir)
-    dataset, mean, std = get_datasets(config, workdir)  # might refactor
-    return dataset, mean, std
 
 
 def get_graph_fc(atoms: Atoms):
@@ -55,7 +51,7 @@ def get_graph_fc(atoms: Atoms):
     if np.any(atoms.get_pbc()):
         #raise Exception('Received Atoms object with periodic boundary conditions. ' +
         #    'Fully connected graph cannot be generated.')
-        raise Exception('PBC not allowed for fully connected graph.')
+        raise ValueError('PBC not allowed for fully connected graph.')
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
     receivers = []
@@ -72,11 +68,11 @@ def get_graph_fc(atoms: Atoms):
                 i_pos = atom_positions[i]
                 j_pos = atom_positions[j]
                 dist_vec = i_pos - j_pos
-                dist = np.sqrt(np.dot(dist_vec, dist_vec))
+                #dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
                 senders.append(j)
                 receivers.append(i)
-                edges.append(dist)
+                edges.append(dist_vec)
 
     return (
         np.array(nodes),
@@ -88,8 +84,9 @@ def get_graph_fc(atoms: Atoms):
 
 
 def get_graph_cutoff(atoms: Atoms, cutoff):
-    '''Return the graph features, with cutoff adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
+    """Return the graph features, with cutoff adjacency.
+    Inspired by https://github.com/peterbjorgensen/msgnet/blob/mastesr/src/msgnet/dataloader.py
+    """
 
     nodes = [] # initialize arrays, to be filled in loop later
     senders = []
@@ -125,14 +122,14 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
             i_pos = atom_positions[i]
             j_pos = atom_positions[j] + np.dot(offs, unitcell)
             dist_vec = i_pos - j_pos
-            dist = np.sqrt(np.dot(dist_vec, dist_vec))
+            #dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
             senders.append(j)
             receivers.append(i)
-            edges.append(dist)
+            edges.append(dist_vec)
 
     if len(edges) == 0:
-        warnings.warn("Generated graph has zero edges")
+        warnings.warn("Generated graph has zero edges", RuntimeWarning)
         edges = np.zeros((0, 1))
 
     return (
@@ -145,8 +142,9 @@ def get_graph_cutoff(atoms: Atoms, cutoff):
 
 def get_graph_knearest(
         atoms: Atoms, num_neighbors, initial_radius=3.0):
-    '''Return the graph features, with knearest adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py'''
+    """Return the graph features, with knearest adjacency.
+    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py
+    """
 
     atoms.wrap() # put atoms inside unit cell by wrapping their positions
     atom_numbers = atoms.get_atomic_numbers()
@@ -167,6 +165,7 @@ def get_graph_knearest(
         neighborhood.update(atoms)
 
         nodes = []
+        dists = []
         edges = []
         senders = []
         receivers = []
@@ -183,6 +182,7 @@ def get_graph_knearest(
 
         early_exit = False
         for i in range(len(atoms)):
+            this_dists = []
             this_edges = []
             this_senders = []
             this_receivers = []
@@ -197,18 +197,20 @@ def get_graph_knearest(
                 dist_vec = i_pos - j_pos
                 dist = np.sqrt(np.dot(dist_vec, dist_vec))
 
-                this_edges.append([dist])
+                this_dists.append([dist])
+                this_edges.append(dist_vec)
                 this_senders.append(j)
                 this_receivers.append(i)
+            dists.append(np.array(this_dists))
             edges.append(np.array(this_edges))
             senders.append(np.array(this_senders))
             receivers.append(np.array(this_receivers))
         if early_exit:
             continue
         else:
-            for e_ind, s_ind, r_ind in zip(edges, senders, receivers):
+            for d_ind, e_ind, s_ind, r_ind in zip(dists, edges, senders, receivers):
                 # Keep only num_neighbors closest indices
-                keep_ind = np.argsort(e_ind[:, 0])[0:num_neighbors]
+                keep_ind = np.argsort(d_ind[:, 0])[0:num_neighbors]
                 keep_edges.append(e_ind[keep_ind])
                 keep_senders.append(s_ind[keep_ind])
                 keep_receivers.append(r_ind[keep_ind])
@@ -216,7 +218,7 @@ def get_graph_knearest(
     return (
         np.array(nodes),
         atom_positions,
-        np.concatenate(keep_edges).flatten(),
+        np.concatenate(keep_edges).reshape(-1, 3),
         np.concatenate(keep_senders),
         np.concatenate(keep_receivers),
     )
@@ -276,7 +278,7 @@ def asedb_to_graphslist(
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
-        n_edge = int(graph.n_edge)
+        n_edge = graph.n_edge[0]
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
                 # TODO: test this
@@ -489,7 +491,7 @@ class DataReader:
 
 
 def get_train_val_test_split_dict(
-        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=42):
+        id_list: list, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed_test=42):
     """Return the id_list split into train, validation and test indices."""
     if abs(train_frac + val_frac + test_frac - 1.0) > 1e-5:
         raise ValueError('Train, val and test fractions do not add up to one.')
@@ -498,8 +500,8 @@ def get_train_val_test_split_dict(
         val_and_test_set) = sklearn.model_selection.train_test_split(
             id_list,
             test_size=test_frac+val_frac,
-            random_state=seed-42)
-    # seed-42 as seed is 42 by default, but default random state should be 0
+            random_state=seed_test-42)
+    # seed_test-42 as seed is 42 by default, but default random state should be 0
 
     (
         val_set,
@@ -540,16 +542,19 @@ def lists_to_split_dict(split_lists):
     return split_dict
 
 
-def save_split_dict(split_lists, workdir):
+def save_split_dict(split_lists, workdir, database_path=None):
     """Save the split_lists in json file at workdir.
+    The additional parameter 'database_path' can be used to more easily
+    troubleshoot the split file. The parameter will be added to the saved dict.
 
     The split_lists has signature:
     {'split1': [1, 2,...], 'split2': [11, 21...]}, ... and this is turned into
     the signature {1: 'split1', 2: 'split1',... 11: 'split2',...}.
     This format is more practical when doing the inference after training."""
     split_dict = lists_to_split_dict(split_lists)
+    split_dict['database_path'] = database_path
 
-    with open(os.path.join(workdir, 'splits.json'), 'w') as splits_file:
+    with open(os.path.join(workdir, 'splits.json'), 'w', encoding="utf-8") as splits_file:
         json.dump(split_dict, splits_file, indent=4, separators=(',', ': '))
 
 
@@ -557,8 +562,9 @@ def load_split_dict(workdir):
     """Load the split dict that saved ids and their split in workdir.
 
     The keys are integer ids and the values are splitnames as strings."""
-    with open(os.path.join(workdir, 'splits.json'), 'r') as splits_file:
+    with open(os.path.join(workdir, 'splits.json'), 'r', encoding="utf-8") as splits_file:
         splits_dict = json.load(splits_file, parse_int=True)
+    splits_dict.pop('database_path', None)
     return {int(k): v for k, v in splits_dict.items()}
 
 
@@ -568,6 +574,15 @@ def cut_egap(egap: float, threshold: float = 0.0):
         return 1
     else:
         return 0
+
+
+def shuffle_train_val_data(train_data: list, val_data: list, seed):
+    """Shuffle elements between the two lists, retaining number of datapoints."""
+    n_val_data = len(val_data)
+    data = train_data + val_data
+    train_data, val_data = sklearn.model_selection.train_test_split(
+        data, test_size=n_val_data, random_state=seed)
+    return train_data, val_data
 
 
 def get_datasets(config, workdir):
@@ -615,11 +630,22 @@ def get_datasets(config, workdir):
     if not os.path.exists(num_path):
         num_list = get_atom_num_list(graphs_dict)
         # save num list here
-        with open(num_path, 'w+') as num_file:
+        with open(num_path, 'w+', encoding="utf-8") as num_file:
             json.dump(num_list, num_file)
     else:
-        with open(num_path, 'r') as num_file:
+        with open(num_path, 'r', encoding="utf-8") as num_file:
             num_list = json.load(num_file)
+        # the list might be empty from a failed previous run,
+        # if so, generate new list
+        if len(num_list) == 0:
+            os.remove(num_path)
+            num_list = get_atom_num_list(graphs_dict)
+            # save num list here
+            with open(num_path, 'w+', encoding="utf-8") as num_file:
+                json.dump(num_list, num_file)
+    #num_list = list(range(100))  # TODO: this is only a hack to make inference
+    # across databases easier, this should be reverted in the future
+    # aflow_x_mp
     graphs_dict = atoms_to_nodes_list(graphs_dict, num_list)
 
     num_classes = len(num_list)
@@ -633,12 +659,19 @@ def get_datasets(config, workdir):
         # If split file did not exist before, generate and save it
         split_lists = get_train_val_test_split_dict(
             ids, 1.0-(config.val_frac+config.test_frac), config.val_frac,
-            config.test_frac, seed=config.seed
+            config.test_frac, seed_test=config.seed_splits
         )
-        save_split_dict(split_lists, workdir)
+        save_split_dict(split_lists, workdir, database_path=config.data_file)
     else:
         # If it did exist, convert split_dict to split_lists
         split_lists = split_dict_to_lists(split_dict)
+
+    if "shuffle_val_seed" in config:
+        if config.shuffle_val_seed != -1:
+            split_lists['train'], split_lists['validation'] = shuffle_train_val_data(
+                split_lists['train'], split_lists['validation'], config.shuffle_val_seed)
+            # overwrite split.json with new split ids
+            save_split_dict(split_lists, workdir, database_path=config.data_file)
 
     graphs_split = {}  # dict with the graphs list divided into splits
     for key, id_list in split_lists.items():
@@ -647,22 +680,41 @@ def get_datasets(config, workdir):
             # append graph from graph_list using the id in split_dict
             graphs_split[key].append(graphs_dict[id_single])
 
-    # get normalization metrics from train data
-    if config.label_type == 'scalar':
-        mean, std = get_normalization_metrics(
-            graphs_split['train'], config.aggregation_readout_type)
-        logging.info(f'Mean: {mean}, Std: {std}')
-    elif config.label_type == 'class':
-        mean, std = None, None
+    # get normalization metrics from train data, or from file if it exists
+    norm_path = os.path.join(workdir, 'normalization.json')
+    if not os.path.exists(norm_path):
+        match config.label_type:
+            case 'scalar':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], config.aggregation_readout_type)
+                logging.info(f"Normalization: {norm_dict}")
+                save_norm_dict(norm_dict, norm_path)
+            case 'scalar_non_negative':
+                norm_dict = get_normalization_dict(
+                    graphs_split['train'], 'scalar_non_negative')
+                logging.info(f"Normalization: {norm_dict}")
+                save_norm_dict(norm_dict, norm_path)
+            case 'class'|'class_binary'|'class_multi':
+                norm_dict = {}
+            case _:
+                raise ValueError(
+                    f'{config.label_type} not recognized as label type.')
     else:
-        raise ValueError(f'{config.label_type} not recognized as label type.')
+        match config.label_type:
+            case 'scalar'|'scalar_non_negative':
+                norm_dict = load_norm_dict(norm_path)
+            case 'class'|'class_binary'|'class_multi':
+                norm_dict = {}
+            case _:
+                raise ValueError(
+                    f'{config.label_type} not recognized as label type.')
 
     for split, graphs_list in graphs_split.items():
-        if config.label_type == 'scalar':
-            graphs_split[split] = normalize_graphs(
-                graphs_list, mean, std, config.aggregation_readout_type)
-        elif config.label_type == 'class':
+        if norm_dict:
+            graphs_split[split] = normalize_graph_globals(
+                graphs_list, norm_dict)
+        else:
             for i, graph in enumerate(graphs_list):
                 label = cut_egap(graph.globals[0], config.egap_cutoff)
                 graphs_list[i] = graph._replace(globals=np.array([label]))
-    return graphs_split, mean, std
+    return graphs_split, norm_dict

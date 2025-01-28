@@ -10,15 +10,16 @@ from absl import app
 from absl import flags
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import numpy as np
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
 flags.DEFINE_integer('font_size', 12, 'font size to use in labels')
 flags.DEFINE_integer('tick_size', 12, 'font size to use in labels')
-flags.DEFINE_string('unit', 'eV/atom', 'kind of label that is trained on. Used to \
-    define the plot label. e.g. "ef" or "egap"')
-
+flags.DEFINE_string('loss_primary', 'RMSE (eV)', 'Name for primary loss label')
+flags.DEFINE_string(
+    'loss_secondary', 'MAE (eV)', 'Name for secondary loss label')
 ABS_ERROR_LABEL = ''
 
 
@@ -49,9 +50,10 @@ def main(args_parsed):
 
         ax[1].legend(fontsize=FLAGS.font_size-3)
         ax[1].set_xlabel('Gradient step', fontsize=FLAGS.font_size)
-        ax[0].set_ylabel(f'RMSE ({FLAGS.unit})', fontsize=FLAGS.font_size)
-        ax[1].set_ylabel(f'MAE ({FLAGS.unit})', fontsize=FLAGS.font_size)
-        ax[0].set_yscale('log')
+        ax[0].set_ylabel(FLAGS.loss_primary, fontsize=FLAGS.font_size)
+        ax[1].set_ylabel(FLAGS.loss_secondary, fontsize=FLAGS.font_size)
+        if np.all(np.asarray(loss_mse)>0):
+            ax[0].set_yscale('log')
         ax[1].set_yscale('log')
         ax[0].xaxis.set_major_formatter(ticker.EngFormatter())
         ax[0].tick_params(which='both', labelsize=FLAGS.tick_size)
