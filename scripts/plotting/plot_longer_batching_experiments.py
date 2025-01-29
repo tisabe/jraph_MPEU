@@ -98,11 +98,23 @@ def plot_curves(
     color_list = ['#1f77b4', '#ff7f0e', '#9467bd']
 
     fig, axs = plt.subplots(4, 2, figsize=(5.1, 10.2))
+
+    if dataset == 'qm9':
+        units = '(eV)'
+        yticks = [0, 0.2, 0.4, 0.6, 0.8]
+        ylim = 0.8
+    else:
+        units = '(eV/atom)'
+        yticks = [0, 0.1, 0.2, 0.3]
+        ylim = 0.3
+
     for model in model_types:
         if model == 'schnet':
             y_shift = 1
         else:
             y_shift = 0
+
+
         print(f'y_shift is {y_shift}')
         for batch_method in batch_method_list:
             print(f'batch_method: {batch_method}')
@@ -161,20 +173,20 @@ def plot_curves(
     # Set the axlimits the same for each side of the plot
     for x in range(0,4):
 
-        axs[x, 0].set_ylabel('RMSE', fontsize=FONTSIZE, font=FONT)
+        axs[x, 0].set_ylabel(f'RMSE {units}', fontsize=FONTSIZE, font=FONT)
         # axs[x, 1].yaxis.tick_right()
         # axs[x, 1].tick_params(left=False)
         # axs[x, 0].tick_params(right=False)
         axs[x, 0].set_xlim(0, 2)
         axs[x, 1].set_xlim(0, 2)
-        axs[x, 0].set_ylim(0, 0.6)
-        axs[x, 1].set_ylim(0, 0.6)
-        axs[x, 1].set_yticks([0, 0.2, 0.4, 0.6])
-        axs[x, 0].set_yticks([0, 0.2, 0.4, 0.6])
-        axs[x, 0].set_yticklabels([0, 0.2, 0.4, 0.6])
+        axs[x, 0].set_ylim(0, ylim)
+        axs[x, 1].set_ylim(0, ylim)
+        axs[x, 1].set_yticks(yticks)
+        axs[x, 0].set_yticks(yticks)
+        axs[x, 0].set_yticklabels(yticks)
         axs[x, 1].set_yticklabels([])
 
-        axs[x, 1].text(0.5, 0.48, f'Batch size: {BATCH_SIZE_LIST[x]}', font=FONT, fontsize=FONTSIZE)
+        axs[x, 1].text(0.5, ylim-0.2*ylim, f'Batch size: {BATCH_SIZE_LIST[x]}', font=FONT, fontsize=FONTSIZE)
 
         axs[x, 0].set_xticks([0, 0.5, 1.0, 1.5, 2.0])
         axs[x, 1].set_xticks([0, 0.5, 1.0, 1.5, 2.0])
@@ -199,8 +211,9 @@ def plot_curves(
                                     # weight='bold',
                                     style='normal', size=FONTSIZE)
 
-    axs[0, 0].set_title('AFLOW', font=FONT, fontsize=FONTSIZE)
-    axs[0, 1].set_title('QM9', font=FONT, fontsize=FONTSIZE)
+    axs[0, 0].set_title('MPEU', font=FONT, fontsize=FONTSIZE)
+    axs[0, 1].set_title('SchNet', font=FONT, fontsize=FONTSIZE)
+    axs[0, 1].text(0.5, ylim-0.317*ylim, f'{dataset.upper()}', font=FONT, fontsize=FONTSIZE)
 
     axs[0, 0].legend(loc='upper right', prop=font, edgecolor="black", fancybox=False)
 
@@ -212,7 +225,7 @@ def plot_curves(
     plt.tight_layout()
 
     plt.savefig(
-        '/home/dts/Documents/theory/batching_paper/figs/longer_batching_test_qm9_gpu.png',
+        f'/home/dts/Documents/theory/batching_paper/figs/test_curves_{dataset}_gpu.png',
         dpi=600)
     plt.show()
 
