@@ -257,18 +257,18 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
         ylabels = [0, 50, 100, 150, 200]
         ax[0, 1].text(12, 6.5, 'CPU only', font=FONT, fontsize=FONTSIZE)
     else:
-        ax[0, 1].text(12, 6.5, 'GPU+CPU', font=FONT, fontsize=FONTSIZE)
+        # ax[0, 1].text(12, 6.5, 'GPU+CPU', font=FONT, fontsize=FONTSIZE)
         ylim = 15
         ylabels = [0, 5, 10, 15]
-
-    ax[0, 1].text(12, 4.5, mean_or_median, font=FONT, fontsize=FONTSIZE)
-    ax[0, 1].text(12, 3.5, '100,000 steps', font=FONT, fontsize=FONTSIZE)
+    # Change this to 4.5 if using the CPU
+    ax[0, 1].text(12, 5.5, mean_or_median, font=FONT, fontsize=FONTSIZE)
+    ax[0, 1].text(12, 4.5, '100,000 steps', font=FONT, fontsize=FONTSIZE)
 
     if model == 'schnet':
         model_label = 'SchNet'
     else:
         model_label = model
-    ax[0, 1].text(12, 5.5, model_label, font=FONT, fontsize=FONTSIZE)
+    ax[0, 1].text(12, 6.5, model_label, font=FONT, fontsize=FONTSIZE)
 
     ax[1, 0].set_yticks(ylabels, font=FONT, fontsize=FONTSIZE)
     ax[1, 0].set_yticklabels(ylabels, font=FONT, fontsize=FONTSIZE, rotation=0)
@@ -396,7 +396,7 @@ def main(argv):
     # AFLOW / SchNet (GPU / CPU)
     plot_batching_update_subplot(df, model='MPEU',
                                  compute_type='gpu_a100',
-                                 mean_or_median='mean')
+                                 mean_or_median='median')
                                 #  compute_type='gpu_a100')
     # plot_recompilation_bar_plot(df)
 

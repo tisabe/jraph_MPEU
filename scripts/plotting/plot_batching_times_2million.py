@@ -245,7 +245,7 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
         ylabels = [0, 50, 100, 150, 200]
         ax[0, 1].text(12, 6.5, 'CPU only', font=FONT, fontsize=FONTSIZE)
     else:
-        ax[0, 1].text(12, 6.5+offset, 'GPU+CPU', font=FONT, fontsize=FONTSIZE)
+        # ax[0, 1].text(12, 6.5+offset, 'GPU+CPU', font=FONT, fontsize=FONTSIZE)
         if model == 'schnet':
             ylim = 8
             ylabels = [0, 2, 4, 6, 8]
@@ -253,11 +253,11 @@ def plot_batching_update_subplot(df, model, compute_type, mean_or_median):
             ylim = 10
             ylabels = [0, 2, 4, 6, 8, 10]
 
-    ax[0, 1].text(12, 4.5+offset, mean_or_median, font=FONT, fontsize=FONTSIZE)
+    ax[0, 1].text(12, 5.5+offset, mean_or_median, font=FONT, fontsize=FONTSIZE)
 
 
         
-    ax[0, 1].text(12, 5.5+offset, model_label, font=FONT, fontsize=FONTSIZE)
+    ax[0, 1].text(12, 6.5+offset, model_label, font=FONT, fontsize=FONTSIZE)
 
 
     ax[0, 0].set_ylabel('Batching time (ms)', fontsize=FONTSIZE, font=FONT)

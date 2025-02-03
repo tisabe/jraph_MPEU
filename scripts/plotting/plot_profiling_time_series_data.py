@@ -21,7 +21,7 @@ BASE_DIR = '/home/dts/Documents/hu/batch_stats'
 # COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
 DYNAMIC_CSV = 'time_series_dynamic_qm9_mpeu_gpu.csv'
 STATIC_64_CSV = 'time_series_static_64_qm9_mpeu_gpu.csv'
-STATIC_CSV = ''
+STATIC_CSV = 'time_series_static_2n_qm9_mpeu_gpu.csv'
 
 FONTSIZE = 12
 FONT = 'serif'
@@ -34,6 +34,7 @@ def plot_curves():
     fig, ax = plt.subplots(1, 1, figsize=(5.1, 4))
     dynamic_df = pd.read_csv(os.path.join(BASE_DIR, DYNAMIC_CSV))
     stats_64_df = pd.read_csv(os.path.join(BASE_DIR, STATIC_64_CSV))
+    stats_2n_df = pd.read_csv(os.path.join(BASE_DIR, STATIC_CSV))
 
     ax.plot(
         dynamic_df['step_number']/1000000,
@@ -49,6 +50,12 @@ def plot_curves():
         alpha=0.4, markersize=8,
         label='static-64', color=color_list[1])
 
+    ax.plot(
+        stats_2n_df['step_number']/1000000,
+        stats_2n_df['combined_time'],
+        marker_list[1],
+        alpha=0.4, markersize=8,
+        label='static-$2^N$', color=color_list[2])
 
     import matplotlib.font_manager as font_manager
     font = font_manager.FontProperties(family=FONT,
@@ -73,29 +80,38 @@ def plot_curves():
     plt.show()
 
 def plot_running_average_curves():
-    color_list = ['k', 'r', 'b']
-    marker_list = ['x', '^', '.']
+
     fig, ax = plt.subplots(1, 1, figsize=(5.1, 4))
     dynamic_df = pd.read_csv(os.path.join(BASE_DIR, DYNAMIC_CSV))
     static_64_df = pd.read_csv(os.path.join(BASE_DIR, STATIC_64_CSV))
+    static_2n_df = pd.read_csv(os.path.join(BASE_DIR, STATIC_CSV))
 
     time_steps = list(np.linspace(0, 2000000, 21))
     running_avg_dynamic = running_average(dynamic_df['combined_time'].to_list(), time_steps)
     running_avg_static_64 = running_average(static_64_df['combined_time'].to_list(), time_steps)
+    running_avg_static_2n = running_average(static_2n_df['combined_time'].to_list(), time_steps)
 
+    color_list = ['#1f77b4', '#ff7f0e', '#9467bd']
+    marker_list = ['x', '^', '.']
 
 
     ax.plot(np.array(time_steps[1:])/1000000,
         np.array(running_avg_dynamic)*1000,
         marker_list[0],
-        alpha=0.4, markersize=8,
+        alpha=0.7, markersize=8,
         label='dynamic', color=color_list[0])
 
     ax.plot(np.array(time_steps[1:])/1000000,
         np.array(running_avg_static_64)*1000,
+        marker_list[2],
+        alpha=0.7, markersize=8,
+        label='static-64', color=color_list[2])
+
+    ax.plot(np.array(time_steps[1:])/1000000,
+        np.array(running_avg_static_2n)*1000,
         marker_list[1],
-        alpha=0.4, markersize=8,
-        label='static-64', color=color_list[1])
+        alpha=0.7, markersize=8,
+        label='static-$2^N$', color=color_list[1])
 
 
     import matplotlib.font_manager as font_manager
@@ -109,6 +125,12 @@ def plot_running_average_curves():
     ax.set_xlabel('Training steps (millions)', fontsize=FONTSIZE, font=FONT)
     ax.set_xlim([0, 2])
     ax.set_ylim([0, 8])
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0], fontsize=FONTSIZE, font=FONT)
+    ax.set_xticklabels([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0], fontsize=FONTSIZE, font=FONT)
+
+    ax.set_yticks([0, 2, 4, 6, 8], fontsize=FONTSIZE, font=FONT)
+    ax.set_yticklabels([0, 2, 4, 6, 8], fontsize=FONTSIZE, font=FONT)
+
 
     # axs[3, 1].set_xlabel('Steps (millions)', fontsize=12, font=FONT)
     # plt.style.use(["science", "grid"])
