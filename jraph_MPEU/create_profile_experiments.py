@@ -70,8 +70,8 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 cd /u/dansp/jraph_MPEU
 # Load the environment with modules and python packages.
-source activate_jax.sh
-srun python3.9 scripts/main.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/multi_gpu_batching/tim_env/bin/activate
+srun python3.11 scripts/main.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
