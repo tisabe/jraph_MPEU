@@ -272,6 +272,7 @@ class Evaluater:
             seed=config.seed,
             dynamic_batch=config.dynamic_batch,
             static_round_to_multiple=config.static_round_to_multiple,
+            static_constant_batch=config.static_constant_batch,
             num_estimation_graphs=config.num_estimation_graphs,
             compile_batching=False)
 
@@ -624,6 +625,7 @@ def train_and_evaluate(
 
     logging.info(f'Config dynamic batch: {config.dynamic_batch}')
     logging.info(f'Config dynamic batch is True?: {config.dynamic_batch is True}')
+    logging.info(f'Config static constant batch is True?: {config.static_constant_batch is True}')
 
     # initialize data reader with training data
     train_reader = DataReader(
@@ -632,6 +634,7 @@ def train_and_evaluate(
         repeat=True,
         dynamic_batch=config.dynamic_batch,
         static_round_to_multiple=config.static_round_to_multiple,
+        static_constant_batch=config.static_constant_batch,
         num_estimation_graphs=config.num_estimation_graphs,
         compile_batching=compile_batching)
         seed=config.seed_datareader)

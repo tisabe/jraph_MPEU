@@ -29,6 +29,10 @@ flags.DEFINE_list(
     'static_round_to_multiple', 'False',
     'Round static batching to multiple or power.')
 flags.DEFINE_list(
+    'static_constant_batch', 'False',
+    'Static batch to a constant padding size?'
+)
+flags.DEFINE_list(
     'batching_method', 'None',
     'Can be either "static" or "dynamic".')
 flags.DEFINE_list(
@@ -43,7 +47,9 @@ flags.DEFINE_string(
 flags.DEFINE_integer(
     'num_estimation_graphs', 1000,
     'How many graphs to analyze to determine dynamic batching budget')
-
+flags.DEFINE_string(
+    'timeout', '12:00:00',
+    'Timeout for the job script.')
 
 JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -o <folder_name>/%j.out
@@ -56,7 +62,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=12:00:00
+#SBATCH --time=<timeout>
 <gres>
 <constraint>
 
@@ -88,7 +94,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
-
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters
     config.model_str = 'SchNet'
     config.message_passing_steps = 3
@@ -132,6 +138,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters we use the defaults.
 
     return config
@@ -139,8 +146,12 @@ def get_config() -> ml_collections.ConfigDict():
 
 def create_config_file_path(
         setting, folder_name, number_of_training_steps):
+    static_constant_batch = False
     if setting['batching_method'] == 'dynamic':
         dynamic_batch = True
+    elif setting['batching_method'] == 'static_constant':
+        static_constant_batch = True
+        dynamic_batch = False
     else:
         dynamic_batch = False
     if setting['network_type'] == 'schnet':
@@ -156,6 +167,10 @@ def create_config_file_path(
     config = config.replace(
         '<static_round_to_multiple>',
         str(setting['static_round_to_multiple'])
+    )
+    config = config.replace(
+        '<static_constant_batch>',
+        str(static_constant_batch)
     )
     config = config.replace(
         '<compute_device>',
@@ -197,7 +212,9 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']))   
+        setting['batching_method'] + '_' + str(setting['batch_size']))
+    job_script = job_script.replace(
+        '<timeout>', setting['timeout'])
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
@@ -243,7 +260,7 @@ def create_folder_for_setting(base_dir, setting):
 def get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list, static_round_to_multiple_list,
-        computing_type_list, num_estimation_graphs=1000):
+        computing_type_list, num_estimation_graphs=1000, timeout='12:00:00'):
     """Get a list of n-tuples of settings to use in profiling experiments.
 
     a list e.g. [("mpnn", "aflow", 32, "static", "gpu:v100"), ...]
@@ -266,8 +283,9 @@ def get_settings_list(
                                     'static_round_to_multiple': ast.literal_eval(static_round_to_multiple),
                                     'computing_type': computing_type,
                                     'iteration': iteration,
-                                    'num_estimation_graphs': num_estimation_graphs}
-                                    
+                                    'num_estimation_graphs': num_estimation_graphs,
+                                    'timeout': timeout}
+
                                 settings_list.append(settings_dict)
     return settings_list
 
@@ -314,11 +332,14 @@ def main(argv):
     num_estimation_graphs = FLAGS.num_estimation_graphs
     print(f'Number of graphs to determine dynamic batching budget. {num_estimation_graphs}')
 
+    timeout = FLAGS.timeout
+    print(f'Timeout. {timeout}')
+
     settings_list = get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
         static_round_to_multiple_list,
-        computing_type_list, num_estimation_graphs)
+        computing_type_list, num_estimation_graphs, timeout)
     
     experiment_dir = FLAGS.experiment_dir
     job_list_path = Path(experiment_dir) / "profiling_jobs_list.txt"
