@@ -47,7 +47,9 @@ flags.DEFINE_string(
 flags.DEFINE_integer(
     'num_estimation_graphs', 1000,
     'How many graphs to analyze to determine dynamic batching budget')
-
+flags.DEFINE_string(
+    'timeout', '12:00:00',
+    'Timeout for the job script.')
 
 JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -o <folder_name>/%j.out
@@ -60,7 +62,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-#SBATCH --time=1:40:00
+#SBATCH --time=<timeout>
 <gres>
 <constraint>
 
@@ -210,7 +212,9 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']))   
+        setting['batching_method'] + '_' + str(setting['batch_size']))
+    job_script = job_script.replace(
+        '<timeout>', setting['timeout'])
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
@@ -256,7 +260,7 @@ def create_folder_for_setting(base_dir, setting):
 def get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list, static_round_to_multiple_list,
-        computing_type_list, num_estimation_graphs=1000):
+        computing_type_list, num_estimation_graphs=1000, timeout='12:00:00'):
     """Get a list of n-tuples of settings to use in profiling experiments.
 
     a list e.g. [("mpnn", "aflow", 32, "static", "gpu:v100"), ...]
@@ -279,8 +283,9 @@ def get_settings_list(
                                     'static_round_to_multiple': ast.literal_eval(static_round_to_multiple),
                                     'computing_type': computing_type,
                                     'iteration': iteration,
-                                    'num_estimation_graphs': num_estimation_graphs}
-                                    
+                                    'num_estimation_graphs': num_estimation_graphs,
+                                    'timeout': timeout}
+
                                 settings_list.append(settings_dict)
     return settings_list
 
@@ -327,11 +332,14 @@ def main(argv):
     num_estimation_graphs = FLAGS.num_estimation_graphs
     print(f'Number of graphs to determine dynamic batching budget. {num_estimation_graphs}')
 
+    timeout = FLAGS.timeout
+    print(f'Timeout. {timeout}')
+
     settings_list = get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
         static_round_to_multiple_list,
-        computing_type_list, num_estimation_graphs)
+        computing_type_list, num_estimation_graphs, timeout)
     
     experiment_dir = FLAGS.experiment_dir
     job_list_path = Path(experiment_dir) / "profiling_jobs_list.txt"
