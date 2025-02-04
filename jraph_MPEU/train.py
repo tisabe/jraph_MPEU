@@ -636,7 +636,7 @@ def train_and_evaluate(
         static_round_to_multiple=config.static_round_to_multiple,
         static_constant_batch=config.static_constant_batch,
         num_estimation_graphs=config.num_estimation_graphs,
-        compile_batching=compile_batching)
+        compile_batching=compile_batching,
         seed=config.seed_datareader)
 
     init_graphs = next(train_reader)
