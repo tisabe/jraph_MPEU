@@ -150,24 +150,19 @@ def get_config() -> ml_collections.ConfigDict():
     config = ml_collections.ConfigDict()
 
     # rng init
-    # The seed defaults contain legacy names, since some older calculations
-    # might have legacy keys. If such a legacy key is loaded from an old
-    # config, the input_pipeline behaves in such a way that the splits are
-    # reproducible.
-    config.seed = None
-    config.seed_weights = 42
-    config.seed_datareader = 42
     config.seed_splits = 42
+    config.seed_datareader = 42
+    config.seed_weights = 42
     config.shuffle_val_seed = -1
+
 
     # Optimizer
     config.optimizer = 'adam'
     config.schedule = 'exponential_decay'
-    config.weight_decay = 0.
-    config.init_lr = 5e-4 # initial learning rate
+    config.init_lr = 1e-4 # initial learning rate
     # parameters for exponential schedule
     config.transition_steps = 100_000
-    config.decay_rate = 0.96
+    config.decay_rate = 0.98
 
     config.loss_type = 'MSE'
 
@@ -182,7 +177,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.selection = None
     config.data_file = <data_file>
     config.label_str = <label_str>
-    config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
     config.num_estimation_graphs = <num_estimation_graphs>
@@ -190,29 +184,24 @@ def get_config() -> ml_collections.ConfigDict():
     config.static_round_to_multiple = <static_round_to_multiple>
     config.static_constant_batch = <static_constant_batch>
 
-
-
-    # data split settings
+    # Data split strategy
+    config.label_type = 'scalar'  # or 'class', also changes the loss function
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
-
-    # type of label
-    config.label_type = 'scalar'  # or 'class', also changes the loss function
-    config.egap_cutoff = 0.0  # below which band structures are counted as metals
-
-    # data selection parameters
-    config.selection = None
     config.limit_data = None
     config.num_edges_max = None
 
     # MPNN hyperparameters
     config.model_str = 'PaiNN'
-    config.cutoff_radius = 5.
+    config.cutoff_radius = 6.
     config.message_passing_steps = 3
-    config.latent_size = 128
-    config.aggregation_readout_type = 'sum'
+    config.latent_size = 256
+    config.max_input_feature_size = 100
+    config.aggregation_message_type = 'sum'
+    config.aggregation_readout_type = 'mean'
     # Node embedding parameters
-    config.max_atomic_number = 5
+    config.max_atomic_number = 90
+
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
     return config
