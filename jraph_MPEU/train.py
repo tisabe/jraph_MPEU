@@ -689,18 +689,6 @@ def train_and_evaluate(
         train_reader._update_measurements.append(
             after_running_update-start_loop_time)
 
-        # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-        #     graphs)
-
-        # logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
-        # logging.info(f'type: {type(sum_of_nodes_in_batch)}')
-        # logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
-
-        # train_reader._num_nodes_per_batch_after_batching.append(
-        #     sum_of_nodes_in_batch)
-        # train_reader._num_edges_per_batch_after_batching.append(
-        #     sum_of_edges_in_batch)
-
         # Log periodically the losses/step count.
         is_last_step = step == config.num_train_steps_max
         if step % config.log_every_steps == 0:
@@ -747,24 +735,6 @@ def train_and_evaluate(
 
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
-
-    # Temp test. let's just try logging the whole list:
-    # logging.info(f'Node distrubution before batching: '
-    #              f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
-
-    # logging.info(f'Edge distrubution before batching: '
-    #              f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
-
-    # Let's save the node distribution/edge distrubtion after batching to file.
-    # df = pd.DataFrame({
-    #         'node_before_batching': train_reader._num_nodes_per_batch_after_batching
-    #         'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
-    # })
-    # graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
-
-
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
     """
     df_path = workdir + '/result.csv'
     if not os.path.exists(df_path):
