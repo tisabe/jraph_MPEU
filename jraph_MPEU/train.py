@@ -56,7 +56,8 @@ class Updater:
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
-        opt_state = self._opt.init(params)
+        opt_state = jax.pmap(opt_init)(params)
+        # opt_state = self._opt.init(params)
         state = dict(
             step=np.array(0),
             rng=out_rng,
@@ -67,7 +68,8 @@ class Updater:
         return state
 
     # Jit the functions
-    @functools.partial(jax.jit, static_argnums=0)
+    # @functools.partial(jax.jit, static_argnums=0)
+    @functools.partial(jax.pmap, axis_name='device')
     def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
         # Note this LOG message should only be called by the program
@@ -77,7 +79,7 @@ class Updater:
         params = state['params']
         (loss, (_, new_state)), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, state, rng, data, self._net_apply)
-
+        grad = jax.lax.pmean(grad, axis_name='device')
         updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
 
@@ -652,7 +654,7 @@ def train_and_evaluate(
     num_params = hk.data_structures.tree_size(params)
     byte_size = hk.data_structures.tree_bytes(params)
     logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
-
+    params = jax.device_put_replicated(params, list(jax.devices()))
     # Decide on splits of data on which to evaluate.
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
