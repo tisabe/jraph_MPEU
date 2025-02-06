@@ -68,10 +68,9 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-cd /u/dansp/multi_gpu_batching/jraph_MPEU
 # Load the environment with modules and python packages.
-source /u/dansp/multi_gpu_batching/tim_env/bin/activate
-srun python3.11 scripts/train.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/multi_gpu_jraph/venv/bin/activate
+srun python3.11 /u/dansp/multi_gpu_jraph/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -249,12 +248,12 @@ def create_config_file_path(
     config = config.replace(
         '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
-        data_file = "\'aflow/graphs_knn.db\'"
+        data_file = "\'/u/dansp/jraph_MPEU/aflow/graphs_knn.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
     elif setting['dataset'] == 'qm9':
-        data_file = "\'qm9/qm9_graphs_fc.db\'"
+        data_file = "\'/u/dansp/jraph_MPEU/qm9/qm9_graphs_fc.db\'"
         label_str = "\'U0\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
