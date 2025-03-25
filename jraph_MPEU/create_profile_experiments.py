@@ -195,13 +195,12 @@ def get_config() -> ml_collections.ConfigDict():
     config.model_str = 'PaiNN'
     config.cutoff_radius = 6.
     config.message_passing_steps = 3
-    config.latent_size = 256
+    config.latent_size = 64
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'sum'
     config.aggregation_readout_type = 'mean'
     # Node embedding parameters
     config.max_atomic_number = 90
-
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
     return config
@@ -249,7 +248,7 @@ def create_config_file_path(
     config = config.replace(
         '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
-        data_file = "\'aflow/graphs_knn.db\'"
+        data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
