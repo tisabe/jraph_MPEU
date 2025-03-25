@@ -543,7 +543,7 @@ def init_state(
 
     # Create the optimizer
     # optimizer
-    opt_init, opt_update = create_optimizer(config)
+    optimizer = create_optimizer(config)
 
     # determine which loss function to use
     match config.label_type:
@@ -558,8 +558,8 @@ def init_state(
             loss_fn = loss_fn_bce
             metric_names = 'BCE/Acc.'
 
-    # updater = Updater(net_train, loss_fn, optimizer)
-    updater = Updater(net_train, loss_fn, opt_init)
+    updater = Updater(net_train, loss_fn, optimizer)
+    # updater = Updater(net_train, loss_fn, opt_init)
 
     updater = CheckpointingUpdater(
         updater, os.path.join(workdir, 'checkpoints'),
