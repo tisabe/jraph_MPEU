@@ -245,8 +245,11 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed_splits = 42
-        config.aggregation_readout_type = 'mean'
-        config.label_type = 'scalar'
+        #config.aggregation_readout_type = 'mean'
+        #config.label_type = 'scalar'
+        config.normalization_types = {
+            config.label_str: 'mean'
+        }
         config.shuffle_val_seed = -1
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
@@ -275,13 +278,13 @@ class TestPipelineFunctions(unittest.TestCase):
             graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
-            mean = norm_dict['mean']
-            std = norm_dict['std']
-            train_labels = [graph.globals[0]*std + mean \
+            mean = norm_dict[config.label_str]['mean']
+            std = norm_dict[config.label_str]['std']
+            train_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['train']]
-            val_labels = [graph.globals[0]*std + mean \
+            val_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['validation']]
-            test_labels = [graph.globals[0]*std + mean \
+            test_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['test']]
             self.assertListEqual(train_labels, [6., 7., 3., 0., 5.])
             self.assertListEqual(val_labels, [1., 2., 9.])
@@ -295,13 +298,13 @@ class TestPipelineFunctions(unittest.TestCase):
             graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
-            mean = norm_dict['mean']
-            std = norm_dict['std']
-            train_labels = [graph.globals[0]*std + mean \
+            mean = norm_dict[config.label_str]['mean']
+            std = norm_dict[config.label_str]['std']
+            train_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['train']]
-            val_labels = [graph.globals[0]*std + mean \
+            val_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['validation']]
-            test_labels = [graph.globals[0]*std + mean \
+            test_labels = [graph.globals[config.label_str]*std + mean \
                 for graph in graphs_split['test']]
             self.assertListEqual(train_labels, [2., 6., 5., 0., 1.])
             self.assertListEqual(val_labels, [9., 3., 7.])
@@ -552,13 +555,10 @@ class TestPipelineFunctions(unittest.TestCase):
         label_str = 'U0'
         selection = None
         limit = 100
-        graphs, labels, ids = asedb_to_graphslist(
-            file=file_str, label_str=label_str, selection=selection, limit=limit)
+        graphs, ids = asedb_to_graphslist(
+            file=file_str, selection=selection, limit=limit)
         _ = [self.assertIsInstance(graph, jraph.GraphsTuple) for graph in graphs]
         _ = [self.assertIsInstance(i, int) for i in ids]
-        # assert that the selection worked
-        _ = [self.assertFalse(label == 0) for label in labels]
-        _ = [self.assertTrue(label < 0) for label in labels]
         self.assertEqual(limit, len(graphs))
 
     def test_DataReader_no_repeat(self):
@@ -618,15 +618,25 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        database = ase.db.connect(self.test_db_path)
-        row = database.get(1)
+        row = None
+        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
+            db_path = test_dir + 'test.db'
+            db = ase.db.connect(db_path)
+            h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])
+            data ={'senders': [0, 1], 'receivers': [1, 0],
+                'edges': [[0, 0, 0.7], [0, 0, -0.7]], 'node_info': 'test'}
+            key_val = {'key1': 'val1', 'key2': 'val2'}
+            db.write(h2, key_value_pairs=key_val, data=data)
+            row = db.get(1)
         atomic_numbers = row.toatoms().get_atomic_numbers()
         graph = ase_row_to_jraph(row)
         nodes = graph.nodes
         self.assertIsInstance(
             graph, jraph.GraphsTuple, f"{graph} is not a graph")
         np.testing.assert_array_equal(
-            atomic_numbers, nodes, "Atomic numbers are not equal")
+            atomic_numbers, nodes['atomic_numbers'], "Atomic numbers are not equal")
+        self.assertEqual(row.data['node_info'], nodes['node_info'])
+        self.assertEqual(row.key_value_pairs, graph.globals)
 
     def test_dbs_raw(self):
         """Test the raw ase databases without graph features."""
@@ -681,13 +691,16 @@ class TestPipelineFunctions(unittest.TestCase):
         [0 0 0 0 0 0 1 1]
         [0 0 0 0 1 2]"""
         graph0 = jraph.GraphsTuple(
-            n_node=[4], nodes=np.array([1, 1, 1, 6]), n_edge=None, edges=None,
+            nodes={'atomic_numbers': np.array([1, 1, 1, 6]), 'node_info': 'test'},
+            n_node=[4], n_edge=None, edges=None,
             senders=None, receivers=None, globals=None)
         graph1 = jraph.GraphsTuple(
-            n_node=[8], nodes=np.array([1, 1, 1, 1, 1, 1, 6, 6]), n_edge=None,
+            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 1, 1, 6, 6]), 'node_info': 'test'},
+            n_node=[8], n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graph2 = jraph.GraphsTuple(
-            n_node=[6], nodes=np.array([1, 1, 1, 1, 6, 8]), n_edge=None,
+            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 6, 8]), 'node_info': 'test'},
+            n_node=[6], n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graphs_dict = {1: graph0, 3: graph1, 4:graph2}
         num_list = get_atom_num_list(graphs_dict)
@@ -696,9 +709,9 @@ class TestPipelineFunctions(unittest.TestCase):
         nodes0_expected = np.array([0, 0, 0, 1])
         nodes1_expected = np.array([0, 0, 0, 0, 0, 0, 1, 1])
         nodes2_expected = np.array([0, 0, 0, 0, 1, 2])
-        nodes0 = graphs_dict[1].nodes
-        nodes1 = graphs_dict[3].nodes
-        nodes2 = graphs_dict[4].nodes
+        nodes0 = graphs_dict[1].nodes['atomic_numbers']
+        nodes1 = graphs_dict[3].nodes['atomic_numbers']
+        nodes2 = graphs_dict[4].nodes['atomic_numbers']
         np.testing.assert_array_equal(nodes0_expected, nodes0)
         np.testing.assert_array_equal(nodes1_expected, nodes1)
         np.testing.assert_array_equal(nodes2_expected, nodes2)

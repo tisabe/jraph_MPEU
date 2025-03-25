@@ -23,7 +23,7 @@ from ase.neighborlist import NeighborList
 
 from jraph_MPEU.utils import (
     estimate_padding_budget_for_batch_size,
-    get_normalization_dict,
+    get_globals_normalization,
     normalize_graph_globals,
     save_norm_dict,
     load_norm_dict
@@ -213,25 +213,35 @@ def get_graph_knearest(
 
 
 def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
-    """Return the ASE row as a graph."""
+    """Return the ASE row as a graph.
+    
+    Key value pairs from database row are stored in globals of the graph,
+    Atomic numbers are stored in graph.nodes['atomic_numbers'],
+    additional node info is stored in graph.nodes['node_info'].
+    """
     senders = row.data['senders']
     receivers = row.data['receivers']
     edges = row.data['edges']
     atoms = row.toatoms()
-    nodes = atoms.get_atomic_numbers()
+    atomic_numbers = atoms.get_atomic_numbers()
+    node_info = row.data.get('node_info', None)
+    nodes={
+        'atomic_numbers': atomic_numbers,
+        'node_info': node_info}
+    globals_ = row.key_value_pairs
 
     graph = jraph.GraphsTuple(
-        n_node=np.asarray([len(nodes)]),
+        n_node=np.asarray([len(atomic_numbers)]),
         n_edge=np.asarray([len(senders)]),
-        nodes=nodes, edges=edges,
-        globals=None,
+        nodes=nodes,
+        edges=edges,
+        globals=globals_,
         senders=np.asarray(senders), receivers=np.asarray(receivers))
 
     return graph
 
 def asedb_to_graphslist(
         file: str,
-        label_str: str,
         selection: str = None,
         num_edges_max: int = None,
         limit: int = None
@@ -240,8 +250,6 @@ def asedb_to_graphslist(
 
     Args:
         file: string where the database file is located
-        label_str: which property to grab from database as label for regression.
-            It is saved as Global of the respective graph.
         selection: ase.db selection parameter, can be integer id, string or
             list of strings or tuples.
         num_edges_max: integer, cutoff for the maximum number of edges in the
@@ -251,11 +259,9 @@ def asedb_to_graphslist(
         limit: maximum number of graphs queried from the database.
 
     Returns:
-        list of jraph.GraphsTuple, list of labels as single scalars,
-        ids with the corresponding asedb id for each graph
+        list of jraph.GraphsTuple, ids with the corresponding asedb id for each graph
     """
     graphs = []
-    labels = []
     ids = []
     ase_db = ase.db.connect(file)
     if limit is None:
@@ -274,11 +280,9 @@ def asedb_to_graphslist(
         if n_edge == 0:  # do not include graphs without edges
             continue
         graphs.append(graph)
-        label = row.key_value_pairs[label_str]
-        labels.append(label)
         ids.append(row.id)
 
-    return graphs, labels, ids
+    return graphs, ids
 
 
 def atoms_to_nodes_list(
@@ -303,10 +307,15 @@ def atoms_to_nodes_list(
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
     for graph in graphs_dict.values():
-        nodes = graph.nodes
-        for i, num in enumerate(nodes):
-            nodes[i] = num_list.index(num)
-        graph._replace(nodes=nodes)
+        nodes_atom = graph.nodes['atomic_numbers']
+        nodes_info = graph.nodes['node_info']
+        for i, num in enumerate(nodes_atom):
+            nodes_atom[i] = num_list.index(num)
+        new_nodes = {
+            'atomic_numbers': nodes_atom,
+            'node_info': nodes_info
+        }
+        graph._replace(nodes=new_nodes)
 
     return graphs_dict
 
@@ -316,7 +325,7 @@ def get_atom_num_list(graphs_dict):
     num_list = [] # List with atomic numbers in the graphs list.
 
     for graph in graphs_dict.values():  # Loop over all graphs.
-        nodes = graph.nodes  # Grab information about nodes in the graph.
+        nodes = graph.nodes['atomic_numbers']  # Grab information about nodes in the graph.
         for num in nodes:  # Loop over nodes in a graph.
             if not num in num_list:
                 # Append unseen atomic numbers to num_list.
@@ -508,19 +517,15 @@ def get_datasets(config, workdir):
     split_path = os.path.join(workdir, 'splits.json')
     if not os.path.exists(split_path):
         logging.info(f'Did not find split file at {split_path}. Pulling data.')
-        graphs_list, labels_list, ids = asedb_to_graphslist(
+        graphs_list, ids = asedb_to_graphslist(
             config.data_file,
-            label_str=config.label_str,
             selection=config.selection,
             num_edges_max=config.num_edges_max,
             limit=config.limit_data)
         # transform graphs list into graphs dict, same for labels
         graphs_dict = {}
-        labels_dict = {}
-        for (graph, label, id_single) in zip(graphs_list, labels_list, ids):
+        for (graph, id_single) in zip(graphs_list, ids):
             graphs_dict[id_single] = graph
-            labels_dict[id_single] = label
-
     else:
         logging.info(f'Found split file. Connecting to ase.db at {config.data_file}')
         graphs_dict = {}
@@ -532,9 +537,6 @@ def get_datasets(config, workdir):
             graph = ase_row_to_jraph(row)
             #graphs_list.append(graph)
             graphs_dict[id_single] = graph
-            label = row.key_value_pairs[config.label_str]
-            #labels_list.append(label)
-            labels_dict[id_single] = label
     # In either path, the list ids has been created at this point. ids contains
     # the asedb row.id of each graph that has been pulled.
 
@@ -564,8 +566,8 @@ def get_datasets(config, workdir):
     num_classes = len(num_list)
     config.max_atomic_number = num_classes
 
-    for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
-        graphs_dict[id_single] = graph._replace(globals=np.array([label]))
+    #for (id_single, graph), label in zip(graphs_dict.items(), labels_dict.values()):
+    #    graphs_dict[id_single] = graph._replace(globals=np.array([label]))
 
     if not os.path.exists(split_path):
         logging.debug('Generating splits and saving split file.')
@@ -596,6 +598,9 @@ def get_datasets(config, workdir):
     # get normalization metrics from train data, or from file if it exists
     norm_path = os.path.join(workdir, 'normalization.json')
     if not os.path.exists(norm_path):
+        norm_dict = get_globals_normalization(
+            graphs_split['train'], config.normalization_types)
+        """
         match config.label_type:
             case 'scalar':
                 norm_dict = get_normalization_dict(
@@ -612,7 +617,10 @@ def get_datasets(config, workdir):
             case _:
                 raise ValueError(
                     f'{config.label_type} not recognized as label type.')
+        """
     else:
+        norm_dict = load_norm_dict(norm_path)
+        """
         match config.label_type:
             case 'scalar'|'scalar_non_negative':
                 norm_dict = load_norm_dict(norm_path)
@@ -621,13 +629,8 @@ def get_datasets(config, workdir):
             case _:
                 raise ValueError(
                     f'{config.label_type} not recognized as label type.')
-
+        """
     for split, graphs_list in graphs_split.items():
-        if norm_dict:
-            graphs_split[split] = normalize_graph_globals(
-                graphs_list, norm_dict)
-        else:
-            for i, graph in enumerate(graphs_list):
-                label = cut_egap(graph.globals[0], config.egap_cutoff)
-                graphs_list[i] = graph._replace(globals=np.array([label]))
+        graphs_split[split] = normalize_graph_globals(graphs_list, norm_dict)
+
     return graphs_split, norm_dict

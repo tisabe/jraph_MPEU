@@ -111,19 +111,20 @@ def dist_matrix(position_matrix):
     return np.sqrt(distance_matrix)
 
 
-def get_normalization_dict(graphs, normalization_type):
+def get_normalization_dict(graphs, key, normalization_type):
     """Return the normalization dict given list of graphs and normalization
     type.
-    
+
     Args:
-      graphs: list of jraph.GraphsTuple with targets as global feature
-      normalization_type: string that describes which normalization to apply
-    
+        graphs: list of jraph.GraphsTuple with targets as global feature
+        key: key in graph.globals to normalize
+        normalization_type: string that describes which normalization to apply
+
     Returns:
-      dict with values for normalization (e.g. mean, standard deviation of 
-      features)
+        dict with values for normalization (e.g. mean, standard deviation of 
+        features)
     """
-    targets = np.array([graph.globals for graph in graphs])
+    targets = np.array([graph.globals[key] for graph in graphs])
 
     match normalization_type:
         case 'per_atom_standard'|'sum':
@@ -148,6 +149,16 @@ def get_normalization_dict(graphs, normalization_type):
             raise ValueError(
                 f"Unrecognized normalization type: {normalization_type}")
     return norm_dict
+
+
+def get_globals_normalization(
+    graphs: List[jraph.GraphsTuple],
+    normalization_types: Dict[str, str]) -> Dict:
+    norm_dict_all = {}
+    for key, normalization_type in normalization_types.items():
+        norm_dict_all[key] = get_normalization_dict(
+            graphs, key, normalization_type)
+    return norm_dict_all
 
 
 def save_norm_dict(norm_dict, path):
@@ -201,15 +212,18 @@ def normalize_targets(
 
 
 def normalize_graph_globals(
-    graphs: List[jraph.GraphsTuple], normalization: Dict
+    graphs: List[jraph.GraphsTuple], norm_dict_all: Dict
     ) -> List[jraph.GraphsTuple]:
-    """Return list of graphs with normalized globals according to normalization."""
-    targets = np.array([graph.globals for graph in graphs])
-    targets_norm = normalize_targets(graphs, targets, normalization)
+    """Return list of graphs with normalized globals according to norm_dict_all."""
     graphs_norm = []
-    for graph, target in zip(graphs, targets_norm):
-        graph = graph._replace(globals=target)
-        graphs_norm.append(graph)
+    for key, norm_dict in norm_dict_all.items():
+        targets = np.array([graph.globals[key] for graph in graphs])
+        targets_normd = normalize_targets(graphs, targets, norm_dict)
+        for graph, target in zip(graphs, targets_normd):
+            key_val_pairs = graph.globals
+            key_val_pairs[key] = target
+            graph = graph._replace(globals=key_val_pairs)
+            graphs_norm.append(graph)
     return graphs_norm
 
 
