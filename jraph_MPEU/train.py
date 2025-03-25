@@ -56,7 +56,9 @@ class Updater:
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
-        opt_state = jax.pmap(opt_init)(params)
+        params = jax.device_put_replicated(params, list(jax.devices()))
+        # Initialize the optimizer.
+        opt_state = jax.pmap(self._opt)(params)
         # opt_state = self._opt.init(params)
         state = dict(
             step=np.array(0),
@@ -540,7 +542,8 @@ def init_state(
     net_train = hk.transform_with_state(net_fn_train)
 
     # Create the optimizer
-    optimizer = create_optimizer(config)
+    # optimizer
+    opt_init, opt_update = create_optimizer(config)
 
     # determine which loss function to use
     match config.label_type:
@@ -555,7 +558,9 @@ def init_state(
             loss_fn = loss_fn_bce
             metric_names = 'BCE/Acc.'
 
-    updater = Updater(net_train, loss_fn, optimizer)
+    # updater = Updater(net_train, loss_fn, optimizer)
+    updater = Updater(net_train, loss_fn, opt_init)
+
     updater = CheckpointingUpdater(
         updater, os.path.join(workdir, 'checkpoints'),
         config.checkpoint_every_steps,
@@ -629,7 +634,7 @@ def train_and_evaluate(
     logging.info(f'Config dynamic batch is True?: {config.dynamic_batch is True}')
     logging.info(f'Config static constant batch is True?: {config.static_constant_batch is True}')
 
-    # initialize data reader with training data
+    # Initialize data reader with training data
     train_reader = DataReader(
         data=datasets['train'],
         batch_size=config.batch_size,
@@ -642,7 +647,8 @@ def train_and_evaluate(
         seed=config.seed_datareader)
 
     init_graphs = next(train_reader)
-
+    opt_init, opt_update = optax.adam(1e-4)
+    opt_state = jax.pmap(opt_init)(params)
     # Initialize globals in graph to zero. Don't want to give the model
     # the right answer. The model's not using them now anyway.
     init_graphs = replace_globals(init_graphs)
