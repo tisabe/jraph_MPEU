@@ -195,7 +195,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.model_str = 'PaiNN'
     config.cutoff_radius = 6.
     config.message_passing_steps = 3
-    config.latent_size = 64
+    config.latent_size = 256
     config.max_input_feature_size = 100
     config.aggregation_message_type = 'sum'
     config.aggregation_readout_type = 'mean'
