@@ -63,9 +63,9 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=<timeout>
+#SBATCH --partition=gpudev
 <gres>
 <constraint>
-#SBATCH --partition=gpudev
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
