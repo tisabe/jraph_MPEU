@@ -63,7 +63,6 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=<timeout>
-#SBATCH --partition=gpudev
 <gres>
 <constraint>
 
