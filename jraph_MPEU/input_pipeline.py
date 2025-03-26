@@ -225,6 +225,10 @@ def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
     atoms = row.toatoms()
     atomic_numbers = atoms.get_atomic_numbers()
     node_info = row.data.get('node_info', None)
+    if node_info is not None:
+        assert len(atomic_numbers) == len(node_info), (
+            "node_info in ase data does not have right length: "
+            f"{len(atomic_numbers)} != {len(node_info)}")
     nodes={
         'atomic_numbers': atomic_numbers,
         'node_info': node_info}
@@ -600,36 +604,10 @@ def get_datasets(config, workdir):
     if not os.path.exists(norm_path):
         norm_dict = get_globals_normalization(
             graphs_split['train'], config.normalization_types)
-        """
-        match config.label_type:
-            case 'scalar':
-                norm_dict = get_normalization_dict(
-                    graphs_split['train'], config.aggregation_readout_type)
-                logging.info(f"Normalization: {norm_dict}")
-                save_norm_dict(norm_dict, norm_path)
-            case 'scalar_non_negative':
-                norm_dict = get_normalization_dict(
-                    graphs_split['train'], 'scalar_non_negative')
-                logging.info(f"Normalization: {norm_dict}")
-                save_norm_dict(norm_dict, norm_path)
-            case 'class'|'class_binary'|'class_multi':
-                norm_dict = {}
-            case _:
-                raise ValueError(
-                    f'{config.label_type} not recognized as label type.')
-        """
+        save_norm_dict(norm_dict, norm_path)
     else:
         norm_dict = load_norm_dict(norm_path)
-        """
-        match config.label_type:
-            case 'scalar'|'scalar_non_negative':
-                norm_dict = load_norm_dict(norm_path)
-            case 'class'|'class_binary'|'class_multi':
-                norm_dict = {}
-            case _:
-                raise ValueError(
-                    f'{config.label_type} not recognized as label type.')
-        """
+    # normalize graph globals using the previous metrics
     for split, graphs_list in graphs_split.items():
         graphs_split[split] = normalize_graph_globals(graphs_list, norm_dict)
 

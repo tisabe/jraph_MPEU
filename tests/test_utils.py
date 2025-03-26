@@ -58,7 +58,8 @@ def get_random_graph(rng, n_features) -> jraph.GraphsTuple:
         receivers=rng.integers(0, n_node[0], (n_edge[0],)),
         n_node=n_node,
         n_edge=n_edge,
-        globals=rng.random((n_features,)))
+        globals={'test_key': rng.random((n_features,))}
+    )
     return graph
 
 
@@ -264,7 +265,7 @@ class TestUtilsFunctions(unittest.TestCase):
         n_features = 4
         graphs = get_random_graph_list(self.rng, n_graphs, n_features)
         with self.assertRaises(ValueError):
-            _ = get_normalization_dict(graphs, normalization_type)
+            _ = get_normalization_dict(graphs, 'test_key', normalization_type)
         normalization = {
             'type': normalization_type,
             'mean': np.array([1, 2, 3, 4]), 
@@ -282,7 +283,7 @@ class TestUtilsFunctions(unittest.TestCase):
         n_graphs = 10
         n_features = 4
         graphs = get_random_graph_list(self.rng, n_graphs, n_features)
-        norm_dict = get_normalization_dict(graphs, normalization_type)
+        norm_dict = get_normalization_dict(graphs, 'test_key', normalization_type)
         self.assertTupleEqual(norm_dict['mean'].shape, (n_features,))
         self.assertTupleEqual(norm_dict['std'].shape, (n_features,))
         self.assertEqual(norm_dict['type'], normalization_type)
@@ -295,7 +296,7 @@ class TestUtilsFunctions(unittest.TestCase):
         std = np.array([0, 1, 2, 3])
         n_graphs = 10 # number of graphs and labels to generate
         graphs = get_random_graph_list(self.rng, n_graphs, n_features)
-        targets = np.array([graph.globals for graph in graphs])
+        targets = np.array([graph.globals['test_key'] for graph in graphs])
         normalization = {
             'type': normalization_type,
             'mean': mean, 
@@ -316,7 +317,7 @@ class TestUtilsFunctions(unittest.TestCase):
         std = np.array([0, 1, 2, 3])
         n_graphs = 10 # number of graphs and labels to generate
         graphs = get_random_graph_list(self.rng, n_graphs, n_features)
-        targets = np.array([graph.globals for graph in graphs])
+        targets = np.array([graph.globals['test_key'] for graph in graphs])
         n_nodes = np.array([graph.n_node[0] for graph in graphs])
 
         normalization = {
@@ -353,15 +354,18 @@ class TestUtilsFunctions(unittest.TestCase):
         mean = np.array([1, 2, 3, 4])
         std = np.array([1, 2, 3, 4])
         normalization = {
-            'type': 'standard',
-            'mean': mean, 
-            'std': std}
+            'test_key': {
+                'type': 'standard',
+                'mean': mean, 
+                'std': std
+            }
+        }
         graphs = get_random_graph_list(self.rng, n_graph, n_features)
         graphs_norm = normalize_graph_globals(graphs, normalization)
         for graph_norm, graph in zip(graphs_norm, graphs):
-            self.assertTupleEqual(graph_norm.globals.shape, (n_features,))
+            self.assertTupleEqual(graph_norm.globals['test_key'].shape, (n_features,))
             np.testing.assert_array_almost_equal(
-                graph_norm.globals, (graph.globals-mean)/std)
+                graph_norm.globals['test_key'], (graph.globals['test_key']-mean)/std)
 
     def test_normalize_graph_globals_sum(self):
         """Test normalization of targets inside globals of graphs."""
@@ -370,15 +374,20 @@ class TestUtilsFunctions(unittest.TestCase):
         mean = np.array([1, 2, 3, 4])
         std = np.array([1, 2, 3, 4])
         normalization = {
-            'type': 'per_atom_standard',
-            'mean': mean, 
-            'std': std}
+            'test_key': {
+                'type': 'per_atom_standard',
+                'mean': mean, 
+                'std': std
+            }
+        }
         graphs = get_random_graph_list(self.rng, n_graph, n_features)
         graphs_norm = normalize_graph_globals(graphs, normalization)
         for graph_norm, graph in zip(graphs_norm, graphs):
-            self.assertTupleEqual(graph_norm.globals.shape, (n_features,))
+            self.assertTupleEqual(graph_norm.globals['test_key'].shape, (n_features,))
             np.testing.assert_array_almost_equal(
-                graph_norm.globals, (graph.globals-graph.n_node[0]*mean)/std)
+                graph_norm.globals['test_key'],
+                (graph.globals['test_key']-graph.n_node[0]*mean)/std
+            )
 
     def test_save_load_norm_dict(self):
         """Test saving and loading of a dummy normalization dict."""

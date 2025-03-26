@@ -112,8 +112,7 @@ def dist_matrix(position_matrix):
 
 
 def get_normalization_dict(graphs, key, normalization_type):
-    """Return the normalization dict given list of graphs and normalization
-    type.
+    """Return the normalization dict for one global feature: graph.globals[key].
 
     Args:
         graphs: list of jraph.GraphsTuple with targets as global feature
@@ -131,20 +130,27 @@ def get_normalization_dict(graphs, key, normalization_type):
             n_nodes = np.array([graph.n_node for graph in graphs])
             scaled_targets = targets/n_nodes
             norm_dict = {
-                "type": normalization_type,
-                "mean": np.mean(scaled_targets, axis=0),
-                "std": np.std(scaled_targets, axis=0)}
+                'type': normalization_type,
+                'mean': np.mean(scaled_targets, axis=0),
+                'std': np.std(scaled_targets, axis=0)}
         case 'standard'|'mean':
             norm_dict = {
-                "type": normalization_type,
-                "mean": np.mean(targets, axis=0),
-                "std": np.std(targets, axis=0)}
+                'type': normalization_type,
+                'mean': np.mean(targets, axis=0),
+                'std': np.std(targets, axis=0)}
         case 'scalar_non_negative':
             # this type is meant for fitting band gaps, or other non-zero targets,
             # when the output of the last layer is also non-negative
             norm_dict = {
-                "type": normalization_type,
-                "std": np.std(targets, axis=0)}
+                'type': normalization_type,
+                'std': np.std(targets, axis=0)}
+        case 'class':
+            # norm dict is mapping from 
+            norm_dict = {'type': normalization_type}
+            for i, target in enumerate(np.unique(targets)):
+                if target == 'type':
+                    raise ValueError("Cannot convert 'type' into class!")
+                norm_dict[target] = i 
         case _:
             raise ValueError(
                 f"Unrecognized normalization type: {normalization_type}")
@@ -191,40 +197,52 @@ def normalize_targets(
     Returns:
       normalized targets, np.array of shape (N, F)
     """
-    norm_type = normalization['type']
-    if 'mean' in normalization:
-        mean = normalization['mean']
-    if 'std' in normalization:
-        std = normalization['std']
-        # prevent division by zero
-        std = np.where(std==0, 1, std)
-
-    match norm_type:
+    match normalization['type']:
         case 'per_atom_standard'|'sum':
+            mean = normalization['mean']
+            std = normalization['std']
+            # prevent division by zero
+            std = np.where(std==0, 1, std)
             n_nodes = np.array([graph.n_node[0] for graph in graphs])
             return (targets - np.outer(n_nodes, mean))/std
         case 'standard'|'mean':
+            std = normalization['std']
+            std = np.where(std==0, 1, std)
+            mean = normalization['mean']
             return (targets - mean)/std
         case 'scalar_non_negative':
+            std = normalization['std']
+            std = np.where(std==0, 1, std)
             return targets/std
+        case 'class':
+            return np.array([normalization[target] for target in targets])
         case _:
-            raise ValueError(f"Unrecognized normalization type: {norm_type}")
+            raise ValueError(f"Unrecognized normalization type: {normalization['type']}")
 
 
 def normalize_graph_globals(
     graphs: List[jraph.GraphsTuple], norm_dict_all: Dict
     ) -> List[jraph.GraphsTuple]:
     """Return list of graphs with normalized globals according to norm_dict_all."""
-    graphs_norm = []
+    graphs_normd = []
+    for graph in graphs:
+        graph_normd = jraph.GraphsTuple(
+            nodes=graph.nodes,
+            edges=graph.edges,
+            senders=graph.senders,
+            receivers=graph.receivers,
+            n_node=graph.n_node,
+            n_edge=graph.n_edge,
+            globals={}
+        )
+        graphs_normd.append(graph_normd)
     for key, norm_dict in norm_dict_all.items():
         targets = np.array([graph.globals[key] for graph in graphs])
         targets_normd = normalize_targets(graphs, targets, norm_dict)
-        for graph, target in zip(graphs, targets_normd):
-            key_val_pairs = graph.globals
-            key_val_pairs[key] = target
-            graph = graph._replace(globals=key_val_pairs)
-            graphs_norm.append(graph)
-    return graphs_norm
+        for graph, target in zip(graphs_normd, targets_normd):
+            graph.globals[key] = target
+
+    return graphs_normd
 
 
 def scale_targets(graphs, targets, normalization):

@@ -245,11 +245,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed_splits = 42
-        #config.aggregation_readout_type = 'mean'
-        #config.label_type = 'scalar'
-        config.normalization_types = {
-            config.label_str: 'mean'
-        }
+        config.normalization_types = {config.label_str: 'mean'}
         config.shuffle_val_seed = -1
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
@@ -351,8 +347,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed_splits = 42
-        config.aggregation_readout_type = 'mean'
-        config.label_type = 'scalar'
+        config.normalization_types = {config.label_str: 'mean'}
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
@@ -386,8 +381,8 @@ class TestPipelineFunctions(unittest.TestCase):
             graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
-            mean = norm_dict['mean']
-            std = norm_dict['std']
+            mean = norm_dict[config.label_str]['mean']
+            std = norm_dict[config.label_str]['std']
             # calculate expected metrics using only training labels
             mean_expected = np.mean(
                 label_values[np.array(test_split_dict['train'])-1])
@@ -406,13 +401,13 @@ class TestPipelineFunctions(unittest.TestCase):
             self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
-                'train': [[0], [1], [2], [3], [4]],
-                'validation': [[5], [6], [7]],
-                'test': [[8], [9]]
+                'train': [0, 1, 2, 3, 4],
+                'validation': [5, 6, 7],
+                'test': [8, 9]
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
-                labels = [(graph.globals*std)+mean for graph in graph_list]
+                labels = [(graph.globals[config.label_str]*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
 
             # load the dataset again to check if generated jsons work
@@ -420,11 +415,12 @@ class TestPipelineFunctions(unittest.TestCase):
                 config, test_dir
             )
             for split, graph_list in graphs_split.items():
-                nodes = [np.array(graph.nodes) for graph in graph_list]
+                nodes = [graph.nodes for graph in graph_list]
                 graphs_list_old = graphs_split_old[split]
-                nodes_old = [np.array(graph.nodes) for graph in graphs_list_old]
+                nodes_old = [graph.nodes for graph in graphs_list_old]
                 for node, node_old in zip(nodes, nodes_old):
-                    np.testing.assert_array_equal(node, node_old)
+                    np.testing.assert_array_equal(node['atomic_numbers'], node_old['atomic_numbers'])
+                    np.testing.assert_array_equal(node['node_info'], node_old['node_info'])
 
     def test_get_datasets_class(self):
         """Test get_dataset function using classification label.
@@ -438,25 +434,21 @@ class TestPipelineFunctions(unittest.TestCase):
         config.train_frac = 0.5
         config.val_frac = 0.3
         config.test_frac = 0.2
-        config.label_str = 'Egap'
+        config.label_str = 'Egap_type'
         config.egap_cutoff = 0.0
         config.selection = None
         config.limit_data = 10000
         config.num_edges_max = None
         config.seed_splits = 42
-        config.aggregation_readout_type = 'mean'
-        config.label_type = 'class'
+        config.normalization_types = {config.label_str: 'class'}
         config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
             graphs_split, norm_dict = get_datasets(config, workdir)
             globals_list = []
             for graph in graphs_split['train']:
-                globals_list.append(graph.globals[0])
-            # check that there are only zeros and ones in the list
-            self.assertTrue(sorted(set(globals_list)) == [0, 1])
-            self.assertFalse(norm_dict)
-            # TODO: check that threshold is evaluated correctly
+                globals_list.append(graph.globals[config.label_str])
+            self.assertListEqual(sorted(set(globals_list)), [0, 1, 2, 3, 4, 5])
 
     def test_save_load_split_dict(self):
         """Test the saving and loading of a split dict by generating, saving
@@ -624,7 +616,7 @@ class TestPipelineFunctions(unittest.TestCase):
             db = ase.db.connect(db_path)
             h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])
             data ={'senders': [0, 1], 'receivers': [1, 0],
-                'edges': [[0, 0, 0.7], [0, 0, -0.7]], 'node_info': 'test'}
+                'edges': [[0, 0, 0.7], [0, 0, -0.7]], 'node_info': ['node0', 'node1']}
             key_val = {'key1': 'val1', 'key2': 'val2'}
             db.write(h2, key_value_pairs=key_val, data=data)
             row = db.get(1)
