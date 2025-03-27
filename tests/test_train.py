@@ -186,7 +186,6 @@ class TestTrain(unittest.TestCase):
             self.assertIsInstance(lowest_val_loss, (np.float32, np.float64))
             self.assertTrue(os.path.isfile(test_dir + '/REACHED_MAX_STEPS'))
 
-
         # reset temp directory
         with tempfile.TemporaryDirectory() as test_dir:
 

@@ -124,21 +124,23 @@ def get_normalization_dict(graphs, key, normalization_type):
         features)
     """
     targets = np.array([graph.globals[key] for graph in graphs])
+    if len(targets.shape) == 1:
+        targets = targets[:, np.newaxis]
 
     match normalization_type:
-        case 'per_atom_standard'|'sum':
+        case 'per_atom_standard':
             n_nodes = np.array([graph.n_node for graph in graphs])
             scaled_targets = targets/n_nodes
             norm_dict = {
                 'type': normalization_type,
                 'mean': np.mean(scaled_targets, axis=0),
                 'std': np.std(scaled_targets, axis=0)}
-        case 'standard'|'mean':
+        case 'standard':
             norm_dict = {
                 'type': normalization_type,
                 'mean': np.mean(targets, axis=0),
                 'std': np.std(targets, axis=0)}
-        case 'scalar_non_negative':
+        case 'standard_non_negative':
             # this type is meant for fitting band gaps, or other non-zero targets,
             # when the output of the last layer is also non-negative
             norm_dict = {
@@ -198,19 +200,19 @@ def normalize_targets(
       normalized targets, np.array of shape (N, F)
     """
     match normalization['type']:
-        case 'per_atom_standard'|'sum':
+        case 'per_atom_standard':
             mean = normalization['mean']
             std = normalization['std']
             # prevent division by zero
             std = np.where(std==0, 1, std)
             n_nodes = np.array([graph.n_node[0] for graph in graphs])
             return (targets - np.outer(n_nodes, mean))/std
-        case 'standard'|'mean':
+        case 'standard':
             std = normalization['std']
             std = np.where(std==0, 1, std)
             mean = normalization['mean']
             return (targets - mean)/std
-        case 'scalar_non_negative':
+        case 'standard_non_negative':
             std = normalization['std']
             std = np.where(std==0, 1, std)
             return targets/std

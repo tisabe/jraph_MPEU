@@ -42,9 +42,9 @@ def get_config() -> ml_collections.ConfigDict():
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
 
-    # type of label
-    config.label_type = 'scalar'  # or 'class', also changes the loss function
-    config.egap_cutoff = 0.0  # below which band structures are counted as metals
+    # info about labels, normalization and loss function
+    config.normalization_types = {'U0': 'per_atom_standard'}
+    config.loss_fn_name = 'MSE'
 
     # data selection parameters
     config.selection = None

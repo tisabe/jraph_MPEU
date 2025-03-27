@@ -245,7 +245,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed_splits = 42
-        config.normalization_types = {config.label_str: 'mean'}
+        config.normalization_types = {config.label_str: 'standard'}
         config.shuffle_val_seed = -1
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
@@ -347,7 +347,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.limit_data = None
         config.num_edges_max = None
         config.seed_splits = 42
-        config.normalization_types = {config.label_str: 'mean'}
+        config.normalization_types = {config.label_str: 'standard'}
         num_rows = 10  # number of rows to write
         label_values = np.arange(num_rows)*1.0
         compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
@@ -401,9 +401,9 @@ class TestPipelineFunctions(unittest.TestCase):
             self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
-                'train': [0, 1, 2, 3, 4],
-                'validation': [5, 6, 7],
-                'test': [8, 9]
+                'train': [[0], [1], [2], [3], [4]],
+                'validation': [[5], [6], [7]],
+                'test': [[8], [9]]
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():

@@ -522,17 +522,13 @@ def init_state(
     optimizer = create_optimizer(config)
 
     # determine which loss function to use
-    match config.label_type:
-        case 'scalar'|'scalar_non_negative':
-            if config.model_str == 'MPEU_uq':
-                loss_fn = loss_fn_nll
-                metric_names = 'NLL/MAE'
-            else:
-                loss_fn = loss_fn_mse
-                metric_names = 'RMSE/MAE'
-        case _:
+    match config.loss_fn_name:
+        case 'MSE':
+            loss_fn = loss_fn_mse
+        case 'NLL':
+            loss_fn = loss_fn_nll
+        case 'BCE':
             loss_fn = loss_fn_bce
-            metric_names = 'BCE/Acc.'
 
     updater = Updater(net_train, loss_fn, optimizer)
     updater = CheckpointingUpdater(
@@ -616,8 +612,8 @@ def train_and_evaluate(
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
     evaluater.init_loss_lists(eval_splits)
-    match config.label_type:
-        case 'scalar'|'scalar_non_negative':
+    match config.normalization_types[config.label_str]:
+        case 'standard'|'per_atom_standard'|'standard_non_negative':
             evaluater.set_loss_scalar(norm_dict['std'])
         case _:
             evaluater.set_loss_scalar(1.0)
