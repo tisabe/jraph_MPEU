@@ -416,34 +416,6 @@ def create_optimizer(
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 
-def graph_input_output_split(graph):
-    """Function to split a graph into input for GNN and target for loss function."""
-    # TODO
-
-
-def graph_loss_mse(
-    graph_pred: jraph.GraphsTuple,
-    graph_target: jraph.GraphsTuple,
-    weights=None, # TODO: figure out type and shape
-    mask=None,
-) -> float:
-    """Compute the MSE (mean squared error) from the whole graph."""
-    nodes_diff_sq = jax.tree.map(
-        lambda x, y: (x - y)**2, graph_pred.nodes, graph_target.nodes)
-    edges_diff_sq = jax.tree.map(
-        lambda x, y: (x - y)**2, graph_pred.edges, graph_target.edges)
-    globals_diff_sq = jax.tree.map(
-        lambda x, y: (x - y)**2, graph_pred.globals, graph_target.globals)
-    nodes_flat, _ = jax.tree.flatten(nodes_diff_sq)
-    nodes_mse = jnp.mean(nodes_flat)
-    edges_flat, _ = jax.tree.flatten(edges_diff_sq)
-    edges_mse = jnp.mean(edges_flat)
-    globals_flat, _ = jax.tree.flatten(globals_diff_sq)
-    globals_mse = jnp.mean(globals_flat)
-    if weights is None:
-        return nodes_mse + edges_mse + globals_mse
-
-
 def loss_fn_mse(params, state, rng, graphs, net_apply):
     """Mean squared error loss function for regression."""
     hk_state = state['hk_state']
