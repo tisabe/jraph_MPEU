@@ -1,6 +1,6 @@
 """Loss functions for training MPNNs."""
 
-from typing import Union, Iterable, Mapping, Any
+from typing import Union, Iterable, Mapping, Any, Callable
 
 import jax
 import jax.numpy as jnp
@@ -28,11 +28,37 @@ def _safe_mask(graph):
     return mask_dict
 
 
-def total_squared_error_pytree(targets: ArrayTree, predictions: ArrayTree) -> float:
-    """Returns sum, for mean squared error, divide by number of globals/nodes/edges."""
-    diff_sq = jax.tree.map(
-        lambda x, y: jnp.sum((x - y)**2).astype(float), targets, predictions)
-    return sum(jax.tree.flatten(diff_sq)[0]) # TODO: check if this should be jnp.sum
+def mean_squared_error_leave(
+    targets: jnp.ndarray,
+    predictions: jnp.ndarray,
+    mask: jnp.ndarray
+) -> float:
+    diff_sq = (targets - predictions)**2
+    return jnp.sum(diff_sq*mask[:, None])/jnp.sum(mask)
+
+
+def mean_squared_error_pytree(
+    targets: ArrayTree,
+    predictions: ArrayTree,
+    mask: ArrayTree
+) -> float:
+    mse_tree = jax.tree.map(
+        lambda x, y: mean_squared_error_leave(x, y, mask).astype(float),
+        targets, predictions)
+    mse_leaves = jax.tree.flatten(mse_tree)[0]
+    return sum(mse_leaves)
+
+
+def loss_pytree(
+    targets: ArrayTree,
+    predictions: ArrayTree,
+    mask: ArrayTree,
+    loss_leave_fn: Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], float]
+) -> float:
+    loss_tree = jax.tree.map(
+        lambda x, y: loss_leave_fn(x, y, mask), targets, predictions)
+    loss_leaves = jax.tree.flatten(mse_tree)[0]
+    return sum(loss_leaves)
 
 
 class WeightedGlobalsNodesEdgesLoss:
@@ -54,23 +80,20 @@ class WeightedGlobalsNodesEdgesLoss:
         if (self.globals_weight > 0.0
             and targets.globals is not None
             and predictions.globals is not None):
-            n_globals = jnp.sum(mask['globals'])
-            loss += self.globals_weight * total_squared_error_pytree(
-                targets.globals, predictions.globals) / n_globals
+            loss += self.globals_weight * mean_squared_error_pytree(
+                targets.globals, predictions.globals, mask['globals'])
 
         if (self.nodes_weight > 0.0
             and targets.nodes is not None
             and predictions.nodes is not None):
-            n_nodes = jnp.sum(mask['nodes'])
-            loss += self.nodes_weight * total_squared_error_pytree(
-                targets.nodes, predictions.nodes) / n_nodes
+            loss += self.nodes_weight * mean_squared_error_pytree(
+                targets.nodes, predictions.nodes, mask['nodes'])
 
         if (self.edges_weight > 0.0
             and targets.edges is not None
             and predictions.edges is not None):
-            n_edges = jnp.sum(mask['edges'])
-            loss += self.edges_weight * total_squared_error_pytree(
-                targets.edges, predictions.edges) / n_edges
+            loss += self.edges_weight * mean_squared_error_pytree(
+                targets.edges, predictions.edges, mask['edges'])
 
         return loss  # [n_graphs, ]
 

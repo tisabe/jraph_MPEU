@@ -21,7 +21,7 @@ def get_uniform_graph(
         receivers=np.random.randint(0, n_node[0], (n_edge[0],)),
         n_node=n_node,
         n_edge=n_edge,
-        globals={'test_key': np.ones((n_features,))*factor}
+        globals={'test_key': np.ones((1, n_features))*factor}
     )
     return graph
 
@@ -45,7 +45,7 @@ def get_nested_graph(n_node=4, n_edge=8, n_features=10, factor=1) -> jraph.Graph
         receivers=np.random.randint(0, n_node[0], (n_edge[0],)),
         n_node=n_node,
         n_edge=n_edge,
-        globals={'test_key': np.ones((n_features,))*factor}
+        globals={'test_key': np.ones((1, n_features))*factor}
     )
     return graph
 
