@@ -58,8 +58,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=72
-#SBATCH --ntasks-per-core=1
-#SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
+#SBATCH --ntasks-per-node=1
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=<timeout>
