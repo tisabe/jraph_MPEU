@@ -28,7 +28,7 @@ def _safe_mask(graph):
     return mask_dict
 
 
-def mean_squared_error_leave(
+def mean_squared_error_leaf(
     targets: jnp.ndarray,
     predictions: jnp.ndarray,
     mask: jnp.ndarray
@@ -43,7 +43,7 @@ def mean_squared_error_pytree(
     mask: ArrayTree
 ) -> float:
     mse_tree = jax.tree.map(
-        lambda x, y: mean_squared_error_leave(x, y, mask).astype(float),
+        lambda x, y: mean_squared_error_leaf(x, y, mask).astype(float),
         targets, predictions)
     mse_leaves = jax.tree.flatten(mse_tree)[0]
     return sum(mse_leaves)
@@ -53,10 +53,10 @@ def loss_pytree(
     targets: ArrayTree,
     predictions: ArrayTree,
     mask: ArrayTree,
-    loss_leave_fn: Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], float]
+    loss_leaf_fn: Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], float]
 ) -> float:
     loss_tree = jax.tree.map(
-        lambda x, y: loss_leave_fn(x, y, mask), targets, predictions)
+        lambda x, y: loss_leaf_fn(x, y, mask), targets, predictions)
     loss_leaves = jax.tree.flatten(mse_tree)[0]
     return sum(loss_leaves)
 
