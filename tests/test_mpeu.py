@@ -56,6 +56,37 @@ def _get_random_graph_batch(rng, n_graphs, z_max) -> jraph.GraphsTuple:
     return jraph.batch(graphs)
 
 
+def _delete_outgoing_edges(graph, index) -> jraph.GraphsTuple:
+    """Delete outgoing edges from node at index."""
+    edges = graph.edges[graph.senders != index]
+    receivers = graph.receivers[graph.senders != index]
+    senders = graph.senders[graph.senders != index]
+    return jraph.GraphsTuple(
+        nodes=graph.nodes,
+        edges=edges,
+        senders=senders,
+        receivers=receivers,
+        n_node=graph.n_node,
+        n_edge=graph.n_edge,
+        globals=graph.globals
+    )
+
+
+def _delete_incoming_edges(graph, index) -> jraph.GraphsTuple:
+    """Delete incoming edges from node at index."""
+    edges = graph.edges[graph.receivers != index]
+    receivers = graph.receivers[graph.receivers != index]
+    senders = graph.senders[graph.receivers != index]
+    return jraph.GraphsTuple(
+        nodes=graph.nodes,
+        edges=edges,
+        senders=senders,
+        receivers=receivers,
+        n_node=graph.n_node,
+        n_edge=graph.n_edge,
+        globals=graph.globals
+    )
+
 class TestModelFunctions(unittest.TestCase):
     """Unit and integration test functions in models.py."""
     def setUp(self):
@@ -84,7 +115,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.message_passing_steps = 3
         self.config.global_readout_mlp_layers = 0
         self.config.mlp_depth = 2
-        self.hk_init = hk.initializers.Identity()
+        self.config.hk_init = hk.initializers.Identity()
         self.config.aggregation_message_type = 'sum'
         self.config.aggregation_readout_type = 'sum'
         self.config.k_max = 150
@@ -106,6 +137,39 @@ class TestModelFunctions(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.config[config_field] = 'test'
             MPEU(self.config, True)
+
+    def test_isolated_node(self):
+        """Test inputting graph with isolated node."""
+        n_graphs = 100
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        # delete edges to node 0
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+        print(len(graph.edges), len(graph.senders), len(graph.receivers))
+        graph = _delete_incoming_edges(graph, 0)
+        print(len(graph.edges), len(graph.senders), len(graph.receivers))
+        graph_pred = net.apply(params, rng, graph)
+
+        # delete edges from node 0
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+        graph = _delete_outgoing_edges(graph, 0)
+        graph_pred = net.apply(params, rng, graph)
+
+        # delete outgoing and incoming edges
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+        graph = _delete_incoming_edges(graph, 0)
+        graph = _delete_outgoing_edges(graph, 0)
+        graph_pred = net.apply(params, rng, graph)
 
     def test_build_extra_layer(self):
         """Test building the MPEU with extra layer and scalar label type."""
