@@ -232,9 +232,10 @@ def xyz_to_ase(filename, output_name):
 
 if __name__ == "__main__":
     url = "https://ndownloader.figshare.com/files/3195389"
-    filename = os.path.join('QM9', "dsgdb9nsd.xyz.tar.bz2")
-    xyz_name = os.path.join('QM9', "qm9.xyz")
-    final_dest = os.path.join('QM9', "qm9.db")
+    os.mkdir('databases/QM9')
+    filename = os.path.join('databases', 'QM9', "dsgdb9nsd.xyz.tar.bz2")
+    xyz_name = os.path.join('databases', 'QM9', "qm9.xyz")
+    final_dest = os.path.join('databases', 'QM9', "qm9.db")
     print("downloading dataset...")
     download(url, filename)
     print("extracting...")
