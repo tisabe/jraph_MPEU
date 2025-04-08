@@ -153,9 +153,7 @@ class TestModelFunctions(unittest.TestCase):
         # delete edges to node 0
         graph = _get_random_graph_batch(
             self.np_rng, n_graphs, self.config.max_atomic_number)
-        print(len(graph.edges), len(graph.senders), len(graph.receivers))
         graph = _delete_incoming_edges(graph, 0)
-        print(len(graph.edges), len(graph.senders), len(graph.receivers))
         graph_pred = net.apply(params, rng, graph)
 
         # delete edges from node 0
@@ -502,7 +500,6 @@ class TestModelFunctions(unittest.TestCase):
         message_expected = jnp.multiply(node_message_expected, edge_message_expected)
 
         np.testing.assert_allclose(message_updated, message_expected)
-        return 0
 
     def test_edge_embedding_fn(self):
         """Test the edge embedding function by comparing the expected result.
