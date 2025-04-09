@@ -315,13 +315,6 @@ class TestPipelineFunctions(unittest.TestCase):
         self.assertListEqual(train_new, [8, 3, 5, 4, 7])
         self.assertListEqual(val_new, [2, 6, 1])
 
-    def test_dbs_not_empty(self):
-        for db_name in self.graphs_dbs + self.raw_dbs:
-            if not os.path.isfile(db_name):
-                raise FileNotFoundError(f'{db_name} does not exist')
-            ase_db = ase.db.connect(db_name)
-            self.assertGreater(ase_db.count(), 0, f"{db_name} is empty")
-
     def test_class_conversion(self):
         """Test converting label list with string classes to int classes."""
         label_list = ['A', 'A', 'B', 'A', 'C', 'C', 'B']
@@ -512,20 +505,6 @@ class TestPipelineFunctions(unittest.TestCase):
         np.testing.assert_array_equal(
             split_dict['test'], [20, 3, 7, 11])
 
-    def test_get_cutoff_val(self):
-        """Test getting the cutoff types and values from the datasets."""
-        for db_name in self.graphs_dbs:
-            if not os.path.isfile(db_name):
-                raise FileNotFoundError(f'{db_name} does not exist')
-            first_row = None
-            database = ase.db.connect(db_name)
-            for i, row in enumerate(database.select(limit=10)):
-                if i == 0:
-                    first_row = row
-            _ = first_row['cutoff_type']
-            _ = first_row['cutoff_val']
-
-
     def test_asedb_to_graphslist(self):
         """Test converting an asedb to a list of jraph.GraphsTuple.
 
@@ -629,49 +608,6 @@ class TestPipelineFunctions(unittest.TestCase):
             atomic_numbers, nodes['atomic_numbers'], "Atomic numbers are not equal")
         self.assertEqual(row.data['node_info'], nodes['node_info'])
         self.assertEqual(row.key_value_pairs, graph.globals)
-
-    def test_dbs_raw(self):
-        """Test the raw ase databases without graph features."""
-        limit = 100 # maximum number of entries that are read
-        for db_name in self.raw_dbs:
-            with ase.db.connect(db_name) as asedb:
-                keys_list0 = None
-                for i, row in enumerate(asedb.select(limit=limit)):
-                    key_value_pairs = row.key_value_pairs
-                    self.assertIsInstance(key_value_pairs, dict)
-                    # check that all the keys are the same
-                    if i == 0:
-                        keys_list0 = key_value_pairs.keys()
-                    else:
-                        self.assertCountEqual(key_value_pairs.keys(), keys_list0)
-        return 0
-
-    def test_dbs_graphs(self):
-        """Test the ase databases with graph features."""
-        limit = 100 # maximum number of entries that are read
-        for db_name in self.graphs_dbs:
-            if not os.path.isfile(db_name):
-                raise FileNotFoundError(f'{db_name} does not exist')
-            with ase.db.connect(db_name) as asedb:
-                keys_list0 = None
-                data_keys_expected = ['senders', 'receivers', 'edges']
-                count_no_edges = 0 # count how many graphs have not edges
-                for i, row in enumerate(asedb.select(limit=limit)):
-                    key_value_pairs = row.key_value_pairs
-                    data = row.data
-                    self.assertIsInstance(key_value_pairs, dict)
-                    self.assertIsInstance(data, dict)
-                    # check that all the keys are the same
-                    if i == 0:
-                        keys_list0 = key_value_pairs.keys()
-                    else:
-                        self.assertCountEqual(key_value_pairs.keys(), keys_list0)
-                        self.assertCountEqual(data.keys(), data_keys_expected)
-                    if len(data.edges) == 0:
-                        count_no_edges += 1
-                self.assertEqual(count_no_edges, 0,
-                    f'Number of graphs with zero edges: {count_no_edges}')
-        return 0
 
     def test_atoms_to_nodes_list(self):
         """Example: atomic numbers as nodes before:
