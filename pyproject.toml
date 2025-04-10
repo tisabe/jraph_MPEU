@@ -13,6 +13,7 @@ dependencies = [
     "matscipy>=1.1.1",
     "ml-collections>=1.0.0",
     "parameterized>=0.9.0",
+    "pytest>=8.3.5",
     "requests>=2.32.3",
     "scikit-learn>=1.6.1",
 ]
