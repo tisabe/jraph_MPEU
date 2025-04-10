@@ -3,6 +3,7 @@
 from typing import Optional, Tuple
 
 import ase
+from ase.neighborlist import NeighborList
 import numpy as np
 from matscipy.neighbours import neighbour_list
 import jraph

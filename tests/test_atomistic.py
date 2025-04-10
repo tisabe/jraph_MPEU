@@ -1,12 +1,41 @@
 """Unit tests for jraph_MPEU.atomistic functions."""
 
+import pytest
 from ase import Atoms
 import numpy as np
 
 from jraph_MPEU.atomistic import (
     get_neighborhood,
-    atoms_to_graph
+    atoms_to_graph,
+    get_graph_knearest
 )
+
+
+def dist_matrix(position_matrix):
+    '''Return the pairwise distance matrix of positions in euclidian space.
+
+    See this link:
+    https://stackoverflow.com/questions/37009647/compute-pairwise-distance-in-a-batch-without-replicating-tensor-in-tensorflow
+
+    We multiply the position matrices together. And then reduce the sum by summing
+    over the distance to the origin origin axis of the squared position matrix.
+
+    Args:
+      position_matrix: Position matrix given as an array.
+        Size: (number of positions, dimension of positions)
+
+    Returns:
+      Euclidian distances between nodes as a jnp array.
+        Size: (number of positions, number of positions)
+    '''
+    row_norm_squared = np.sum(position_matrix * position_matrix, axis=-1)
+    # Turn r into column vector
+    row_norm_squared = np.reshape(row_norm_squared, [-1, 1])
+    # 2*pos*potT
+    distance_matrix = 2 * np.matmul(position_matrix, np.transpose(position_matrix))
+    distance_matrix = row_norm_squared + np.transpose(row_norm_squared) - distance_matrix
+    distance_matrix = np.abs(distance_matrix)  # to avoid negative numbers before sqrt
+    return np.sqrt(distance_matrix)
 
 
 def test_molecule():
@@ -59,14 +88,14 @@ def test_atoms_to_graph():
             [0, 0, 1]]))
 
 
-def test_k_nn_random(self):
+def test_k_nn_random():
     """Test generating a k-nearest neighbor graph from random atomic
     positions."""
     num_nodes = 5
     atoms = Atoms(f'H{num_nodes}')
     dimensions = 3
     k = 3
-    position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+    position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
     distances = dist_matrix(position_matrix)
     atoms.set_positions(position_matrix)
     nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
@@ -100,14 +129,14 @@ def test_k_nn_random(self):
     dists = np.sqrt(np.sum(edges**2, axis=1))
     dists_expected = np.sqrt(np.sum(expected_edges**2, axis=1))
     np.testing.assert_array_equal(np.array(dists_expected), dists)
-    self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-    self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-    self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
-    self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
-    self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+    np.testing.assert_array_equal(np.shape(nodes), (num_nodes,))
+    np.testing.assert_array_equal(np.shape(pos), (num_nodes, dimensions))
+    np.testing.assert_array_equal(np.shape(edges), (num_nodes*k, dimensions))
+    np.testing.assert_array_equal(np.shape(senders), (num_nodes*k,))
+    np.testing.assert_array_equal(np.shape(receivers), (num_nodes*k,))
 
 
-def test_k_nn_pbc(self):
+def test_k_nn_pbc():
     """Test generating a k-nearest neighbor graph from random atomic
     positions with periodic boundary conditions."""
     cell_l = 2
@@ -115,20 +144,20 @@ def test_k_nn_pbc(self):
     atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
     dimensions = 3
     k = 3
-    position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+    position_matrix = np.random.randint(0, 10, size=(num_nodes, dimensions))
     atoms.set_positions(position_matrix)
     nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
-    self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-    self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-    self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
-    self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
-    self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+    np.testing.assert_array_equal(np.shape(nodes), (num_nodes,))
+    np.testing.assert_array_equal(np.shape(pos), (num_nodes, dimensions))
+    np.testing.assert_array_equal(np.shape(edges), (num_nodes*k, dimensions))
+    np.testing.assert_array_equal(np.shape(senders), (num_nodes*k,))
+    np.testing.assert_array_equal(np.shape(receivers), (num_nodes*k,))
     # check that coordinates of pos have been wrapped to inside the cell
     for coordinate in pos.flatten():
-        self.assertLessEqual(coordinate, cell_l)
+        assert (coordinate < cell_l)
 
 
-def test_k_nn_too_far(self):
+def test_k_nn_too_far():
     """Test generating a k-nearest neighbor graph, but an exception is
     raised because the atoms are too far apart."""
     atoms = Atoms('H2')
@@ -137,7 +166,7 @@ def test_k_nn_too_far(self):
     position_matrix = [[0]*dimensions, [scale]*dimensions]
     k = 1
     atoms.set_positions(position_matrix)
-    with self.assertRaises(RuntimeError):
+    with pytest.raises(RuntimeError) as excinfo:
         _ = get_graph_knearest(atoms, k, initial_radius=scale/20)
 
 
