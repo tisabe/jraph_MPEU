@@ -29,220 +29,8 @@ from jraph_MPEU.utils import (
     load_norm_dict
 )
 
+from jraph_MPEU.atomistic import atoms_to_graph
 
-def get_graph_fc(atoms: Atoms):
-    """Return the graph features, with fully connected edges.
-
-    Turn the ase.Atoms object into graph features, i.e. nodes and edges.
-    The edges will be fully connected, so every node is connected to every other node.
-    """
-    if np.any(atoms.get_pbc()):
-        #raise Exception('Received Atoms object with periodic boundary conditions. ' +
-        #    'Fully connected graph cannot be generated.')
-        raise ValueError('PBC not allowed for fully connected graph.')
-    nodes = [] # initialize arrays, to be filled in loop later
-    senders = []
-    receivers = []
-    edges = []
-    atom_numbers = atoms.get_atomic_numbers() # get array of atomic numbers
-    atom_positions = atoms.get_positions(wrap=False)
-    n_atoms = len(atoms)
-
-    for i in range(n_atoms):
-        nodes.append(atom_numbers[i])
-        for j in range(n_atoms):
-            # get all edges except self edges
-            if i != j:
-                i_pos = atom_positions[i]
-                j_pos = atom_positions[j]
-                dist_vec = i_pos - j_pos
-                #dist = np.sqrt(np.dot(dist_vec, dist_vec))
-
-                senders.append(j)
-                receivers.append(i)
-                edges.append(dist_vec)
-
-    return (
-        np.array(nodes),
-        atom_positions,
-        np.array(edges),
-        np.array(senders),
-        np.array(receivers)
-    )
-
-
-def get_graph_cutoff(atoms: Atoms, cutoff):
-    """Return the graph features, with cutoff adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/mastesr/src/msgnet/dataloader.py
-    """
-
-    nodes = [] # initialize arrays, to be filled in loop later
-    senders = []
-    receivers = []
-    edges = []
-    atom_numbers = atoms.get_atomic_numbers() # get array of atomic numbers
-
-    # divide cutoff by 2, because ASE defines two atoms as neighbours
-    # when their spheres of radii r overlap
-    radii = [cutoff/2] * len(atoms) # make a list with length len(atoms)
-    neighborhood = NeighborList(
-        radii, skin=0.0, self_interaction=False, bothways=True
-    )
-    neighborhood.update(atoms)
-
-    if np.any(atoms.get_pbc()):
-        atom_positions = atoms.get_positions(wrap=True)
-    else:
-        atom_positions = atoms.get_positions(wrap=False)
-
-    unitcell = atoms.get_cell()
-
-    for i in range(len(atoms)):
-        nodes.append(atom_numbers[i])
-
-    # Loop over the atoms in the unit cell.
-    for i in range(len(atoms)):
-        # Get the neighbourhoods of atom i
-        neighbor_indices, offset = neighborhood.get_neighbors(i)
-        # Loop over the neighbours of atom i. Offset helps us calculate the
-        # distance to atoms in neighbouring unit cells.
-        for j, offs in zip(neighbor_indices, offset):
-            i_pos = atom_positions[i]
-            j_pos = atom_positions[j] + np.dot(offs, unitcell)
-            dist_vec = i_pos - j_pos
-            #dist = np.sqrt(np.dot(dist_vec, dist_vec))
-
-            senders.append(j)
-            receivers.append(i)
-            edges.append(dist_vec)
-
-    if len(edges) == 0:
-        warnings.warn("Generated graph has zero edges", RuntimeWarning)
-        edges = np.zeros((0, 1))
-
-    return (
-        np.array(nodes),
-        atom_positions,
-        np.array(edges),
-        np.array(senders),
-        np.array(receivers)
-    )
-
-def get_graph_knearest(
-        atoms: Atoms, num_neighbors, initial_radius=3.0):
-    """Return the graph features, with knearest adjacency.
-    Inspired by https://github.com/peterbjorgensen/msgnet/blob/master/src/msgnet/dataloader.py
-    """
-
-    atoms.wrap() # put atoms inside unit cell by wrapping their positions
-    atom_numbers = atoms.get_atomic_numbers()
-    unitcell = atoms.get_cell()
-
-    # We want to calculate k nearest neighbors, so we start within a sphere
-    # with radius R. In this sphere we are calculating the number of neighbors,
-    # if there are not enough, i.e. the number of neighbors within the sphere
-    # is smaller than k, R is increased until we found enough neighbors. After
-    # that we discard all neighbors except the k nearest.
-    for multiplier in range(1, 11):
-        if multiplier == 10:
-            raise RuntimeError("Reached maximum radius")
-        radii = [initial_radius * multiplier] * len(atoms)
-        neighborhood = NeighborList(
-            radii, skin=0.0, self_interaction=False, bothways=True
-        )
-        neighborhood.update(atoms)
-
-        nodes = []
-        dists = []
-        edges = []
-        senders = []
-        receivers = []
-        if np.any(atoms.get_pbc()):
-            atom_positions = atoms.get_positions(wrap=True)
-        else:
-            atom_positions = atoms.get_positions(wrap=False)
-        keep_edges = []
-        keep_senders = []
-        keep_receivers = []
-
-        for i in range(len(atoms)):
-            nodes.append(atom_numbers[i])
-
-        early_exit = False
-        for i in range(len(atoms)):
-            this_dists = []
-            this_edges = []
-            this_senders = []
-            this_receivers = []
-            neighbor_indices, offset = neighborhood.get_neighbors(i)
-            if len(neighbor_indices) < num_neighbors:
-                # Not enough neigbors, so exit and increase radius
-                early_exit = True
-                break
-            for j, offs in zip(neighbor_indices, offset):
-                i_pos = atom_positions[i]
-                j_pos = atom_positions[j] + np.dot(offs, unitcell)
-                dist_vec = i_pos - j_pos
-                dist = np.sqrt(np.dot(dist_vec, dist_vec))
-
-                this_dists.append([dist])
-                this_edges.append(dist_vec)
-                this_senders.append(j)
-                this_receivers.append(i)
-            dists.append(np.array(this_dists))
-            edges.append(np.array(this_edges))
-            senders.append(np.array(this_senders))
-            receivers.append(np.array(this_receivers))
-        if early_exit:
-            continue
-        else:
-            for d_ind, e_ind, s_ind, r_ind in zip(dists, edges, senders, receivers):
-                # Keep only num_neighbors closest indices
-                keep_ind = np.argsort(d_ind[:, 0])[0:num_neighbors]
-                keep_edges.append(e_ind[keep_ind])
-                keep_senders.append(s_ind[keep_ind])
-                keep_receivers.append(r_ind[keep_ind])
-        break
-    return (
-        np.array(nodes),
-        atom_positions,
-        np.concatenate(keep_edges).reshape(-1, 3),
-        np.concatenate(keep_senders),
-        np.concatenate(keep_receivers),
-    )
-
-
-def ase_row_to_jraph(row: ase.db.row.AtomsRow) -> jraph.GraphsTuple:
-    """Return the ASE row as a graph.
-    
-    Key value pairs from database row are stored in globals of the graph,
-    Atomic numbers are stored in graph.nodes['atomic_numbers'],
-    additional node info is stored in graph.nodes['node_info'].
-    """
-    senders = row.data['senders']
-    receivers = row.data['receivers']
-    edges = row.data['edges']
-    atoms = row.toatoms()
-    atomic_numbers = atoms.get_atomic_numbers()
-    node_info = row.data.get('node_info', None)
-    if node_info is not None:
-        assert len(atomic_numbers) == len(node_info), (
-            "node_info in ase data does not have right length: "
-            f"{len(atomic_numbers)} != {len(node_info)}")
-    nodes={
-        'atomic_numbers': atomic_numbers,
-        'node_info': node_info}
-    globals_ = row.key_value_pairs
-
-    graph = jraph.GraphsTuple(
-        n_node=np.asarray([len(atomic_numbers)]),
-        n_edge=np.asarray([len(senders)]),
-        nodes=nodes,
-        edges=edges,
-        globals=globals_,
-        senders=np.asarray(senders), receivers=np.asarray(receivers))
-
-    return graph
 
 def asedb_to_graphslist(
         file: str,
@@ -275,7 +63,7 @@ def asedb_to_graphslist(
     logging.info(f'Number of entries selected: {count}')
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
-        graph = ase_row_to_jraph(row)
+        graph = atoms_to_graph(row.toatoms())
         n_edge = graph.n_edge[0]
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
@@ -311,14 +99,11 @@ def atoms_to_nodes_list(
     # Transform atomic numbers into classes. Meaning relabel the atomic number
     # compactly with a new compact numbering system.
     for graph in graphs_dict.values():
+        old_nodes = graph.nodes
         nodes_atom = graph.nodes['atomic_numbers']
-        nodes_info = graph.nodes['node_info']
         for i, num in enumerate(nodes_atom):
             nodes_atom[i] = num_list.index(num)
-        new_nodes = {
-            'atomic_numbers': nodes_atom,
-            'node_info': nodes_info
-        }
+        new_nodes = old_nodes.update({'atomic_numbers': nodes_atom})
         graph._replace(nodes=new_nodes)
 
     return graphs_dict
@@ -538,7 +323,7 @@ def get_datasets(config, workdir):
         ase_db = ase.db.connect(config.data_file)
         for id_single in split_dict.keys():
             row = ase_db.get(id_single)
-            graph = ase_row_to_jraph(row)
+            graph = atoms_to_graph(row.toatoms())
             #graphs_list.append(graph)
             graphs_dict[id_single] = graph
     # In either path, the list ids has been created at this point. ids contains

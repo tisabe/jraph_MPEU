@@ -13,7 +13,6 @@ import ml_collections
 
 from jraph_MPEU.input_pipeline import (
     DataReader,
-    ase_row_to_jraph,
     asedb_to_graphslist,
     atoms_to_nodes_list,
     get_train_val_test_split_dict,
@@ -24,9 +23,6 @@ from jraph_MPEU.input_pipeline import (
     label_list_to_class_dict,
     label_list_to_int_class_list,
     shuffle_train_val_data,
-    get_graph_fc,
-    get_graph_knearest,
-    get_graph_cutoff
 )
 from jraph_MPEU.utils import add_labels_to_graphs, dist_matrix
 
@@ -45,194 +41,6 @@ class TestPipelineFunctions(unittest.TestCase):
         # aflow database to test Egap classification inputs
         self.aflow_db = 'databases/aflow/graphs_12knn_vec.db'
         self.rng = np.random.default_rng(seed=7)
-
-    def test_graph_fc(self):
-        """Test if fully connected graphs are correctly generated."""
-        atoms = Atoms('H5')
-        num_nodes = 5
-        dimensions = 3
-        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
-        atoms.set_positions(position_matrix)
-
-        nodes, pos, edges, senders, receivers = get_graph_fc(atoms)
-
-        expected_edges = []
-        expected_senders = []
-        expected_receivers = []
-
-        for receiver in range(num_nodes):
-            for sender in range(num_nodes):
-                if sender != receiver:
-                    expected_edges.append(
-                        position_matrix[receiver] - position_matrix[sender])
-                    expected_senders.append(sender)
-                    expected_receivers.append(receiver)
-
-        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
-        np.testing.assert_array_equal(pos, position_matrix)
-        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
-        np.testing.assert_array_equal(np.array(expected_senders), senders)
-        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
-
-    def test_catch_fc_with_pbc(self):
-        """Test that trying to make a fully connected graph from atoms with
-        periodic boundary conditions raises an exception."""
-        atoms = Atoms('H5', pbc=True)
-        num_nodes = 5
-        dimensions = 3
-        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
-        atoms.set_positions(position_matrix)
-
-        with self.assertRaises(ValueError, msg='PBC not allowed for fully connected graph.'):
-            get_graph_fc(atoms)
-
-    def test_k_nn_random(self):
-        """Test generating a k-nearest neighbor graph from random atomic
-        positions."""
-        num_nodes = 5
-        atoms = Atoms(f'H{num_nodes}')
-        dimensions = 3
-        k = 3
-        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
-        distances = dist_matrix(position_matrix)
-        atoms.set_positions(position_matrix)
-        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
-
-        expected_senders = []
-        expected_receivers = []
-
-        for row in range(num_nodes):
-            idx_list = []
-            last_idx = 0
-            for _ in range(k):
-                # temporary last saved minimum value, initialized to high value
-                min_val_last = 9999.9
-                for col in range(num_nodes):
-                    if col == row or (col in idx_list):
-                        # do nothing on the diagonal,
-                        # or if column has already been included
-                        continue
-                    else:
-                        val = distances[row, col]
-                        if val < min_val_last:
-                            min_val_last = val
-                            last_idx = col
-                idx_list.append(last_idx)
-                expected_senders.append(last_idx)
-                expected_receivers.append(row)
-
-        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
-        # we only check distances exactly, since senders have an arbitrary
-        # ordering because of the way neighborlists are built in ase
-        dists = np.sqrt(np.sum(edges**2, axis=1))
-        dists_expected = np.sqrt(np.sum(expected_edges**2, axis=1))
-        np.testing.assert_array_equal(np.array(dists_expected), dists)
-        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
-        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
-        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
-
-    def test_k_nn_pbc(self):
-        """Test generating a k-nearest neighbor graph from random atomic
-        positions with periodic boundary conditions."""
-        cell_l = 2
-        num_nodes = 5
-        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
-        dimensions = 3
-        k = 3
-        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
-        atoms.set_positions(position_matrix)
-        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
-        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
-        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
-        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
-        # check that coordinates of pos have been wrapped to inside the cell
-        for coordinate in pos.flatten():
-            self.assertLessEqual(coordinate, cell_l)
-
-    def test_k_nn_too_far(self):
-        """Test generating a k-nearest neighbor graph, but an exception is
-        raised because the atoms are too far apart."""
-        atoms = Atoms('H2')
-        dimensions = 3
-        scale = 10
-        position_matrix = [[0]*dimensions, [scale]*dimensions]
-        k = 1
-        atoms.set_positions(position_matrix)
-        with self.assertRaises(RuntimeError):
-            _ = get_graph_knearest(atoms, k, initial_radius=scale/20)
-
-    def test_get_cutoff_adj_from_dist_random(self):
-        """Test generating a graph with constant cutoff from random
-        atomic positions."""
-        num_nodes = 4
-        atoms = Atoms(f'H{num_nodes}')
-        dimensions = 3
-        cutoff = 0.7
-        position_matrix = self.rng.random((num_nodes, dimensions))
-        distances = dist_matrix(position_matrix)
-
-        atoms.set_positions(position_matrix)
-        nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
-
-        expected_senders = []
-        expected_receivers = []
-
-        for receiver in range(num_nodes):
-            for sender in range(num_nodes):
-                if not sender == receiver:
-                    if distances[sender, receiver] < cutoff:
-                        expected_senders.append(sender)
-                        expected_receivers.append(receiver)
-
-        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
-
-        # edges might be arranged differently
-        edges = np.sort(edges)
-        expected_edges = np.sort(expected_edges)
-
-        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
-        np.testing.assert_array_equal(pos, position_matrix)
-        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
-        self.assertCountEqual(np.array(expected_senders), senders)
-        self.assertCountEqual(np.array(expected_receivers), receivers)
-
-    def test_cutoff_pbc(self):
-        """Test generating a constant cutoff graph from random atomic
-        positions with periodic boundary conditions."""
-        cell_l = 10
-        num_nodes = 5
-        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
-        dimensions = 3
-        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
-        atoms.set_positions(position_matrix)
-        nodes, pos, _, _, _ = get_graph_cutoff(atoms, 5)
-        np.testing.assert_array_equal(nodes, [1]*5)
-        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-        # check that coordinates of pos have been wrapped to inside the cell
-        for coordinate in pos.flatten():
-            self.assertLessEqual(coordinate, cell_l)
-
-    def test_cutoff_no_edges(self):
-        """Test generating a constant cutoff graph from random atomic
-        positions with periodic boundary conditions."""
-        num_nodes = 2
-        atoms = Atoms('H2')
-        dimensions = 3
-        position_matrix = [[0]*dimensions, [1]*dimensions]
-        atoms.set_positions(position_matrix)
-        with self.assertWarns(RuntimeWarning):
-            nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, 1)
-        np.testing.assert_array_equal(nodes, [1]*num_nodes)
-        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
-        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
-        self.assertEqual(len(senders), 0)
-        self.assertEqual(len(receivers), 0)
-        np.testing.assert_array_equal(edges, np.zeros((0, 1)))
 
     def test_get_datasets_split(self):
         """Test that the same reproducible splits are returned by get_datasets."""
@@ -413,7 +221,6 @@ class TestPipelineFunctions(unittest.TestCase):
                 nodes_old = [graph.nodes for graph in graphs_list_old]
                 for node, node_old in zip(nodes, nodes_old):
                     np.testing.assert_array_equal(node['atomic_numbers'], node_old['atomic_numbers'])
-                    np.testing.assert_array_equal(node['node_info'], node_old['node_info'])
 
     def test_get_datasets_class(self):
         """Test get_dataset function using classification label.
@@ -587,28 +394,6 @@ class TestPipelineFunctions(unittest.TestCase):
         # original labels. This can only be true if the reader is looping.
         self.assertTrue(labels_repeat_sum > np.sum(labels))
 
-    def test_ase_row_to_jraph(self):
-        """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        row = None
-        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
-            db_path = test_dir + 'test.db'
-            db = ase.db.connect(db_path)
-            h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7)])
-            data ={'senders': [0, 1], 'receivers': [1, 0],
-                'edges': [[0, 0, 0.7], [0, 0, -0.7]], 'node_info': ['node0', 'node1']}
-            key_val = {'key1': 'val1', 'key2': 'val2'}
-            db.write(h2, key_value_pairs=key_val, data=data)
-            row = db.get(1)
-        atomic_numbers = row.toatoms().get_atomic_numbers()
-        graph = ase_row_to_jraph(row)
-        nodes = graph.nodes
-        self.assertIsInstance(
-            graph, jraph.GraphsTuple, f"{graph} is not a graph")
-        np.testing.assert_array_equal(
-            atomic_numbers, nodes['atomic_numbers'], "Atomic numbers are not equal")
-        self.assertEqual(row.data['node_info'], nodes['node_info'])
-        self.assertEqual(row.key_value_pairs, graph.globals)
-
     def test_atoms_to_nodes_list(self):
         """Example: atomic numbers as nodes before:
         [1 1 1 6] Methane
@@ -619,15 +404,15 @@ class TestPipelineFunctions(unittest.TestCase):
         [0 0 0 0 0 0 1 1]
         [0 0 0 0 1 2]"""
         graph0 = jraph.GraphsTuple(
-            nodes={'atomic_numbers': np.array([1, 1, 1, 6]), 'node_info': 'test'},
+            nodes={'atomic_numbers': np.array([1, 1, 1, 6])},
             n_node=[4], n_edge=None, edges=None,
             senders=None, receivers=None, globals=None)
         graph1 = jraph.GraphsTuple(
-            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 1, 1, 6, 6]), 'node_info': 'test'},
+            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 1, 1, 6, 6])},
             n_node=[8], n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graph2 = jraph.GraphsTuple(
-            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 6, 8]), 'node_info': 'test'},
+            nodes={'atomic_numbers': np.array([1, 1, 1, 1, 6, 8])},
             n_node=[6], n_edge=None,
             edges=None, senders=None, receivers=None, globals=None)
         graphs_dict = {1: graph0, 3: graph1, 4:graph2}
