@@ -713,24 +713,17 @@ def train_and_evaluate(
                     pass
             break
 
-
-        # if early_stop:
-        #     logging.info(f'Loss converged at step {step}, stopping early.')
-        #     # create a file that signals that training stopped early
-        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
-        #         with open(workdir + '/STOPPED_EARLY', 'w'):
-        #             pass
-        #     break
-        # No need to break if it's the last step since the loop terminates
-        # automatically when reaching the last step.
         if is_last_step:
             early_stop = evaluater.update(state, datasets, eval_splits, config)
 
             logging.info(
                 'Reached maximum number of steps without early stopping.')
+            early_stop = evaluater.update(state, datasets, eval_splits, config)
+
             if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
                 with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
                     pass
+        
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
@@ -746,14 +739,5 @@ def train_and_evaluate(
 
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
+
     return evaluater, lowest_val_loss

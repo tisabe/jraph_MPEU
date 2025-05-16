@@ -58,8 +58,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=72
-#SBATCH --ntasks-per-core=1
-#SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
+#SBATCH --ntasks-per-node=1
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
 #SBATCH --time=<timeout>
@@ -68,9 +67,10 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
+cd /u/dansp/multi_gpu_jraph/jraph_MPEU
 # Load the environment with modules and python packages.
 source /u/dansp/multi_gpu_jraph/venv/bin/activate
-srun python3.11 /u/dansp/multi_gpu_jraph/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
+srun python3.11 scripts/train.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -200,7 +200,6 @@ def get_config() -> ml_collections.ConfigDict():
     config.aggregation_readout_type = 'mean'
     # Node embedding parameters
     config.max_atomic_number = 90
-
     # Logging options
     config.log_to_file = False # if logging should go to file if true or console if false
     return config
@@ -248,7 +247,8 @@ def create_config_file_path(
     config = config.replace(
         '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
-        data_file = "\'/u/dansp/jraph_MPEU/aflow/graphs_knn.db\'"
+        # We need the new file types.
+        data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
