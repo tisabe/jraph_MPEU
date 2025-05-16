@@ -67,7 +67,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-cd /u/dansp/multi_gpu_jraph/jraph_MPEU
+cd /u/dansp/multi_gpu_batching/jraph_MPEU
 # Load the environment with modules and python packages.
 source /u/dansp/multi_gpu_jraph/tim_env/bin/activate
 srun python3.11 scripts/train.py --workdir=<folder_name> --config=<config_name>
