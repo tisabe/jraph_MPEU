@@ -693,7 +693,7 @@ def train_and_evaluate(
         is_last_step = step == config.num_train_steps_max
         if step % config.log_every_steps == 0:
             logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
-            early_stop = evaluater.update(state, datasets, eval_splits, config))
+            early_stop = evaluater.update(state, datasets, eval_splits, config)
 
 
         # catch a NaN or too high loss, stop training if it happens
