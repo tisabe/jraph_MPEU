@@ -248,7 +248,7 @@ def create_config_file_path(
         '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
         # We need the new file types.
-        data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
+        data_file = "\'/u/dansp/painn_profiling/jraph_MPEU/aflow/graphs_knn_for_histogram_2.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
