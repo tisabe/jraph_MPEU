@@ -269,7 +269,7 @@ class Evaluater:
         # update steps, so we let it be.
         reader = DataReader(
             data=graphs, batch_size=batch_size, repeat=False,
-            seed=config.seed,
+            seed=config.seed_datareader,
             dynamic_batch=config.dynamic_batch,
             static_round_to_multiple=config.static_round_to_multiple,
             static_constant_batch=config.static_constant_batch,
