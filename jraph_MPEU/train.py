@@ -647,8 +647,7 @@ def train_and_evaluate(
         seed=config.seed_datareader)
 
     init_graphs = next(train_reader)
-    opt_init, opt_update = optax.adam(1e-4)
-    opt_state = jax.pmap(opt_init)(params)
+
     # Initialize globals in graph to zero. Don't want to give the model
     # the right answer. The model's not using them now anyway.
     init_graphs = replace_globals(init_graphs)
@@ -670,6 +669,9 @@ def train_and_evaluate(
             evaluater.set_loss_scalar(norm_dict['std'])
         case _:
             evaluater.set_loss_scalar(1.0)
+
+    # opt_init, opt_update = optax.adam(1e-4)
+    # opt_state = jax.pmap(opt_init)(params)
 
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.
