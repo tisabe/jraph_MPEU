@@ -56,7 +56,7 @@ class Updater:
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
-        params = jax.device_put_replicated(params, list(jax.devices()))
+        # params = jax.device_put_replicated(params, list(jax.devices()))
         # Initialize the optimizer.
         opt_state = jax.pmap(self._opt)(params)
         # opt_state = self._opt.init(params)
@@ -656,6 +656,8 @@ def train_and_evaluate(
 
     # calculate and print parameter size
     params = state['params']
+    print(params)
+    print(type(params))
     num_params = hk.data_structures.tree_size(params)
     byte_size = hk.data_structures.tree_bytes(params)
     logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
