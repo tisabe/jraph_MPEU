@@ -58,7 +58,11 @@ class Updater:
         params, hk_state = self._net_init(init_rng, data)
         # params = jax.device_put_replicated(params, list(jax.devices()))
         # Initialize the optimizer.
-        opt_state = jax.pmap(self._opt)(params)
+        opt_init, opt_update = optax.adam(1e-4)
+        logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
+        logging.info(f'self._opt: {self._opt}, self._opt[0] {self._opt[0]}')
+
+        opt_state = jax.pmap(self._opt[0])(params)
         # opt_state = self._opt.init(params)
         state = dict(
             step=np.array(0),
@@ -656,8 +660,9 @@ def train_and_evaluate(
 
     # calculate and print parameter size
     params = state['params']
-    print(params)
-    print(type(params))
+    logging.info(f'state: {state}')
+    logging.info(f'params: {params}')
+    logging.info(f' type(params): {type(params)}')
     num_params = hk.data_structures.tree_size(params)
     byte_size = hk.data_structures.tree_bytes(params)
     logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
