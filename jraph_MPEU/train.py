@@ -676,6 +676,9 @@ def train_and_evaluate(
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
+        logging.info(f'state["step"] is: {state["step"]}')
+        logging.info(f'type(state["step"]) is: {type(state["step"])}')
+
         state['step'].block_until_ready()
 
         after_getting_graphs = time.time()
