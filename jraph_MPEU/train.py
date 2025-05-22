@@ -51,12 +51,11 @@ class Updater:
         self._loss_fn = loss_fn
         self._opt = optimizer
 
-    # @functools.partial(jax.jit, static_argnums=0)
+    @functools.partial(jax.jit, static_argnums=0)
     def init(self, rng, data):
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
-        params = jax.device_put_replicated(params, list(jax.devices()))
         # Initialize the optimizer.
         opt_init, opt_update = optax.adam(1e-4)
         logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
