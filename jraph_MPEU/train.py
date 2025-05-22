@@ -625,11 +625,10 @@ def train_and_evaluate(
         graphs = next(train_reader)
         # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
         # to pmap update over available devices
-        logging.info(f'next(train_reader): {next(train_reader)}')
-        logging.info(f'graphs: {graphs}')
-        # logging.info(f'next(graphs): {next(graphs)}')
-        logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
-        logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
+        # logging.info(f'next(train_reader): {next(train_reader)}')
+        # logging.info(f'graphs: {graphs}')
+        # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
+        # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
         # graphs = jraph.GraphsTuple(
         #     n_node = np.array([i.n_node for i in graphs]),
         #     n_edge = np.array([i.n_edge for i in graphs]),
