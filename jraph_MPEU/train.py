@@ -51,8 +51,8 @@ class Updater:
         self._net = net
         # self._loss_fn = loss_fn
         self._opt = optimizer
+        self._loss_fn = loss_fn
 
-        self._loss_fn = functools.partial(loss_fn, net=self._net)
 
     # @functools.partial(jax.jit, static_argnums=0)
     def init(self, rng, data):
@@ -73,6 +73,9 @@ class Updater:
             params=params,
             hk_state=hk_state
         )
+        self._loss_fn = functools.partial(self.loss_fn, net=self._net, state=state)
+        state = jax.device_put_replicated(state, list(jax.devices()))
+
         return state
 
     # Jit the functions
@@ -84,8 +87,8 @@ class Updater:
         # when it's get recalled and can't be run with same JAX compilation.
         logging.info('LOG Message: Recompiling!')
         params = state['params']
-        (loss, (_, new_state)), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, state, data)
+        (loss, _), grad = jax.value_and_grad(
+            self._loss_fn, has_aux=True)(params, data)
         grad = jax.lax.pmean(grad, axis_name='device')
         updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
@@ -451,7 +454,7 @@ def loss_fn_mse(params, state, graphs, net):
     graphs = replace_globals(graphs)
     rng = 0
     mask = get_valid_mask(graphs)
-    pred_graphs, new_state = net.apply(params, hk_state, rng, graphs)
+    pred_graphs = net.apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
     sq_diff = jnp.square((predictions - labels)*mask)
@@ -461,8 +464,8 @@ def loss_fn_mse(params, state, graphs, net):
     absolute_error = jnp.sum(jnp.abs((predictions - labels)*mask))
     mae = absolute_error /jnp.sum(mask)
 
-    state['hk_state'] = new_state
-    return mean_loss, (mae, state)
+    # state['hk_state'] = new_state
+    return mean_loss, mae
 
 
 def loss_fn_bce(params, state, rng, graphs, net_apply):
