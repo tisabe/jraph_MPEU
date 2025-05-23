@@ -48,8 +48,11 @@ class Updater:
                  optimizer: optax.GradientTransformation):
         self._net_init = net.init
         self._net_apply = net.apply
-        self._loss_fn = loss_fn
+        self._net = net
+        # self._loss_fn = loss_fn
         self._opt = optimizer
+
+        self._loss_fn = functools.partial(loss_fn, net=self._net)
 
     # @functools.partial(jax.jit, static_argnums=0)
     def init(self, rng, data):
@@ -80,17 +83,16 @@ class Updater:
         # Note this LOG message should only be called by the program
         # when it's get recalled and can't be run with same JAX compilation.
         logging.info('LOG Message: Recompiling!')
-        rng, new_rng = jax.random.split(state['rng'])
         params = state['params']
         (loss, (_, new_state)), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, state, rng, data, self._net_apply)
+            self._loss_fn, has_aux=True)(params, state, data)
         grad = jax.lax.pmean(grad, axis_name='device')
         updates, opt_state = self._opt.update(grad, state['opt_state'], params)
         params = optax.apply_updates(params, updates)
 
         new_state = {
             'step': state['step'] + 1,
-            'rng': new_rng,
+            'rng': state['rng'],
             'opt_state': opt_state,
             'params': params,
             'hk_state': new_state['hk_state']
@@ -442,14 +444,14 @@ def create_optimizer(
     raise ValueError(f'Unsupported optimizer: {config.optimizer}.')
 
 
-def loss_fn_mse(params, state, rng, graphs, net_apply):
+def loss_fn_mse(params, state, graphs, net):
     """Mean squared error loss function for regression."""
     hk_state = state['hk_state']
     labels = graphs.globals
     graphs = replace_globals(graphs)
-
+    rng = 0
     mask = get_valid_mask(graphs)
-    pred_graphs, new_state = net_apply(params, hk_state, rng, graphs)
+    pred_graphs, new_state = net.apply(params, hk_state, rng, graphs)
     predictions = pred_graphs.globals
     labels = jnp.expand_dims(labels, 1)
     sq_diff = jnp.square((predictions - labels)*mask)
@@ -672,8 +674,8 @@ def train_and_evaluate(
 
     # calculate and print parameter size
     params = state['params']
-    logging.info(f'state: {state}')
-    logging.info(f'params: {params}')
+    # logging.info(f'state: {state}')
+    # logging.info(f'params: {params}')
     logging.info(f' type(params): {type(params)}')
     num_params = hk.data_structures.tree_size(params)
     byte_size = hk.data_structures.tree_bytes(params)
