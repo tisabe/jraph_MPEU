@@ -57,10 +57,10 @@ class Updater:
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
         # Initialize the optimizer.
-        logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
-        logging.info(f'self._opt: {self._opt}, self._opt[0] {self._opt[0]}')
         params = jax.device_put_replicated(params, list(jax.devices()))
         opt_init, opt_update = optax.adam(1e-4)
+        logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
+        logging.info(f'self._opt: {self._opt}, self._opt[0] {self._opt[0]}')
         opt_state = jax.pmap(opt_init)(params)
         # opt_state = self._opt.init(params)
         state = dict(
