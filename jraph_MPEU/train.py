@@ -51,17 +51,17 @@ class Updater:
         self._loss_fn = loss_fn
         self._opt = optimizer
 
-    @functools.partial(jax.jit, static_argnums=0)
+    # @functools.partial(jax.jit, static_argnums=0)
     def init(self, rng, data):
         """Initializes state of the updater."""
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
         # Initialize the optimizer.
-        opt_init, opt_update = optax.adam(1e-4)
         logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
         logging.info(f'self._opt: {self._opt}, self._opt[0] {self._opt[0]}')
-
-        opt_state = jax.pmap(self._opt[0])(params)
+        params = jax.device_put_replicated(params, list(jax.devices()))
+        opt_init, opt_update = optax.adam(1e-4)
+        opt_state = jax.pmap(opt_init)(params)
         # opt_state = self._opt.init(params)
         state = dict(
             step=np.array(0),
@@ -612,6 +612,19 @@ def save_loss_curve(loss_dict, ckpt_dir, splits, std):
             f'{ckpt_dir}/{split}_loss.csv',
             np.array(loss_split), delimiter=',')
 
+def device_batch(
+    graph_generator):
+  """Batches a set of graphs the size of the number of devices."""
+  num_devices = jax.local_device_count()
+  batch = []
+  for idx, graph in enumerate(graph_generator):
+    if idx % num_devices == num_devices - 1:
+      batch.append(graph)
+      yield jax.tree_map(lambda *x: jnp.stack(x, axis=0), *batch)
+      batch = []
+    else:
+      batch.append(graph)
+
 
 def train_and_evaluate(
         config: ml_collections.ConfigDict,
@@ -688,19 +701,19 @@ def train_and_evaluate(
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         start_loop_time = time.time()
-        graphs = next(train_reader)
+        graphs = device_batch(train_reader)
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
         # state['step'].block_until_ready()
-        jax.block_until_ready(state['step'])
+        # jax.block_until_ready(state['step'])
 
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
         state, loss_metrics = updater.update(state, graphs)
 
         # state['step'].block_until_ready()
-        jax.block_until_ready(state['step'])
+        # jax.block_until_ready(state['step'])
         after_running_update = time.time()
         train_reader._timing_measurements_batching.append(
             after_getting_graphs-start_loop_time)
