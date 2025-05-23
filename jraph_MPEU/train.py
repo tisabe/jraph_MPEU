@@ -74,7 +74,6 @@ class Updater:
             hk_state=hk_state
         )
         self._loss_fn = functools.partial(self._loss_fn, net=self._net, state=state)
-        state = jax.device_put_replicated(state, list(jax.devices()))
 
         return state
 
