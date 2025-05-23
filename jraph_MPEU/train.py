@@ -80,16 +80,15 @@ class Updater:
     # Jit the functions
     # @functools.partial(jax.jit, static_argnums=0)
     @functools.partial(jax.pmap, axis_name='device')
-    def update(self, state: Mapping[str, Any], data: jraph.GraphsTuple):
+    def update(self, params, data: jraph.GraphsTuple, opt_state):
         """Updates the state using some data and returns metrics."""
         # Note this LOG message should only be called by the program
         # when it's get recalled and can't be run with same JAX compilation.
         logging.info('LOG Message: Recompiling!')
-        params = state['params']
         (loss, _), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, data)
         grad = jax.lax.pmean(grad, axis_name='device')
-        updates, opt_state = self._opt.update(grad, state['opt_state'], params)
+        updates, opt_state = self._opt.update(grad, opt_state, params)
         params = optax.apply_updates(params, updates)
 
         new_state = {
@@ -682,7 +681,6 @@ def train_and_evaluate(
     num_params = hk.data_structures.tree_size(params)
     byte_size = hk.data_structures.tree_bytes(params)
     logging.info(f'{num_params} params, size: {byte_size / 1e6:.2f}MB')
-    params = jax.device_put_replicated(params, list(jax.devices()))
     # Decide on splits of data on which to evaluate.
     eval_splits = ['train', 'validation', 'test']
     # Set up saving of losses.
@@ -714,8 +712,14 @@ def train_and_evaluate(
 
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
-        state, loss_metrics = updater.update(state, graphs)
-
+        params, opt_state, loss_metrics = updater.update(state['params'], graphs, state['opt_state'])
+        state = {
+            'step': state['step'] + 1,
+            'rng': state['rng'],
+            'opt_state': opt_state,
+            'params': params,
+            'hk_state': state['hk_state']
+        }
         # state['step'].block_until_ready()
         # jax.block_until_ready(state['step'])
         after_running_update = time.time()
