@@ -91,19 +91,7 @@ class Updater:
         updates, opt_state = self._opt.update(grad, opt_state, params)
         params = optax.apply_updates(params, updates)
 
-        new_state = {
-            'step': state['step'] + 1,
-            'rng': state['rng'],
-            'opt_state': opt_state,
-            'params': params,
-            'hk_state': new_state['hk_state']
-        }
-
-        metrics = {
-            'step': state['step'],
-            'loss': loss,
-        }
-        return new_state, metrics
+        return params, opt_state, loss
 
 
 class CheckpointingUpdater:
@@ -147,8 +135,18 @@ class CheckpointingUpdater:
         # async dispatch, maintain state['step'] as a NumPy scalar instead of a
         # JAX array.
         # Context: https://jax.readthedocs.io/en/latest/async_dispatch.html
-        state, metrics = self._inner.update(state, data)
-
+        params, opt_state, loss = self._inner.update(state['params'], data, state['opt_state'])
+        state = {
+            'step': state['step'] + 1,
+            'rng': state['rng'],
+            'opt_state': opt_state,
+            'params': params,
+            'hk_state': state['hk_state']
+        }
+        metrics = {
+            'step': state['step'],
+            'loss': loss,
+        }
         step = np.array(state['step'])
         if step % self._checkpoint_every_n == 0:
             path = os.path.join(self._checkpoint_dir,
@@ -712,14 +710,8 @@ def train_and_evaluate(
 
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
-        params, opt_state, loss_metrics = updater.update(state['params'], graphs, state['opt_state'])
-        state = {
-            'step': state['step'] + 1,
-            'rng': state['rng'],
-            'opt_state': opt_state,
-            'params': params,
-            'hk_state': state['hk_state']
-        }
+        params, opt_state, loss_metrics = updater.update(state, graphs)
+
         # state['step'].block_until_ready()
         # jax.block_until_ready(state['step'])
         after_running_update = time.time()
