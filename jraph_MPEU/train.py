@@ -621,23 +621,22 @@ def train_and_evaluate(
     n_dev = len(jax.local_devices())
     for step in range(initial_step, config.num_train_steps_max + 1):
         start_loop_time = time.time()
-        # graphs = [next(train_reader) for _ in range(n_dev)]
-        graphs = next(train_reader)
+        graphs = [next(train_reader) for _ in range(n_dev)]
         # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
         # to pmap update over available devices
         # logging.info(f'next(train_reader): {next(train_reader)}')
-        # logging.info(f'graphs: {graphs}')
-        # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
-        # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
-        # graphs = jraph.GraphsTuple(
-        #     n_node = np.array([i.n_node for i in graphs]),
-        #     n_edge = np.array([i.n_edge for i in graphs]),
-        #     nodes = np.array([i.nodes for i in graphs]),
-        #     edges = np.array([i.edges for i in graphs]),
-        #     globals = np.array([i.globals for i in graphs]),
-        #     senders = np.array([i.senders for i in graphs]),
-        #     receivers = np.array([i.receivers for i in graphs]),
-        # )
+        logging.info(f'graphs: {graphs}')
+        logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
+        logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
+        graphs = jraph.GraphsTuple(
+            n_node = np.array([i.n_node for i in graphs]),
+            n_edge = np.array([i.n_edge for i in graphs]),
+            nodes = np.array([i.nodes for i in graphs]),
+            edges = np.array([i.edges for i in graphs]),
+            globals = np.array([i.globals for i in graphs]),
+            senders = np.array([i.senders for i in graphs]),
+            receivers = np.array([i.receivers for i in graphs]),
+        )
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
@@ -654,18 +653,6 @@ def train_and_evaluate(
         train_reader._update_measurements.append(
             after_running_update-start_loop_time)
 
-        # sum_of_nodes_in_batch, sum_of_edges_in_batch = get_node_edge_distribution_for_batch(
-        #     graphs)
-
-        # logging.info(f'sum of nodes in batch: {sum_of_nodes_in_batch}')
-        # logging.info(f'type: {type(sum_of_nodes_in_batch)}')
-        # logging.info(f'int cast: {int(sum_of_nodes_in_batch)}')
-
-        # train_reader._num_nodes_per_batch_after_batching.append(
-        #     sum_of_nodes_in_batch)
-        # train_reader._num_edges_per_batch_after_batching.append(
-        #     sum_of_edges_in_batch)
-
         # Log periodically the losses/step count.
         is_last_step = (step == config.num_train_steps_max)
         if step % config.log_every_steps == 0:
@@ -681,21 +668,11 @@ def train_and_evaluate(
                     pass
             break
 
-
         # Get evaluation on all splits of the data (train/validation/test),
         # checkpoint if needed and
         # check if we should be stopping early.
         early_stop = evaluater.update(state, datasets, eval_splits, config)
 
-        # if early_stop:
-        #     logging.info(f'Loss converged at step {step}, stopping early.')
-        #     # create a file that signals that training stopped early
-        #     if not os.path.exists(workdir + '/STOPPED_EARLY'):
-        #         with open(workdir + '/STOPPED_EARLY', 'w'):
-        #             pass
-        #     break
-        # No need to break if it's the last step since the loop terminates
-        # automatically when reaching the last step.
         if is_last_step:
             logging.info(
                 'Reached maximum number of steps without early stopping.')
@@ -718,31 +695,4 @@ def train_and_evaluate(
     mean_updating_time = np.mean(train_reader._update_measurements)
     logging.info(f'Mean update time: {mean_updating_time}')
 
-    # Temp test. let's just try logging the whole list:
-    # logging.info(f'Node distrubution before batching: '
-    #              f'{np.mean(train_reader._num_nodes_per_batch_after_batching)}')
-
-    # logging.info(f'Edge distrubution before batching: '
-    #              f'{np.mean(train_reader._num_edges_per_batch_after_batching)}')
-
-    # Let's save the node distribution/edge distrubtion after batching to file.
-    # df = pd.DataFrame({
-    #         'node_before_batching': train_reader._num_nodes_per_batch_after_batching
-    #         'edge_before_batching': train_reader._num_nodes_per_batch_after_batching
-    # })
-    # graph_distribution_after_batching_path = workdir + '/graph_distribution_after_batching_path.csv'
-
-
-    # after training is finished, evaluate model and save predictions in
-    # dataframe
-    """
-    df_path = workdir + '/result.csv'
-    if not os.path.exists(df_path):
-        logging.info('Evaluating model and generating dataframe.')
-        if config.dropout_rate == 0:
-            results_df = get_results_df(workdir)
-        else:
-            results_df = get_results_df(workdir, mc_dropout=True)
-        results_df.to_csv(df_path, index=False)
-    """
     return evaluater, lowest_val_loss
