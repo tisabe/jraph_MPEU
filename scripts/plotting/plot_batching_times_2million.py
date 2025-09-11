@@ -474,11 +474,11 @@ def main(argv):
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
     # Ok now let's plot the batching times. Let's plot 4 graphs.
     # AFLOW / SchNet (GPU / CPU)
-    plot_batching_update_subplot(df, model='painn',
-                                 compute_type='cpu',
-                                 mean_or_median='mean')
+    # plot_batching_update_subplot(df, model='painn',
+    #                              compute_type='cpu',
+    #                              mean_or_median='mean')
 
-    # plot_recompilation_bar_plot(df)
+    plot_recompilation_bar_plot(df)
     # hard_code_recompilation_plot()
 
 if __name__ == '__main__':
