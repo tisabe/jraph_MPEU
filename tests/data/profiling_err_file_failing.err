@@ -1,0 +1,91 @@
+2024-03-21 21:31:15.536463: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Error.  nthreads cannot be larger than environment variable "NUMEXPR_MAX_THREADS" (64)I0321 21:31:20.082167 23272778716992 main.py:51] JAX host: 0 / 1
+I0321 21:31:20.082283 23272778716992 main.py:52] JAX local devices: [cuda(id=0), cuda(id=1), cuda(id=2), cuda(id=3)]
+I0321 21:31:20.082483 23272778716992 train.py:553] Loading datasets.
+I0321 21:31:20.082551 23272778716992 input_pipeline.py:581] Did not find split file at /u/dansp/batching_both_models_both_datasets_100k_steps_21_3_2024//profiling_experiments/schnet/qm9/static/round_True/16/gpu_a100/iteration_5/splits.json. Pulling data.
+I0321 21:31:20.088922 23272778716992 input_pipeline.py:275] Number of entries selected: 133885
+I0321 21:32:29.635127 23272778716992 input_pipeline.py:653] Mean: -75.9140390541746, Std: 10.36986183441548
+I0321 21:32:30.645414 23272778716992 train.py:555] Number of node classes: 5
+I0321 21:32:30.646062 23272778716992 train.py:565] Because of compute device: gpu_a100 we set compile batching to: True
+I0321 21:32:30.646138 23272778716992 train.py:569] Config dynamic batch: False
+I0321 21:32:30.646178 23272778716992 train.py:570] Config dynamic batch is True?: False
+I0321 21:32:30.825278 23272778716992 train.py:478] Initializing network.
+I0321 21:32:32.711475 23272778716992 train.py:594] 80352 params, size: 0.32MB
+I0321 21:32:32.711870 23272778716992 train.py:610] Starting training.
+I0321 21:32:32.714292 23272778716992 train.py:77] LOG Message: Recompiling!
+2024-03-21 21:32:35.390251: W external/xla/xla/service/gpu/buffer_comparator.cc:1054] INTERNAL: ptxas exited with non-zero error code 65280, output: ptxas /tmp/tempfile-ravg1170-237dec10-3197-614319b84551e, line 10; fatal   : Unsupported .version 7.8; current version is '7.4'
+ptxas fatal   : Ptx assembly aborted due to errors
+
+Relying on driver to perform ptx compilation. 
+Setting XLA_FLAGS=--xla_gpu_cuda_data_dir=/path/to/cuda  or modifying $PATH can be used to set the location of ptxas
+This message will only be logged once.
+I0321 21:32:37.012522 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:39.079838 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:41.143349 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:43.214461 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:45.290811 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:47.565757 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:49.633262 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:51.699999 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:53.740603 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:57.365637 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:32:59.261164 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:01.326320 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:03.396442 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:05.302254 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:07.359372 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:09.648110 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:11.703284 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:13.773403 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:15.829272 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:17.888584 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:20.065480 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:22.045780 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:24.107992 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:26.227970 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:28.115056 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:30.192555 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:32.252698 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:34.653677 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:36.578680 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:38.704235 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:40.846356 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:43.060952 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:45.649333 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:48.192165 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:50.419193 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:52.339131 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:54.260276 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:56.271680 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:33:58.636671 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:00.900628 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:02.959798 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:05.337749 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:07.460458 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:10.498680 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:14.191359 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:16.409483 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:19.335730 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:22.302786 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:26.700053 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:30.050663 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:37.130881 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:47.341610 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:34:52.843853 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:35:00.699860 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:35:22.340736 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:35:27.100089 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:35:43.939129 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:35:55.068150 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:36:29.045823 23272778716992 train.py:77] LOG Message: Recompiling!
+I0321 21:38:50.758677 23272778716992 train.py:150] Serializing experiment state to /u/dansp/batching_both_models_both_datasets_100k_steps_21_3_2024//profiling_experiments/schnet/qm9/static/round_True/16/gpu_a100/iteration_5/checkpoints/checkpoint_0100000.pkl
+I0321 21:38:50.763113 23272778716992 train.py:646] Step 100000 train loss: 0.001680233282968402
+I0321 21:39:54.297339 23272778716992 train.py:367] RMSE/MAE train: [0.47112376 0.34495229]
+I0321 21:39:54.297609 23272778716992 train.py:367] RMSE/MAE validation: [0.466972   0.34562789]
+I0321 21:39:54.297755 23272778716992 train.py:367] RMSE/MAE test: [0.46532637 0.34572138]
+I0321 21:39:54.365766 23272778716992 train.py:674] Reached maximum number of steps without early stopping.
+I0321 21:39:54.366086 23272778716992 train.py:681] Lowest validation loss: 0.46697200334269995
+I0321 21:39:54.373649 23272778716992 train.py:684] Median batching time: 0.0005152225494384766
+I0321 21:39:54.377550 23272778716992 train.py:687] Mean batching time: 0.0005266756558418273
+I0321 21:39:54.382390 23272778716992 train.py:690] Median update time: 0.0018885135650634766
+I0321 21:39:54.386348 23272778716992 train.py:693] Mean update time: 0.0031542533135414125

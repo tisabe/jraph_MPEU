@@ -8,13 +8,15 @@ import ase.db
 from ase.visualize import view
 from ase.spacegroup import get_spacegroup
 from ase.neighborlist import NeighborList
+import numpy as np
 
 from jraph_MPEU.input_pipeline import get_graph_cutoff
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('file', 'QM9/qm9_graphs.db', 'database filename')
+flags.DEFINE_string('file', 'databases/QM9/graphs_fc_vec.db', 'database filename')
 flags.DEFINE_integer('num', 1, 'Number of structures to print.')
+flags.DEFINE_integer('limit', None, 'Limit to number of structures that are loaded.')
 flags.DEFINE_integer(
     'verb', 1,
     'Verbosity of output. <2 only spacegroup ' +
@@ -63,10 +65,12 @@ class UnitTests(absltest.TestCase):
         """Check if neighbors in graphs are calculated correctly."""
 
         database = ase.db.connect(FLAGS.file)
-        num = FLAGS.num
-        rows = database.select(limit=num)
+        limit = FLAGS.limit
+        rows = database.select(limit=limit)
+        count_isolated_nodes = 0
         for row in rows:
             atoms = row.toatoms()
+            n_atoms = len(atoms.get_atomic_numbers())
             key_value_pair = row.key_value_pairs
             cutoff = key_value_pair['cutoff_val']
             cutoff_type = key_value_pair['cutoff_type']
@@ -74,15 +78,23 @@ class UnitTests(absltest.TestCase):
             edges = row.data['edges']
             senders = row.data['senders']
             receivers = row.data['receivers']
-            len_edges = len(edges)
-            if row.id == 1:
-                print(cutoff)
-                print(cutoff_type)
-                print(len_edges)
-            self.assertTrue(len_edges > 0)
-            self.assertTrue(len(senders) == len_edges)
-            self.assertTrue(len(receivers) == len_edges)
-            # TODO: more tests on specific connectivity
+            self.assertEqual(len(senders), len(edges))
+            self.assertEqual(len(receivers), len(edges))
+            self.assertEqual(np.shape(edges)[1], 3)
+
+            nodes_not_in_receivers = set(receivers) - set(range(n_atoms))
+            count_isolated_nodes += len(nodes_not_in_receivers)
+
+            if cutoff_type == 'fc':
+                self.assertEqual(len(edges), n_atoms*(n_atoms-1))
+            elif cutoff_type == 'knearest':
+                self.assertEqual(len(edges), n_atoms*cutoff)
+            elif cutoff_type == 'const':
+                dist = np.sqrt(np.sum(edges**2, axis=1))
+                self.assertListEqual(list(dist <= cutoff), [True]*len(edges))
+
+        print(f"Number of isolated nodes in {FLAGS.file}: {count_isolated_nodes}")
+
 
 
 if __name__ == "__main__":

@@ -54,7 +54,8 @@ class UnitTests(absltest.TestCase):
         logging.set_verbosity(logging.WARNING)
         config = cfg.get_config()
         with tempfile.TemporaryDirectory() as test_dir:
-            datasets, _, std = get_datasets(config, test_dir)
+            datasets, norm_dict = get_datasets(config, test_dir)
+            std = norm_dict['std']
             train_reader = DataReader(
                 data=datasets['train'],
                 batch_size=config.batch_size,

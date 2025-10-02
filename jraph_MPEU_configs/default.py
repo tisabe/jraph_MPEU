@@ -8,7 +8,15 @@ def get_config() -> ml_collections.ConfigDict():
     config = ml_collections.ConfigDict()
 
     # rng init
-    config.seed = 42
+    # The seed defaults contain legacy names, since some older calculations
+    # might have legacy keys. If such a legacy key is loaded from an old
+    # config, the input_pipeline behaves in such a way that the splits are
+    # reproducible.
+    config.seed = None
+    config.seed_weights = 42
+    config.seed_datareader = 42
+    config.seed_splits = 42
+    config.shuffle_val_seed = -1
 
     # Optimizer
     config.optimizer = 'adam'
@@ -29,7 +37,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.checkpoint_every_steps = 100_000
     config.num_checkpoints = 1  # number of checkpoints to keep
     # data split settings
-    config.data_file = 'QM9/qm9_graphs.db'
+    config.data_file = 'databases/QM9/graphs_fc_vec.db'
     config.label_str = 'U0' # string to determine which label is used from the dataset
     config.val_frac = 0.1 # fraction of total data used for validation
     config.test_frac = 0.1 # fraction of total data used for testing
@@ -62,6 +70,7 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_atomic_number = 5
     # Regularization parameters
     config.use_layer_norm = False
+    config.use_batch_norm = False
     config.dropout_rate = 0.0
 
     # Logging options

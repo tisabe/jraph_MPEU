@@ -33,10 +33,16 @@ def main(args):
     limit = args.limit
     key = args.key
 
+    plt.rc('xtick', labelsize=16)
+    plt.rc('ytick', labelsize=16)
+    plt.rc('legend', fontsize=18)
+    plt.rc('legend', title_fontsize=18)
+    plt.rc('axes', labelsize=18)
+
     num_nodes = []
     num_edges = []
     atomic_numbers_all = np.array([])
-    edges_all = np.array([]) # collect all edge distances for histogram
+    edges_all = [] # collect all edge distances for histogram
     key_val_list = [] # list of key-value-pairs
 
     with ase.db.connect(file) as asedb:
@@ -49,25 +55,27 @@ def main(args):
             atomic_numbers = row.numbers
             atomic_numbers_all = np.concatenate(
                 (atomic_numbers_all, atomic_numbers), axis=None)
-            num_nodes.append(row.natoms)
+            num_nodes.append(int(row.natoms))
             #senders = data['senders']
             #receivers = data['receivers']
             edges = data['edges']
             num_edges.append(len(edges))
-            edges_all = np.concatenate((edges_all, np.array(edges)))
+            edges_all.append(np.array(edges))
+    edges_all = np.concatenate(edges_all, axis=0)
+    dists = np.linalg.norm(edges_all, axis=1)
 
     fig, ax = plt.subplots()
-    ax.hist(edges_all, bins=100, log=True)
-    ax.set_xlabel('distance (Ang)', fontsize=12)
-    ax.set_ylabel('Number of edges', fontsize=12)
+    ax.hist(dists, bins=100, log=True)
+    ax.set_xlabel('distance (Ang)')
+    ax.set_ylabel('Number of edges')
     plt.tight_layout()
     plt.show()
     fig.savefig(folder+'/dist_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
     ax.hist(atomic_numbers_all, bins=int(max(atomic_numbers_all))+1, log=True)
-    ax.set_xlabel('Atomic number', fontsize=12)
-    ax.set_ylabel('Number of nodes', fontsize=12)
+    ax.set_xlabel('Atomic number')
+    ax.set_ylabel('Number of nodes')
     plt.tight_layout()
     plt.show()
     fig.savefig(folder+'/species_hist.png', bbox_inches='tight', dpi=600)
@@ -91,25 +99,27 @@ def main(args):
             else:
                 sns.histplot(ax=ax, data=key_df, x=key_i, discrete=True)
                 plt.yscale('log')
-            ax.set_xlabel(f'{key_i} ({units})', fontsize=12)
-            ax.set_ylabel('Number of graphs', fontsize=12)
+            ax.set_xlabel(f'{key_i} ({units})')
+            ax.set_ylabel('Number of graphs')
             plt.tight_layout()
             plt.show()
             fig.savefig(folder+f'/{key_i}_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots(2, 1)
-    ax[0].hist(num_nodes, bins=100, log=True)
-    ax[0].set_xlabel('Number of nodes', fontsize=12)
-    ax[1].hist(num_edges, bins=100, log=True)
-    ax[1].set_xlabel('Number of edges', fontsize=12)
+    ax[0].hist(num_nodes, bins=20, log=False)
+    ax[0].set_xlabel('Number of nodes')
+    ax[0].set_ylabel('Count')
+    ax[1].hist(num_edges, bins=20, log=False)
+    ax[1].set_xlabel('Number of edges')
+    ax[1].set_ylabel('Count')
     plt.tight_layout()
     plt.show()
     fig.savefig(folder+'/graph_stat_hist.png', bbox_inches='tight', dpi=600)
 
     fig, ax = plt.subplots()
     ax.scatter(num_nodes, num_edges)
-    ax.set_xlabel('Number of nodes', fontsize=12)
-    ax.set_ylabel('Number of edges', fontsize=12)
+    ax.set_xlabel('Number of nodes')
+    ax.set_ylabel('Number of edges')
     plt.tight_layout()
     plt.show()
     fig.savefig(folder+'/edges_per_node.png', bbox_inches='tight', dpi=600)
@@ -117,7 +127,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Show data analysis plots.')
-    parser.add_argument('-f', '-F', type=str, dest='file', default='QM9/qm9_graphs.db',
+    parser.add_argument('-f', '-F', type=str, dest='file',
+                        default='databases/QM9/graphs_fc_vec.db',
                         help='data directory name')
     parser.add_argument('-limit', type=int, dest='limit', default=None,
                         help='limit number of database entries to be selected')

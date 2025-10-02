@@ -22,9 +22,13 @@ from jraph_MPEU.input_pipeline import (
     get_datasets,
     get_atom_num_list,
     label_list_to_class_dict,
-    label_list_to_int_class_list
+    label_list_to_int_class_list,
+    shuffle_train_val_data,
+    get_graph_fc,
+    get_graph_knearest,
+    get_graph_cutoff
 )
-from jraph_MPEU.utils import add_labels_to_graphs
+from jraph_MPEU.utils import add_labels_to_graphs, dist_matrix
 
 class TestPipelineFunctions(unittest.TestCase):
     """Testing class."""
@@ -32,14 +36,285 @@ class TestPipelineFunctions(unittest.TestCase):
         """Prepare test cases."""
         # ase databases with graph features (in the "data" sections)
         self.graphs_dbs = [
-            'QM9/qm9_graphs.db',
-            'aflow/graphs_all_12knn.db',
-            'matproj/mp2018_graphs.db']
+            'databases/QM9/graphs_fc_vec.db',
+            'databases/aflow/graphs_12knn_vec.db',
+            'databases/matproj/mp2018_graphs.db']
         # ase databases without graph features
-        self.raw_dbs = ['QM9/qm9.db']
-        self.test_db = 'QM9/qm9_graphs.db'
+        self.raw_dbs = ['databases/QM9/qm9.db']
+        self.test_db_path = 'databases/QM9/graphs_fc_vec.db'
         # aflow database to test Egap classification inputs
-        self.aflow_db = 'aflow/graphs_all_12knn.db'
+        self.aflow_db = 'databases/aflow/graphs_12knn_vec.db'
+        self.rng = np.random.default_rng(seed=7)
+
+    def test_graph_fc(self):
+        """Test if fully connected graphs are correctly generated."""
+        atoms = Atoms('H5')
+        num_nodes = 5
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+
+        nodes, pos, edges, senders, receivers = get_graph_fc(atoms)
+
+        expected_edges = []
+        expected_senders = []
+        expected_receivers = []
+
+        for receiver in range(num_nodes):
+            for sender in range(num_nodes):
+                if sender != receiver:
+                    expected_edges.append(
+                        position_matrix[receiver] - position_matrix[sender])
+                    expected_senders.append(sender)
+                    expected_receivers.append(receiver)
+
+        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
+        np.testing.assert_array_equal(pos, position_matrix)
+        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+        np.testing.assert_array_equal(np.array(expected_senders), senders)
+        np.testing.assert_array_equal(np.array(expected_receivers), receivers)
+
+    def test_catch_fc_with_pbc(self):
+        """Test that trying to make a fully connected graph from atoms with
+        periodic boundary conditions raises an exception."""
+        atoms = Atoms('H5', pbc=True)
+        num_nodes = 5
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+
+        with self.assertRaises(ValueError, msg='PBC not allowed for fully connected graph.'):
+            get_graph_fc(atoms)
+
+    def test_k_nn_random(self):
+        """Test generating a k-nearest neighbor graph from random atomic
+        positions."""
+        num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}')
+        dimensions = 3
+        k = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        distances = dist_matrix(position_matrix)
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
+
+        expected_senders = []
+        expected_receivers = []
+
+        for row in range(num_nodes):
+            idx_list = []
+            last_idx = 0
+            for _ in range(k):
+                # temporary last saved minimum value, initialized to high value
+                min_val_last = 9999.9
+                for col in range(num_nodes):
+                    if col == row or (col in idx_list):
+                        # do nothing on the diagonal,
+                        # or if column has already been included
+                        continue
+                    else:
+                        val = distances[row, col]
+                        if val < min_val_last:
+                            min_val_last = val
+                            last_idx = col
+                idx_list.append(last_idx)
+                expected_senders.append(last_idx)
+                expected_receivers.append(row)
+
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
+        # we only check distances exactly, since senders have an arbitrary
+        # ordering because of the way neighborlists are built in ase
+        dists = np.sqrt(np.sum(edges**2, axis=1))
+        dists_expected = np.sqrt(np.sum(expected_edges**2, axis=1))
+        np.testing.assert_array_equal(np.array(dists_expected), dists)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
+        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
+        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+
+    def test_k_nn_pbc(self):
+        """Test generating a k-nearest neighbor graph from random atomic
+        positions with periodic boundary conditions."""
+        cell_l = 2
+        num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
+        dimensions = 3
+        k = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_knearest(atoms, k)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertTupleEqual(np.shape(edges), (num_nodes*k, dimensions))
+        self.assertTupleEqual(np.shape(senders), (num_nodes*k,))
+        self.assertTupleEqual(np.shape(receivers), (num_nodes*k,))
+        # check that coordinates of pos have been wrapped to inside the cell
+        for coordinate in pos.flatten():
+            self.assertLessEqual(coordinate, cell_l)
+
+    def test_k_nn_too_far(self):
+        """Test generating a k-nearest neighbor graph, but an exception is
+        raised because the atoms are too far apart."""
+        atoms = Atoms('H2')
+        dimensions = 3
+        scale = 10
+        position_matrix = [[0]*dimensions, [scale]*dimensions]
+        k = 1
+        atoms.set_positions(position_matrix)
+        with self.assertRaises(RuntimeError):
+            _ = get_graph_knearest(atoms, k, initial_radius=scale/20)
+
+    def test_get_cutoff_adj_from_dist_random(self):
+        """Test generating a graph with constant cutoff from random
+        atomic positions."""
+        num_nodes = 4
+        atoms = Atoms(f'H{num_nodes}')
+        dimensions = 3
+        cutoff = 0.7
+        position_matrix = self.rng.random((num_nodes, dimensions))
+        distances = dist_matrix(position_matrix)
+
+        atoms.set_positions(position_matrix)
+        nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, cutoff)
+
+        expected_senders = []
+        expected_receivers = []
+
+        for receiver in range(num_nodes):
+            for sender in range(num_nodes):
+                if not sender == receiver:
+                    if distances[sender, receiver] < cutoff:
+                        expected_senders.append(sender)
+                        expected_receivers.append(receiver)
+
+        expected_edges = position_matrix[expected_receivers] - position_matrix[expected_senders]
+
+        # edges might be arranged differently
+        edges = np.sort(edges)
+        expected_edges = np.sort(expected_edges)
+
+        np.testing.assert_array_equal(np.array([1]*num_nodes), nodes)
+        np.testing.assert_array_equal(pos, position_matrix)
+        np.testing.assert_array_almost_equal(np.array(expected_edges), edges)
+        self.assertCountEqual(np.array(expected_senders), senders)
+        self.assertCountEqual(np.array(expected_receivers), receivers)
+
+    def test_cutoff_pbc(self):
+        """Test generating a constant cutoff graph from random atomic
+        positions with periodic boundary conditions."""
+        cell_l = 10
+        num_nodes = 5
+        atoms = Atoms(f'H{num_nodes}', cell=[cell_l]*3, pbc=[1, 1, 1])
+        dimensions = 3
+        position_matrix = self.rng.integers(0, 10, size=(num_nodes, dimensions))
+        atoms.set_positions(position_matrix)
+        nodes, pos, _, _, _ = get_graph_cutoff(atoms, 5)
+        np.testing.assert_array_equal(nodes, [1]*5)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        # check that coordinates of pos have been wrapped to inside the cell
+        for coordinate in pos.flatten():
+            self.assertLessEqual(coordinate, cell_l)
+
+    def test_cutoff_no_edges(self):
+        """Test generating a constant cutoff graph from random atomic
+        positions with periodic boundary conditions."""
+        num_nodes = 2
+        atoms = Atoms('H2')
+        dimensions = 3
+        position_matrix = [[0]*dimensions, [1]*dimensions]
+        atoms.set_positions(position_matrix)
+        with self.assertWarns(RuntimeWarning):
+            nodes, pos, edges, senders, receivers = get_graph_cutoff(atoms, 1)
+        np.testing.assert_array_equal(nodes, [1]*num_nodes)
+        self.assertTupleEqual(np.shape(nodes), (num_nodes,))
+        self.assertTupleEqual(np.shape(pos), (num_nodes, dimensions))
+        self.assertEqual(len(senders), 0)
+        self.assertEqual(len(receivers), 0)
+        np.testing.assert_array_equal(edges, np.zeros((0, 1)))
+
+    def test_get_datasets_split(self):
+        """Test that the same reproducible splits are returned by get_datasets."""
+        config = ml_collections.ConfigDict()
+        config.train_frac = 0.5
+        config.val_frac = 0.3
+        config.test_frac = 0.2
+        config.label_str = 'test_label'
+        config.selection = None
+        config.limit_data = None
+        config.num_edges_max = None
+        config.seed_splits = 42
+        config.aggregation_readout_type = 'mean'
+        config.label_type = 'scalar'
+        config.shuffle_val_seed = -1
+        num_rows = 10  # number of rows to write
+        label_values = np.arange(num_rows)*1.0
+        compound_list = ['H', 'He2', 'Li3', 'Be4', 'B5', 'C6', 'N7', 'O8']
+
+        with tempfile.TemporaryDirectory() as test_dir:  # directory for database
+            config.data_file = test_dir + 'test.db'
+            path_split = os.path.join(test_dir, 'splits.json')
+            path_num = os.path.join(test_dir, 'atomic_num_list.json')
+            # check that there is no file with splits or atomic numbers yet
+            self.assertFalse(os.path.exists(path_split))
+            self.assertFalse(os.path.exists(path_num))
+            # create and connect to temporary database
+            database = ase.db.connect(config.data_file)
+            for label_value in label_values:
+                # example structure
+                h2_atom = Atoms(
+                    random.choice(compound_list))
+                key_value_pairs = {config.label_str: label_value}
+                data = {
+                    'senders': [0],
+                    'receivers': [0],
+                    'edges': [5.0]
+                }
+                database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
+            graphs_split, norm_dict = get_datasets(
+                config, test_dir
+            )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
+            train_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['train']]
+            val_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['validation']]
+            test_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['test']]
+            self.assertListEqual(train_labels, [6., 7., 3., 0., 5.])
+            self.assertListEqual(val_labels, [1., 2., 9.])
+            self.assertListEqual(test_labels, [4., 8.])
+
+            # now with shuffled val and train set
+            # split dict will be loaded, test stays the same but val and train
+            # are shuffled
+            config.shuffle_val_seed = 1
+
+            graphs_split, norm_dict = get_datasets(
+                config, test_dir
+            )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
+            train_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['train']]
+            val_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['validation']]
+            test_labels = [graph.globals[0]*std + mean \
+                for graph in graphs_split['test']]
+            self.assertListEqual(train_labels, [2., 6., 5., 0., 1.])
+            self.assertListEqual(val_labels, [9., 3., 7.])
+            self.assertListEqual(test_labels, [4., 8.])
+
+    def test_shuffle_train_val_data(self):
+        """Test shuffle function. Same seed should produce the same result."""
+        train_data = [1, 2, 3, 4, 5]
+        val_data = [6, 7, 8]
+        seed = 42
+        train_new, val_new = shuffle_train_val_data(train_data, val_data, seed)
+        self.assertListEqual(train_new, [8, 3, 5, 4, 7])
+        self.assertListEqual(val_new, [2, 6, 1])
 
     def test_dbs_not_empty(self):
         for db_name in self.graphs_dbs + self.raw_dbs:
@@ -72,7 +347,7 @@ class TestPipelineFunctions(unittest.TestCase):
         config.selection = None
         config.limit_data = None
         config.num_edges_max = None
-        config.seed = 42
+        config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'scalar'
         num_rows = 10  # number of rows to write
@@ -83,6 +358,7 @@ class TestPipelineFunctions(unittest.TestCase):
             config.data_file = test_dir + 'test.db'
             path_split = os.path.join(test_dir, 'splits.json')
             path_num = os.path.join(test_dir, 'atomic_num_list.json')
+            path_norm = os.path.join(test_dir, 'normalization.json')
             # check that there is no file with splits or atomic numbers yet
             self.assertFalse(os.path.exists(path_split))
             self.assertFalse(os.path.exists(path_num))
@@ -104,9 +380,11 @@ class TestPipelineFunctions(unittest.TestCase):
                     'edges': [5.0]
                 }
                 database.write(h2_atom, key_value_pairs=key_value_pairs, data=data)
-            graphs_split, mean, std = get_datasets(
+            graphs_split, norm_dict = get_datasets(
                 config, test_dir
             )
+            mean = norm_dict['mean']
+            std = norm_dict['std']
             # calculate expected metrics using only training labels
             mean_expected = np.mean(
                 label_values[np.array(test_split_dict['train'])-1])
@@ -114,32 +392,30 @@ class TestPipelineFunctions(unittest.TestCase):
                 label_values[np.array(test_split_dict['train'])-1])
             self.assertAlmostEqual(mean, mean_expected)
             self.assertAlmostEqual(std, std_expected)
-            self.assertTrue(mean is not None)
-            self.assertTrue(std is not None)
 
             # check that the splits.json and atomic_num_list.json file was created
             self.assertTrue(os.path.exists(path_split))
             self.assertTrue(os.path.exists(path_num))
+            self.assertTrue(os.path.exists(path_norm))
             # check that the atomic num list has at least one entry
-            with open(path_num) as list_file:
+            with open(path_num, 'r', encoding="utf-8") as list_file:
                 num_list = json.load(list_file)
             self.assertTrue(len(num_list) > 0)
 
             globals_expected = {
-                'train': [0, 1, 2, 3, 4],
-                'validation': [5, 6, 7],
-                'test': [8, 9]
+                'train': [[0], [1], [2], [3], [4]],
+                'validation': [[5], [6], [7]],
+                'test': [[8], [9]]
             }
             graphs_split_old = graphs_split.copy() # copy for comparison later
             for split, graph_list in graphs_split.items():
-                labels = [(graph.globals[0]*std)+mean for graph in graph_list]
+                labels = [(graph.globals*std)+mean for graph in graph_list]
                 np.testing.assert_array_equal(labels, globals_expected[split])
 
             # load the dataset again to check if generated jsons work
-            graphs_split, mean, std = get_datasets(
+            graphs_split, _ = get_datasets(
                 config, test_dir
             )
-            # TODO: test that the nodes are still transformed in the same way
             for split, graph_list in graphs_split.items():
                 nodes = [np.array(graph.nodes) for graph in graph_list]
                 graphs_list_old = graphs_split_old[split]
@@ -164,18 +440,19 @@ class TestPipelineFunctions(unittest.TestCase):
         config.selection = None
         config.limit_data = 10000
         config.num_edges_max = None
-        config.seed = 42
+        config.seed_splits = 42
         config.aggregation_readout_type = 'mean'
         config.label_type = 'class'
         config.data_file = self.aflow_db
 
         with tempfile.TemporaryDirectory() as workdir:
-            graphs_split, mean, std = get_datasets(config, workdir)
+            graphs_split, norm_dict = get_datasets(config, workdir)
             globals_list = []
             for graph in graphs_split['train']:
                 globals_list.append(graph.globals[0])
             # check that there are only zeros and ones in the list
             self.assertTrue(sorted(set(globals_list)) == [0, 1])
+            self.assertFalse(norm_dict)
             # TODO: check that threshold is evaluated correctly
 
     def test_save_load_split_dict(self):
@@ -186,7 +463,10 @@ class TestPipelineFunctions(unittest.TestCase):
             'validation': [6, 7, 8],
             'test': [9]}
         with tempfile.TemporaryDirectory() as test_dir:
-            save_split_dict(test_dict, test_dir)
+            save_split_dict(test_dict, test_dir, database_path='test')
+            with open(os.path.join(test_dir, 'splits.json'), 'r', encoding="utf-8") as splits_file:
+                splits_dict = json.load(splits_file)
+                self.assertEqual(splits_dict['database_path'], 'test')
             dict_loaded = load_split_dict(test_dir)
         # the loaded dict now has signature
         # {1: 'split1', 2: 'split1',... 11: 'split2',...}.
@@ -266,7 +546,7 @@ class TestPipelineFunctions(unittest.TestCase):
             limit: 100
         """
 
-        file_str = self.test_db
+        file_str = self.test_db_path
         if not os.path.isfile(file_str):
             raise FileNotFoundError(f'{file_str} does not exist')
         label_str = 'U0'
@@ -466,7 +746,7 @@ class TestPipelineFunctions(unittest.TestCase):
 
     def test_ase_row_to_jraph(self):
         """Test conversion from ase.db.Row to jraph.GraphsTuple."""
-        database = ase.db.connect(self.test_db)
+        database = ase.db.connect(self.test_db_path)
         row = database.get(1)
         atomic_numbers = row.toatoms().get_atomic_numbers()
         graph = ase_row_to_jraph(row)

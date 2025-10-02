@@ -7,10 +7,10 @@ answer is on paper to check we're getting the right answer.
 """
 import unittest
 
+from parameterized import parameterized
 import numpy as np
 import jax
 import jax.numpy as jnp
-from jax.nn import relu, swish
 import jraph
 import haiku as hk
 import ml_collections
@@ -30,6 +30,32 @@ from jraph_MPEU.models.mpeu import (
 )
 from jraph_MPEU_configs.aflow_class_test import get_config as get_class_config
 
+
+def _get_random_graph(rng, z_max) -> jraph.GraphsTuple:
+    """Return a random graphsTuple with n_node from 1 to 10 and intergers up to
+    z_max as node features."""
+    n_node = rng.integers(1, 10, (1,))
+    n_edge = rng.integers(1, 20, (1,))
+    graph = jraph.GraphsTuple(
+        nodes=rng.integers(0, z_max, (n_node[0],)),
+        edges=rng.random((n_edge[0], 3)),
+        senders=rng.integers(0, n_node[0], (n_edge[0],)),
+        receivers=rng.integers(0, n_node[0], (n_edge[0],)),
+        n_node=n_node,
+        n_edge=n_edge,
+        globals=None)
+    return graph
+
+
+def _get_random_graph_batch(rng, n_graphs, z_max) -> jraph.GraphsTuple:
+    """Return a batch of random graphs."""
+    graphs = []
+    for _ in range(n_graphs):
+        graph = _get_random_graph(rng, z_max)
+        graphs.append(graph)
+    return jraph.batch(graphs)
+
+
 class TestModelFunctions(unittest.TestCase):
     """Unit and integration test functions in models.py."""
     def setUp(self):
@@ -39,6 +65,7 @@ class TestModelFunctions(unittest.TestCase):
         total_n_edge = jnp.sum(n_edge)
         n_graph = n_node.shape[0]
         feature_dim = 10
+        self.np_rng = np.random.default_rng(seed=7)
 
         self.graphs = jraph.GraphsTuple(
             n_node=n_node,
@@ -53,6 +80,7 @@ class TestModelFunctions(unittest.TestCase):
         self.config.batch_size = 32
         self.config.latent_size = 64
         self.config.use_layer_norm = False
+        self.config.use_batch_norm = False
         self.config.message_passing_steps = 3
         self.config.global_readout_mlp_layers = 0
         self.config.mlp_depth = 2
@@ -67,6 +95,64 @@ class TestModelFunctions(unittest.TestCase):
         self.config.label_type = 'scalar'
         self.config.activation_name = 'shifted_softplus'
         self.activation_names = ['shifted_softplus', 'relu', 'swish']
+
+    @parameterized.expand([
+        'activation_name',
+        'aggregation_message_type',
+        'aggregation_readout_type'])
+    def test_raises_activation_error(self, config_field):
+        """Test that an error is raised, when wrong string is used in
+        config_field."""
+        with self.assertRaises(KeyError):
+            self.config[config_field] = 'test'
+            MPEU(self.config, True)
+
+    def test_build_extra_layer(self):
+        """Test building the MPEU with extra layer and scalar label type."""
+        n_graphs = 100
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+
+        self.config.hk_init = None
+        self.config.global_readout_mlp_layers = 2
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction = graph_pred.globals
+        self.assertTupleEqual(prediction.shape, (n_graphs, 1))
+
+    def test_mpeu_non_negative_output(self):
+        """Test that when the label type is 'scalar_non_negative', the output
+        of the MPEU is the same as before, but with ReLU on output."""
+        n_graphs = 100
+        graph = _get_random_graph_batch(
+            self.np_rng, n_graphs, self.config.max_atomic_number)
+
+        self.config.hk_init = None
+        rng = jax.random.PRNGKey(42)
+        rng, init_rng = jax.random.split(rng)
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction = graph_pred.globals
+
+        # now create and predict with model with different label_type
+        self.config.label_type = 'scalar_non_negative'
+        net_fn = MPEU(self.config, True)
+        net = hk.transform(net_fn)
+        params = net.init(init_rng, graph)
+
+        graph_pred = net.apply(params, rng, graph)
+        prediction_relu = graph_pred.globals
+
+        np.testing.assert_array_equal(prediction_relu, jax.nn.relu(prediction))
+
 
     def test_GNN_output_zero_graph(self):
         """Test the forward pass of the MPNN on a graph with zeroes as features.
@@ -89,7 +175,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 3)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -101,7 +187,7 @@ class TestModelFunctions(unittest.TestCase):
         # graph with zeros as node features and a self edge for every node
         graph_zero = jraph.GraphsTuple(
             nodes=jnp.zeros((n_node)),
-            edges=jnp.ones((n_node)),
+            edges=jnp.ones((n_node, 3)),
             senders=jnp.arange(0, n_node),
             receivers=jnp.arange(0, n_node),
             n_node=jnp.array([n_node]),
@@ -120,7 +206,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 sp = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = MPEU(self.config)
+            net_fn = MPEU(self.config, True)
             net = hk.transform(net_fn)
             params = net.init(init_rng, init_graphs) # create weights etc. for the model
 
@@ -161,7 +247,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 3)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -172,7 +258,8 @@ class TestModelFunctions(unittest.TestCase):
         n_node = jnp.array([3])
         n_edge = jnp.array([4])
         node_features = jnp.array([0, 1, 2])
-        edge_features = jnp.array([1, 2, 3, 4])
+        edge_features = jnp.array([[0, 1], [2, 0], [3, 0], [0, 4]])
+        edge_dists = jnp.sqrt(jnp.sum(edge_features**2, axis=1))
         senders = jnp.array([0, 1, 2, 0])
         receivers = jnp.array([1, 0, 1, 2])
 
@@ -197,7 +284,7 @@ class TestModelFunctions(unittest.TestCase):
             elif activation_name == 'relu':
                 activation_fn = jax.nn.relu
             self.config.activation_name = activation_name
-            net_fn = MPEU(self.config)
+            net_fn = MPEU(self.config, True)
             net = hk.transform(net_fn)
             # Create weights for the model
             params = net.init(init_rng, init_graphs)
@@ -206,13 +293,13 @@ class TestModelFunctions(unittest.TestCase):
             prediction = graph_pred.globals
 
             # Here, we calculate the expected result, starting with the embeddings.
-            nodes_embedded = jnp.ones((int(n_node), latent_size))/latent_size
+            nodes_embedded = jnp.ones((n_node[0], latent_size))/latent_size
             edge_embedding_fn = _get_edge_embedding_fn(
                 latent_size,
                 self.config.k_max,
                 self.config.delta,
                 self.config.mu_min)
-            edges_embedded = edge_embedding_fn(edge_features)['edges']
+            edges_embedded = edge_embedding_fn(edge_dists)['edges']
             edges_embedded = np.array(edges_embedded)
 
             # The updated edges.
@@ -220,8 +307,8 @@ class TestModelFunctions(unittest.TestCase):
             edge_factor = activation_fn(edge_factor)*2
             edge_factor = np.array(edge_factor)
 
-            edge_updated = jnp.ones((int(n_edge), latent_size))
-            for i in range(int(n_edge)):
+            edge_updated = jnp.ones((n_edge[0], latent_size))
+            for i in range(n_edge[0]):
                 edge_updated = edge_updated.at[i].set(
                     edge_updated[i] * float(edge_factor[i]))
 
@@ -230,7 +317,7 @@ class TestModelFunctions(unittest.TestCase):
             messages = activation_fn(messages)/latent_size
 
             # Node-wise message
-            message_node = jnp.zeros((int(n_node), latent_size))
+            message_node = jnp.zeros((n_node[0], latent_size))
             message_node = message_node.at[0].set(messages[1])
             message_node = message_node.at[1].set(messages[0] + messages[2])
             message_node = message_node.at[2].set(messages[3])
@@ -255,7 +342,7 @@ class TestModelFunctions(unittest.TestCase):
         n_edge = 4
         init_graphs = jraph.GraphsTuple(
             nodes=jnp.ones((n_node))*5,
-            edges=jnp.ones((n_edge)),
+            edges=jnp.ones((n_edge, 4)),
             senders=jnp.array([0, 0, 1, 2]),
             receivers=jnp.array([1, 2, 0, 0]),
             n_node=jnp.array([n_node]),
@@ -266,7 +353,7 @@ class TestModelFunctions(unittest.TestCase):
         n_node = jnp.array([3])
         n_edge = jnp.array([4])
         node_features = jnp.array([0, 1, 2])
-        edge_features = jnp.array([1, 2, 3, 4])
+        edge_features = jnp.array([[0, 1], [2, 0], [3, 0], [0, 4]])
         senders = jnp.array([0, 1, 2, 0])
         receivers = jnp.array([1, 0, 1, 2])
 
@@ -286,7 +373,8 @@ class TestModelFunctions(unittest.TestCase):
 
         config = get_class_config()
         config.use_layer_norm = False
-        net_fn = MPEU(config)
+        config.use_batch_norm = False
+        net_fn = MPEU(config, True)
         net = hk.with_empty_state(hk.transform(net_fn))
         # Create weights for the model
         params, state = net.init(init_rng, init_graphs)
@@ -305,8 +393,8 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 10
         hk_init = hk.initializers.Identity()
         edge_update_fn = _get_edge_update_fn(
-            latent_size, hk_init, use_layer_norm=False,
-            activation=shifted_softplus, dropout_rate=0, mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            activation=shifted_softplus, dropout_rate=0, mlp_depth=2, is_training=False)
 
         # Sent node features corresponding to the edge.
         sent_attributes = jnp.arange(0, 4)
@@ -378,8 +466,8 @@ class TestModelFunctions(unittest.TestCase):
         max_atomic_number = 5
         hk_init = hk.initializers.Identity()
         node_embedding_fn = _get_node_embedding_fn(
-            latent_size, max_atomic_number, False,
-            shifted_softplus, hk_init)
+            latent_size, max_atomic_number, False, False,
+            shifted_softplus, hk_init, True)
         node_embedding_fn = hk.testing.transform_and_run(node_embedding_fn)
 
         nodes = jnp.arange(1, 9) # simulating atomic numbers from 1 to 8
@@ -406,8 +494,9 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         node_update_fn = _get_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False,
-            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            activation=shifted_softplus, dropout_rate=0.0, mlp_depth=2,
+            is_training=True)
 
         num_nodes = 10
         nodes = jnp.ones((num_nodes, latent_size))
@@ -442,40 +531,11 @@ class TestModelFunctions(unittest.TestCase):
         latent_size = 16
         hk_init = hk.initializers.Identity()
         readout_node_update_fn = _get_readout_node_update_fn(
-            latent_size, hk_init, use_layer_norm=False, dropout_rate=0.0,
-            activation=shifted_softplus, output_size=1)
+            latent_size, hk_init, use_layer_norm=False, use_batch_norm=False,
+            dropout_rate=0.0, activation=shifted_softplus, output_size=1,
+            is_training=True)
         # TODO: finish test
 
-    def test_mlp(self):
-        """Test the _build_mlp function."""
-        hidden_sizes = [16, 16, 8]
-        # test with relu activation, and identity weight-matrices,
-        # with gain of 2, i.e. multiplying with 2 every layer
-        hk_init = hk.initializers.Identity(2.0)
-        rng = jax.random.PRNGKey(42)
-        rng, init_rng = jax.random.split(rng)
-        # for some reason it needs to be wrapped like this,
-        # otherwise haiku complains
-        def wrapped_mlp(output_sizes):
-            def mlp_fn(arr_in):
-                mlp = MLP(
-                    'test_name', output_sizes, use_layer_norm=False,
-                    dropout_rate=0.0, activation=jax.nn.relu, with_bias=False,
-                    activate_final=False, w_init=hk_init
-                )
-                return mlp(arr_in)
-            return mlp_fn
-
-        mlp = hk.transform(wrapped_mlp(hidden_sizes))
-        init_inputs = jnp.zeros((1, 10))
-        params = mlp.init(init_rng, init_inputs)
-
-        inputs = np.array([-4, -2, 0, 1, 2, 3, 4, 5, 6, 7])
-        outputs = mlp.apply(params, rng, inputs)
-        expected_outputs = np.array(
-            [0, 0, 0, 1, 2, 3, 4, 5]
-        )*(2**len(hidden_sizes))
-        np.testing.assert_allclose(outputs, expected_outputs)
 
 if __name__ == '__main__':
     unittest.main()

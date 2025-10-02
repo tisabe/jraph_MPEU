@@ -29,6 +29,10 @@ flags.DEFINE_list(
     'static_round_to_multiple', 'False',
     'Round static batching to multiple or power.')
 flags.DEFINE_list(
+    'static_constant_batch', 'False',
+    'Static batch to a constant padding size?'
+)
+flags.DEFINE_list(
     'batching_method', 'None',
     'Can be either "static" or "dynamic".')
 flags.DEFINE_list(
@@ -37,7 +41,15 @@ flags.DEFINE_list(
 flags.DEFINE_string(
     'experiment_dir', 'None',
     'Directory for experiments.')
-
+flags.DEFINE_string(
+    'number_of_training_steps', 'None',
+    'How many training steps to run.')
+flags.DEFINE_integer(
+    'num_estimation_graphs', 1000,
+    'How many graphs to analyze to determine dynamic batching budget')
+flags.DEFINE_string(
+    'timeout', '12:00:00',
+    'Timeout for the job script.')
 
 JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -o <folder_name>/%j.out
@@ -46,21 +58,31 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH -J <job_name>
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=72
-#SBATCH --ntasks-per-core=1
-#SBATCH --mem=<mem>  # In MB, when we set to 0, we reserve node.
+#SBATCH --ntasks-per-node=1
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
+<<<<<<< HEAD
 #SBATCH --time=6:00:00
+=======
+#SBATCH --time=<timeout>
+>>>>>>> profiling_painn
 <gres>
 <constraint>
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
+<<<<<<< HEAD
 # cd /u/dansp/multi_gpu_batching/jraph_MPEU
 # This data won't be PaiNN compliant.
 cd /u/dansp/jraph_MPEU
 source /u/dansp/parallel_gpu_py11/venv/bin/activate
 srun python3.11 /u/dansp/parallel_gpu_py11/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
+=======
+cd /u/dansp/painn_profiling/jraph_MPEU
+# Load the environment with modules and python packages.
+source /u/dansp/painn_profiling/painn_env/bin/activate
+srun python3.11 scripts/train.py --workdir=<folder_name> --config=<config_name>
+>>>>>>> profiling_painn
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -70,7 +92,7 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
     config.eval_every_steps = 100_000
-    config.num_train_steps_max = 100_000
+    config.num_train_steps_max = <number_of_training_steps>
     config.log_every_steps = 100_000
     config.checkpoint_every_steps = 100_000
     config.limit_data = None
@@ -80,9 +102,10 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
+    config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
-
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters
     config.model_str = 'SchNet'
     config.message_passing_steps = 3
@@ -112,10 +135,17 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
+<<<<<<< HEAD
     config.eval_every_steps = 200_000
     config.num_train_steps_max = 2_000_000
     config.log_every_steps = 200_000
     config.checkpoint_every_steps = 200_000
+=======
+    config.eval_every_steps = 100_000
+    config.num_train_steps_max = <number_of_training_steps>
+    config.log_every_steps = 100_000
+    config.checkpoint_every_steps = 100_000
+>>>>>>> profiling_painn
     config.limit_data = None
     config.selection = None
     config.data_file = <data_file>
@@ -123,23 +153,94 @@ def get_config() -> ml_collections.ConfigDict():
     config.num_edges_max = None
     config.dynamic_batch = <dynamic_batch>
     config.compute_device = <compute_device>
+    config.num_estimation_graphs = <num_estimation_graphs>
     config.batch_size = <batch_size>
     config.static_round_to_multiple = <static_round_to_multiple>
+    config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters we use the defaults.
 
     return config
 """
 
+TEMPLATE_PAINN_CONFIG = """
+import ml_collections
+def get_config() -> ml_collections.ConfigDict():
+    config = ml_collections.ConfigDict()
+
+    # rng init
+    config.seed_splits = 42
+    config.seed_datareader = 42
+    config.seed_weights = 42
+    config.shuffle_val_seed = -1
+
+
+    # Optimizer
+    config.optimizer = 'adam'
+    config.schedule = 'exponential_decay'
+    config.init_lr = 1e-4 # initial learning rate
+    # parameters for exponential schedule
+    config.transition_steps = 100_000
+    config.decay_rate = 0.98
+
+    config.loss_type = 'MSE'
+
+    # Training hyperparameters
+    config.num_train_steps_max = <number_of_training_steps>
+    config.eval_every_steps = 50_000
+    config.early_stopping_steps = 1_000_000
+    config.num_checkpoints = 1  # number of checkpoints to keep
+    config.log_every_steps = 100_000
+    config.checkpoint_every_steps = 100_000
+    config.limit_data = None
+    config.selection = None
+    config.data_file = <data_file>
+    config.label_str = <label_str>
+    config.dynamic_batch = <dynamic_batch>
+    config.compute_device = <compute_device>
+    config.num_estimation_graphs = <num_estimation_graphs>
+    config.batch_size = <batch_size>
+    config.static_round_to_multiple = <static_round_to_multiple>
+    config.static_constant_batch = <static_constant_batch>
+
+    # Data split strategy
+    config.label_type = 'scalar'  # or 'class', also changes the loss function
+    config.val_frac = 0.1 # fraction of total data used for validation
+    config.test_frac = 0.1 # fraction of total data used for testing
+    config.limit_data = None
+    config.num_edges_max = None
+
+    # MPNN hyperparameters
+    config.model_str = 'PaiNN'
+    config.cutoff_radius = 6.
+    config.message_passing_steps = 3
+    config.latent_size = 256
+    config.max_input_feature_size = 100
+    config.aggregation_message_type = 'sum'
+    config.aggregation_readout_type = 'mean'
+    # Node embedding parameters
+    config.max_atomic_number = 90
+    # Logging options
+    config.log_to_file = False # if logging should go to file if true or console if false
+    return config
+"""
+
+
 def create_config_file_path(
-        setting, folder_name):
+        setting, folder_name, number_of_training_steps):
+    static_constant_batch = False
     if setting['batching_method'] == 'dynamic':
         dynamic_batch = True
+    elif setting['batching_method'] == 'static_constant':
+        static_constant_batch = True
+        dynamic_batch = False
     else:
         dynamic_batch = False
     if setting['network_type'] == 'schnet':
         config = TEMPLATE_SCHNET_CONFIG
     elif setting['network_type'] == 'MPEU':
         config = TEMPLATE_MPEU_CONFIG
+    elif setting['network_type'] == 'painn':
+        config = TEMPLATE_PAINN_CONFIG
     else:
         raise ValueError(f'wrong value for network type {setting["network_type"]}')
     config = config.replace(
@@ -151,11 +252,21 @@ def create_config_file_path(
         str(setting['static_round_to_multiple'])
     )
     config = config.replace(
+        '<static_constant_batch>',
+        str(static_constant_batch)
+    )
+    config = config.replace(
         '<compute_device>',
         "\'" + str(setting['computing_type'].replace(':', '_') + "\'")
     )
+    config = config.replace(
+        '<num_estimation_graphs>',
+        str(setting['num_estimation_graphs'])
+    )
+    config = config.replace(
+        '<number_of_training_steps>', str(number_of_training_steps))
     if setting['dataset'] == 'aflow':
-        data_file = "\'aflow/graphs_knn.db\'"
+        data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
         label_str = "\'enthalpy_formation_atom\'"
         config = config.replace('<data_file>', data_file)
         config = config.replace('<label_str>', label_str)
@@ -184,7 +295,9 @@ def create_job_script(
         '<folder_name>', str(folder_name))
     job_script = job_script.replace(
         '<job_name>',
-        setting['batching_method'] + '_' + str(setting['batch_size']))   
+        setting['batching_method'] + '_' + str(setting['batch_size']))
+    job_script = job_script.replace(
+        '<timeout>', setting['timeout'])
     if setting['computing_type'] in ['gpu:a100', 'gpu:v100']:
         constraint = '#SBATCH --constraint="gpu"\n'
         job_script = job_script.replace(
@@ -230,7 +343,7 @@ def create_folder_for_setting(base_dir, setting):
 def get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list, static_round_to_multiple_list,
-        computing_type_list):
+        computing_type_list, num_estimation_graphs=1000, timeout='12:00:00'):
     """Get a list of n-tuples of settings to use in profiling experiments.
 
     a list e.g. [("mpnn", "aflow", 32, "static", "gpu:v100"), ...]
@@ -252,21 +365,23 @@ def get_settings_list(
                                     'batching_method': batching_method,
                                     'static_round_to_multiple': ast.literal_eval(static_round_to_multiple),
                                     'computing_type': computing_type,
-                                    'iteration': iteration}
-                                    
+                                    'iteration': iteration,
+                                    'num_estimation_graphs': num_estimation_graphs,
+                                    'timeout': timeout}
+
                                 settings_list.append(settings_dict)
     return settings_list
 
 
 def create_folder_and_files_for_setting(
-            settings_list, base_dir, job_list_path):
+            settings_list, base_dir, job_list_path, number_of_training_steps):
     job_path_list = []
 
     for setting in settings_list:
         folder_name = create_folder_for_setting(
             base_dir, setting)
         config_file_path = create_config_file_path(
-            setting, folder_name)
+            setting, folder_name, number_of_training_steps)
         job_script_path = create_job_script(
             setting, config_file_path, folder_name)
         job_path_list.append(str(job_script_path))
@@ -278,22 +393,41 @@ def create_folder_and_files_for_setting(
 
 def main(argv):
     network_type_list = FLAGS.network_type
+    print(f'network types to use: {network_type_list}')
     dataset_list = FLAGS.dataset
+    print(f'Dataset to use: {dataset_list}')
+
     static_round_to_multiple_list = FLAGS.static_round_to_multiple
+    print(f'Round to multiple boolean list: {static_round_to_multiple_list}')
+
     batch_size_list = FLAGS.batch_size
+    print(f'Batch size list to use: {batch_size_list}')
+
     batching_method_list = FLAGS.batching_method
+    print(f'batching methods to use: {batching_method_list}')
+
     computing_type_list = FLAGS.computing_type
+    print(f'Computing types to use: {computing_type_list}')
+
+    number_of_training_steps = FLAGS.number_of_training_steps
+    print(f'Number of training steps to run: {number_of_training_steps}')
+
+    num_estimation_graphs = FLAGS.num_estimation_graphs
+    print(f'Number of graphs to determine dynamic batching budget. {num_estimation_graphs}')
+
+    timeout = FLAGS.timeout
+    print(f'Timeout. {timeout}')
 
     settings_list = get_settings_list(
         network_type_list, dataset_list,
         batch_size_list, batching_method_list,
         static_round_to_multiple_list,
-        computing_type_list)
+        computing_type_list, num_estimation_graphs, timeout)
     
     experiment_dir = FLAGS.experiment_dir
     job_list_path = Path(experiment_dir) / "profiling_jobs_list.txt"
     create_folder_and_files_for_setting(
-        settings_list, experiment_dir, job_list_path)
+        settings_list, experiment_dir, job_list_path, number_of_training_steps)
 
 
 if __name__ == '__main__':

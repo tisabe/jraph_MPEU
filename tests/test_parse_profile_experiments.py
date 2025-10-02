@@ -41,7 +41,7 @@ ptxas fatal   : Ptx assembly aborted due to errors
 Relying on driver to perform ptx compilation. 
 Setting XLA_FLAGS=--xla_gpu_cuda_data_dir=/path/to/cuda  or modifying $PATH can be used to set the location of ptxas
 This message will only be logged once.
-I1108 09:18:47.202389 22597638805312 train.py:605] Step 200000 train loss: 4.598790474119596e-05
+I1108 09:18:47.202389 22597638805312 train.py:605] Step 100000 train loss: 4.598790474119596e-05
 I1108 09:18:50.715722 22597638805312 train.py:349] RMSE/MAE train: [0.0042509  0.00319617]
 I1108 09:18:50.715964 22597638805312 train.py:349] RMSE/MAE validation: [0.08130376 0.02019022]
 I1108 09:18:50.716107 22597638805312 train.py:349] RMSE/MAE test: [0.6269935  0.05686472]
@@ -75,7 +75,7 @@ sample_err_file_cancelled_nothing_else = '\nCANCELLED DUE TO TIME LIMIT'
 
 PATHS_TEXT_FILE = '/home/dts/Documents/hu/jraph_MPEU/tests/data/fake_profile_paths.txt'
 
-class UnitTests(unittest.TestCase):
+class ParseProfileExperiments(unittest.TestCase):
     """Unit and integration test functions in models.py."""
 
     def setUp(self):
@@ -105,14 +105,11 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(data_dict['recompilation_counter'], 1)
             self.assertEqual(data_dict['experiment_completed'], 1)
             # Test that we were able to get MAE/RMSE info
-            print(data_dict)
             self.assertEqual(data_dict['step_1000000_train_rmse'], 0.0019891)
             self.assertEqual(data_dict['step_1000000_val_rmse'], 0.06648617)
             self.assertEqual(data_dict['step_1000000_test_rmse'], 0.6293168)
-            self.assertEqual(data_dict['step_1000000_batching_time'], 0.0005979892456531525)
-            self.assertEqual(data_dict['step_1000000_update_time'], 0.0026955132026672364)
-
-            self.assertTrue(np.isnan(data_dict['step_200000_train_rmse']))
+            self.assertEqual(data_dict['step_1000000_batching_time_mean'], 0.0005979892456531525)
+            self.assertEqual(data_dict['step_1000000_update_time_mean'], 0.0026955132026672364)
 
 
     def test_get_recompile_and_timing_info_full(self):
@@ -128,20 +125,24 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(data_dict['recompilation_counter'], 1)
             self.assertEqual(data_dict['experiment_completed'], 1)
             # Test that we were able to get MAE/RMSE info
-            self.assertEqual(data_dict['step_1000000_train_rmse'], 0.00045792)
-            self.assertEqual(data_dict['step_200000_val_rmse'], 0.08130376)
-            self.assertEqual(data_dict['step_400000_test_rmse'], 0.62795682)
-            self.assertEqual(data_dict['step_1000000_batching_time'], 0.0009820856218338012)
-            self.assertEqual(data_dict['step_1000000_update_time'], 0.003449098623037338)
+            self.assertEqual(data_dict['step_100000_train_rmse'], 0.0042509)
+            self.assertEqual(data_dict['step_100000_val_rmse'], 0.08130376)
+            self.assertEqual(data_dict['step_1000000_batching_time_mean'], 0.0009820856218338012)
+            self.assertEqual(data_dict['step_1000000_update_time_mean'], 0.003449098623037338)
 
     def test_update_dict_with_batching_method_size(self):
-        """Test updating the dict with a batching method."""
-        parent_path = 'tests/data/mpnn/aflow/dynamic/64/gpu_a100/iteration_5'
+        """Test updating the dict with a batching method.
+        
+        
+        schnet/qm9/static/round_True/16/gpu_a100/iteration_5
+        """
+        parent_path = 'tests/data/mpnn/aflow/dynamic/round_True/64/gpu_a100/iteration_5'
         data_dict = {}
         data_dict = self.profiling_parser_object.update_dict_with_batching_method_size(
             parent_path, data_dict)
         self.assertEqual(data_dict['batching_type'], 'dynamic')
         self.assertEqual(data_dict['iteration'], 5)
+        self.assertEqual(data_dict['batching_round_to_64'], 'True')
         self.assertEqual(data_dict['computing_type'], 'gpu_a100')
         self.assertEqual(data_dict['batch_size'], 64)
         self.assertEqual(data_dict['model'], 'mpnn')
@@ -181,7 +182,7 @@ class UnitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_dir_for_err_file = os.path.join(
                 tmp_dir,
-                'tests/data/mpnn/aflow/dynamic/64/gpu_a100/'
+                'tests/data/mpnn/aflow/dynamic/round_False/64/gpu_a100/'
                 'iteration_5')
             os.makedirs(temp_dir_for_err_file)
             temp_file_name_cancelled = os.path.join(
@@ -207,6 +208,8 @@ class UnitTests(unittest.TestCase):
                 temp_file_name_cancelled)
             self.assertEqual(
                 data_dict['iteration'], 5)
+            self.assertEqual(
+                data_dict['batching_round_to_64'], 'False')
 
     def test_create_header(self):
         """Test writing the header to the CSV."""
@@ -239,21 +242,21 @@ class UnitTests(unittest.TestCase):
             # Now open the CSV and count how many lines are there.
             df = pd.read_csv(csv_file_name)
 
-            self.assertEqual(len(df.columns), 36)
+            self.assertEqual(len(df.columns), 19)
 
     def test_write_all_path_data(self):
         """Test writing data for a submission path as a row to csv and db."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_dir_for_err_file = os.path.join(
                 tmp_dir,
-                'tests/data/mpnn/aflow/dynamic/64/gpu_a100/'
+                'tests/data/mpnn/aflow/dynamic/round_False/64/gpu_a100/'
                 'iteration_5')
             os.makedirs(temp_dir_for_err_file)
             temp_file_name_cancelled = os.path.join(
                 temp_dir_for_err_file,
                 'sample_err_file.err')
             with open(temp_file_name_cancelled, 'w') as fd:
-                fd.write(sample_err_file)
+                fd.write(sample_full_err_file)
             
             paths_to_resubmit = os.path.join(
                 tmp_dir,
@@ -268,17 +271,21 @@ class UnitTests(unittest.TestCase):
             with open(paths_text_file, 'w') as txt_file:
                 txt_file.write(temp_file_name_cancelled)
 
+            with open(paths_text_file, 'w') as txt_file:
+                txt_file.write(temp_file_name_cancelled)
+
             profiling_parser_object = ppe.ProfilingParser(
                 paths_txt_file=paths_text_file,
                 csv_filename=csv_file_name,
                 paths_to_resubmit=paths_to_resubmit,
                 paths_misbehaving=None)
-        
+
+
             if not os.path.isfile(csv_file_name):
                 profiling_parser_object.create_header()
             with open(csv_file_name, 'a') as csv_file:
                 dict_writer = csv.DictWriter(
-                    csv_file, fieldnames=profiling_parser_object.csv_columns)
+                    csv_file, fieldnames=profiling_parser_object.csv_columns, extrasaction='ignore')
                 profiling_parser_object.write_all_path_data(dict_writer)
             df = pd.read_csv(csv_file_name)
             self.assertEqual(
@@ -290,20 +297,31 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(
                 df['recompilation_counter'].values[0],
                 1)
-            # self.assertEqual(
-            #     df['step_400000_train_rmse'].values[0],
-            #     np.nan)
+
             self.assertEqual(
-                df['step_1000000_train_rmse'].values[0],
-                0.0019891)
-            self.assertAlmostEqual(
-                df['step_1000000_batching_time'].values[0],
-                0.000597989245653152, 10
-            )
-            self.assertAlmostEqual(
-                df['step_1000000_update_time'].values[0],
-                0.0026955132026672364, 10
-            )
+                df['step_100000_train_rmse'].values[0],
+                0.0042509)
+
+
+    def test_get_recompile_and_timing_info_failed(self):
+        # Write the sample text to file:
+        failing_err_file = 'tests/data/profiling_err_file_failing.err'
+
+        # Now test reading the file.
+        data_dict = {}
+        data_dict = self.profiling_parser_object.get_recompile_and_timing_info(
+            failing_err_file, data_dict)
+        self.assertEqual(data_dict['recompilation_counter'], 60)
+        self.assertEqual(data_dict['experiment_completed'], True)
+        # Test that we were able to get MAE/RMSE info
+        self.assertEqual(data_dict['step_100000_train_rmse'], 0.47112376)
+        self.assertEqual(data_dict['step_100000_val_rmse'], 0.466972)
+
+        self.assertEqual(data_dict['step_100000_test_rmse'], 0.46532637)
+        self.assertEqual(data_dict['step_100000_batching_time_mean'], 0.0005266756558418273)
+        self.assertEqual(data_dict['step_100000_update_time_mean'], 0.0031542533135414125)
+
+
 
 if __name__ == '__main__':
     unittest.main()

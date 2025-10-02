@@ -8,21 +8,17 @@ from absl import app
 from absl import flags
 from absl import logging
 import matplotlib.pyplot as plt
-from matplotlib import ticker
 import pandas as pd
 from ase.formula import Formula
 import numpy as np
 import seaborn as sns
 
 from jraph_MPEU.utils import load_config, str_to_list
-from jraph_MPEU.inference import get_results_df
 from jraph_MPEU.input_pipeline import cut_egap
 
+
 FLAGS = flags.FLAGS
-flags.DEFINE_string('file', 'results/qm9/test', 'input directory name')
-flags.DEFINE_bool('redo', False, 'Whether to redo inference.')
-flags.DEFINE_integer('limit', None, 'If not None, a limit to the amount of data \
-    read from the database.')
+flags.DEFINE_string('workdir', 'results/qm9/test', 'input directory name')
 flags.DEFINE_string('label', 'ef', 'kind of label that is trained on. Used to \
     define the plot label. e.g. "ef" or "egap"')
 flags.DEFINE_integer('font_size', 18, 'font size to use in labels')
@@ -51,11 +47,21 @@ element_types = {
 }
 
 
+def is_binary_oxide(formula: str):
+    counts = Formula(formula).count()
+    return (len(counts) == 2) and ('O' in counts)
+
+
 def get_type(element: str):
     for key, element_list in element_types.items():
         if element in element_list:
             return key
     raise KeyError('Element type not found')
+
+
+def formula_to_latex(formula: str):
+    return Formula(formula).format('latex')
+
 
 def main(argv):
     """Get the model inferences and plot regression."""
@@ -63,28 +69,26 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
-    workdir = FLAGS.file
-    df_path = workdir + '/result.csv'
+    workdir = FLAGS.workdir
+    df_path = os.path.join(workdir, 'result.csv')
     config = load_config(workdir)
 
     # set correct axis labels
     x_label = '# compounds in training set'
-    if config.label_type == 'scalar':
-        if FLAGS.label == 'egap':
+    match (config.label_type, FLAGS.label):
+        case ['scalar', 'egap']:
             y_label = r'MAE ($E_g$/eV)'
-        elif FLAGS.label == 'energy':
-            y_label = r'Calculated $U_0$ (eV)'
-        else:
+        case ['scalar', 'ef']:
             y_label = r'MAE ($E_f$ per atom/eV)'
-    else:
-        y_label = 'Accuracy per species'
+        case ['class', _]:
+            y_label = 'Accuracy per species'
+        case _:
+            raise ValueError(
+                f'Unknown label combination {config.label_type, FLAGS.label}')
 
-    if not os.path.exists(df_path) or FLAGS.redo:
-        logging.info('Did not find csv path, generating DataFrame.')
-        df = get_results_df(workdir)
-        df.head()
-        print(df)
-        df.to_csv(df_path, index=False)
+    if not os.path.exists(df_path):
+        raise FileNotFoundError(
+            "Evaluation needs to be done first, to generate result csv.")
     else:
         logging.info('Found csv path. Reading DataFrame.')
         df = pd.read_csv(df_path)
@@ -102,10 +106,20 @@ def main(argv):
         # softmax outputs probability, the threshold is exactly 1/2
         df['class_pred'] = df['p_insulator'].apply(lambda p: (p > 0.5)*1)
         df['class_correct'] = df['class_true'] == df['class_pred']
-        # make column with accuracy. TODO: explain better
+        # make column with accuracy.
         df['abs. error'] = 1 * df['class_correct']
+
+    df['formula_latex'] = df['formula'].apply(formula_to_latex)
+    # filter for binary oxides:
+    df = df[df['formula'].apply(is_binary_oxide)]
+
     df_train = df.loc[lambda df_temp: df_temp['split'] == 'train']
     df = df.loc[lambda df_temp: df_temp['split'] == 'test']
+    df = df.sort_values(by=['abs. error'])
+    print("Five best and worst predictions: ")
+    cols = ['auid', 'formula_latex', 'spacegroup_relax', 'Egap', 'prediction']
+    print(df[cols][:5])
+    print(df[cols][-5:])
 
     # dict with species as keys and list of errors
     errors_dict = defaultdict(list)
@@ -137,11 +151,6 @@ def main(argv):
     for species, error_list in errors_dict.items():
         mae_dict[species] = np.mean(error_list)
 
-    with open(workdir + '/species_mae.csv', 'w') as csv_file:
-        writer = csv.writer(csv_file)
-        for key, value in mae_dict.items():
-            writer.writerow([key, value])
-
     # calculate the intersection of keys, for train and test set
     keys_intersect = count_dict.keys() & mae_dict.keys()
 
@@ -159,11 +168,6 @@ def main(argv):
     df_plot['element class'] = df_plot['species'].apply(get_type)
     df_plot = df_plot.sort_values('element class', axis=0, ascending=False)
 
-    # plot number of fit metric depending on number of compounds
-    # split dataframe in half for better legend
-    df1 = df_plot[df_plot['element class'] > 'Noble gases']
-    df2 = df_plot[df_plot['element class'] <= 'Noble gases']
-
     fig, ax = plt.subplots()
     sns.scatterplot(data=df_plot, x='counts', y='maes', hue='element class', ax=ax, s=80)
     if FLAGS.element_names:
@@ -179,35 +183,10 @@ def main(argv):
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()
-    fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)
+    fig.savefig(
+        os.path.join(workdir, 'species_vs_count_notext.png'),
+        bbox_inches='tight', dpi=600)
 
-
-    with open(workdir + '/species_count.csv', 'w') as csv_file:
-        writer = csv.writer(csv_file)
-        for key, value in count_dict.items():
-            writer.writerow([key, value])
-
-    # plot counts of species total and with ldau correction
-    df_ldau = pd.DataFrame(columns=['Element', 'Number', 'Type'])
-    for i, key in enumerate(count_dict.keys()):
-        df_ldau.loc[i] = [key, count_dict[key], 'Total']
-    N = len(df_ldau)
-    for i, key in enumerate(count_dict.keys()):
-        df_ldau.loc[i + N] = [key, ldau_dict[key], 'DFT+U']
-
-
-    print(df_ldau.head())
-    fig, ax = plt.subplots()
-    sns.catplot(data=df_ldau, x='Element', y='Number', hue='Type', ax=ax, kind='bar')
-    #ax.set_xlabel(x_label, fontsize=FLAGS.font_size)
-    #ax.set_ylabel(y_label, fontsize=FLAGS.font_size)
-    ax.tick_params(which='both', labelsize=FLAGS.tick_size)
-    #ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=0))
-    #ax.legend(title='').set_visible(True)
-    #plt.yscale('log')
-    plt.tight_layout()
-    plt.show()
-    #fig.savefig(workdir+'/species_vs_count_notext.png', bbox_inches='tight', dpi=600)
 
 if __name__ == "__main__":
     app.run(main)

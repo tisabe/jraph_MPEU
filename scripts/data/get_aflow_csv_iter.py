@@ -82,6 +82,4 @@ df_all = df_all.drop_duplicates(subset='auid')
 print(df_all.keys())
 print(df_all.head())
 print(df_all.describe())
-if input("Save the dataset? [y/n]") == "y":
-    df_all.to_csv(
-        (input('Type directory and filename as "dir/filename.csv": ')))
+df_all.to_csv('databases/aflow/eform_all.csv')

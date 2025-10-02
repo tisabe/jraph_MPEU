@@ -15,7 +15,7 @@
 #SBATCH --time=1-00:00:00 # days-hh:mm:ss.
 
 module load cuda
-python3 scripts/main.py --config=jraph_MPEU_configs/default.py \
+python3 scripts/train.py --config=jraph_MPEU_configs/default.py \
 --workdir=results/qm9/dropout_lowlr \
 --config.dropout_rate=0.1 \
 --config.init_lr=2e-5
