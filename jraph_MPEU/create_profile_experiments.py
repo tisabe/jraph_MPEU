@@ -61,28 +61,17 @@ JOB_SCRIPT = """#!/bin/bash -l
 #SBATCH --ntasks-per-node=1
 #SBATCH --mail-type=none
 #SBATCH --mail-user=speckhard@fhi.mpg.de
-<<<<<<< HEAD
-#SBATCH --time=6:00:00
-=======
 #SBATCH --time=<timeout>
->>>>>>> profiling_painn
 <gres>
 <constraint>
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-<<<<<<< HEAD
 # cd /u/dansp/multi_gpu_batching/jraph_MPEU
 # This data won't be PaiNN compliant.
 cd /u/dansp/jraph_MPEU
 source /u/dansp/parallel_gpu_py11/venv/bin/activate
 srun python3.11 /u/dansp/parallel_gpu_py11/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
-=======
-cd /u/dansp/painn_profiling/jraph_MPEU
-# Load the environment with modules and python packages.
-source /u/dansp/painn_profiling/painn_env/bin/activate
-srun python3.11 scripts/train.py --workdir=<folder_name> --config=<config_name>
->>>>>>> profiling_painn
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -135,17 +124,10 @@ from jraph_MPEU_configs.default_mp_test import get_config as get_config_super
 
 def get_config() -> ml_collections.ConfigDict():
     config = get_config_super() # inherit from default mp config
-<<<<<<< HEAD
-    config.eval_every_steps = 200_000
-    config.num_train_steps_max = 2_000_000
-    config.log_every_steps = 200_000
-    config.checkpoint_every_steps = 200_000
-=======
     config.eval_every_steps = 100_000
     config.num_train_steps_max = <number_of_training_steps>
     config.log_every_steps = 100_000
     config.checkpoint_every_steps = 100_000
->>>>>>> profiling_painn
     config.limit_data = None
     config.selection = None
     config.data_file = <data_file>

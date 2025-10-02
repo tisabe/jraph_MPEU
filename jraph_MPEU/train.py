@@ -84,14 +84,10 @@ class Updater:
         (loss, (_, new_state)), grad = jax.value_and_grad(
             self._loss_fn, has_aux=True)(params, state, rng, data, self._net_apply)
 
-<<<<<<< HEAD
         # all-reduce gradient
         grad = jax.lax.psum(grad, 'p')
 
         updates, opt_state = self._opt.update(grad, state['opt_state'])
-=======
-        updates, opt_state = self._opt.update(grad, state['opt_state'], params)
->>>>>>> profiling_painn
         params = optax.apply_updates(params, updates)
 
         new_state = {
@@ -686,7 +682,6 @@ def train_and_evaluate(
     n_dev = len(jax.local_devices())
     for step in range(initial_step, config.num_train_steps_max + 1):
         start_loop_time = time.time()
-<<<<<<< HEAD
         graphs = [next(train_reader) for _ in range(n_dev)]
         # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
         # to pmap update over available devices
@@ -753,52 +748,6 @@ def train_and_evaluate(
 
         except:
             logging.info(f'Failed to get batch for step: {step}')
-=======
-        graphs = next(train_reader)
-        # Update the weights after a gradient step and report the
-        # state/losses/optimizer gradient. The loss returned here is the loss
-        # on a batch not on the full training dataset.
-
-        state['step'].block_until_ready()
-
-        after_getting_graphs = time.time()
-        # This needs to get passed to pmap, where it is jitted.
-        state, loss_metrics = updater.update(state, graphs)
-
-        state['step'].block_until_ready()
-        after_running_update = time.time()
-        train_reader._timing_measurements_batching.append(
-            after_getting_graphs-start_loop_time)
-        train_reader._update_measurements.append(
-            after_running_update-start_loop_time)
-
-        # Log periodically the losses/step count.
-        is_last_step = step == config.num_train_steps_max
-        if step % config.log_every_steps == 0:
-            logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
-            early_stop = evaluater.update(state, datasets, eval_splits, config)
-
-
-        # catch a NaN or too high loss, stop training if it happens
-        if (np.isnan(loss_metrics["loss"]) or
-                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
-            logging.info('Invalid loss, stopping early.')
-            # create a file that signals that training stopped early
-            if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w', encoding="utf-8"):
-                    pass
-            break
-
-        if is_last_step:
-            logging.info(
-                'Reached maximum number of steps without early stopping.')
-            early_stop = evaluater.update(state, datasets, eval_splits, config)
-
-            if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                with open(workdir + '/REACHED_MAX_STEPS', 'w', encoding="utf-8"):
-                    pass
-        
->>>>>>> profiling_painn
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
