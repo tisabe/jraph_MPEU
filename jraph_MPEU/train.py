@@ -736,6 +736,7 @@ def train_and_evaluate(
                     with open(workdir + '/ABORTED_EARLY', 'w'):
                         pass
                 break
+            state['step'].block_until_ready()
 
         except:
             logging.info(f'Failed to get batch for step: {step}')
