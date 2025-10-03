@@ -713,15 +713,15 @@ def train_and_evaluate(
 
             # state['step'].block_until_ready()
             # after_running_update = time.time()
-            train_reader._timing_measurements_batching.append(
-                after_getting_graphs-start_loop_time)
-            train_reader._update_measurements.append(
-                after_running_update-start_loop_time)
+            # train_reader._timing_measurements_batching.append(
+            #     after_getting_graphs-start_loop_time)
+            # train_reader._update_measurements.append(
+            #     after_running_update-start_loop_time)
 
             # Log periodically the losses/step count.
             # Need to change this for static batching that might skip the
             # maximum number by one or two steps.
-            is_last_step = (step >= config.num_train_steps_max)
+            # is_last_step = (step >= config.num_train_steps_max)
             if step % config.log_every_steps == 0:
                 logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
@@ -743,16 +743,19 @@ def train_and_evaluate(
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
 
-    median_batching_time = np.median(train_reader._timing_measurements_batching)
-    logging.info(f'Median batching time: {median_batching_time}')
+    # median_batching_time = np.median(train_reader._timing_measurements_batching)
+    # logging.info(f'Median batching time: {median_batching_time}')
 
-    mean_batching_time = np.mean(train_reader._timing_measurements_batching)
-    logging.info(f'Mean batching time: {mean_batching_time}')
+    # mean_batching_time = np.mean(train_reader._timing_measurements_batching)
+    # logging.info(f'Mean batching time: {mean_batching_time}')
 
-    median_updating_time = np.median(train_reader._update_measurements)
-    logging.info(f'Median update time: {median_updating_time}')
+    # median_updating_time = np.median(train_reader._update_measurements)
+    # logging.info(f'Median update time: {median_updating_time}')
 
-    mean_updating_time = np.mean(train_reader._update_measurements)
-    logging.info(f'Mean update time: {mean_updating_time}')
+    total_loop_time = after_running_loop - start_loop_time
+    logging.info(f'Total loop time: {total_loop_time}')
+    loop_time_per_step = total_loop_time / config.num_train_steps_max
+    logging.info(f'Total loop time per training step: {loop_time_per_step}')
+
 
     return evaluater, lowest_val_loss
