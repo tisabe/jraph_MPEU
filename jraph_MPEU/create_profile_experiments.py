@@ -68,7 +68,7 @@ JOB_SCRIPT = """#!/bin/bash -l
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 # Right now only painn compliant data.
-/u/dansp/multi_gpu_no_block/jraph_MPEU/
+cd /u/dansp/multi_gpu_no_block/jraph_MPEU/
 source /u/dansp/multi_gpu_no_block/no_block_env/bin/activate
 srun python3.11 /u/dansp/multi_gpu_no_block/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
 """
