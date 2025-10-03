@@ -680,8 +680,9 @@ def train_and_evaluate(
     logging.info('Starting training.')
 
     n_dev = len(jax.local_devices())
+    start_loop_time = time.time()
+
     for step in range(initial_step, config.num_train_steps_max + 1):
-        start_loop_time = time.time()
         graphs = [next(train_reader) for _ in range(n_dev)]
         # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
         # to pmap update over available devices
@@ -704,14 +705,14 @@ def train_and_evaluate(
             # Update the weights after a gradient step and report the
             # state/losses/optimizer gradient. The loss returned here is the loss
             # on a batch not on the full training dataset.
-            state['step'].block_until_ready()
+            # state['step'].block_until_ready()
 
-            after_getting_graphs = time.time()
+            # after_getting_graphs = time.time()
             # This needs to get passed to pmap, where it is jitted.
             state, loss_metrics = updater.update(state, graphs)
 
-            state['step'].block_until_ready()
-            after_running_update = time.time()
+            # state['step'].block_until_ready()
+            # after_running_update = time.time()
             train_reader._timing_measurements_batching.append(
                 after_getting_graphs-start_loop_time)
             train_reader._update_measurements.append(
@@ -734,20 +735,10 @@ def train_and_evaluate(
                         pass
                 break
 
-            # Get evaluation on all splits of the data (train/validation/test),
-            # checkpoint if needed and
-            # check if we should be stopping early.
-            early_stop = evaluater.update(state, datasets, eval_splits, config)
-
-            if is_last_step:
-                logging.info(
-                    'Reached maximum number of steps without early stopping.')
-                if not os.path.exists(workdir + '/REACHED_MAX_STEPS'):
-                    with open(workdir + '/REACHED_MAX_STEPS', 'w'):
-                        pass
-
         except:
             logging.info(f'Failed to get batch for step: {step}')
+
+    after_running_loop = time.time()
 
     lowest_val_loss = evaluater.lowest_val_loss
     logging.info(f'Lowest validation loss: {lowest_val_loss}')
