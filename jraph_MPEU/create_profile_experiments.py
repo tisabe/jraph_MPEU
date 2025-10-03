@@ -67,11 +67,10 @@ JOB_SCRIPT = """#!/bin/bash -l
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-# cd /u/dansp/multi_gpu_batching/jraph_MPEU
-# This data won't be PaiNN compliant.
-cd /u/dansp/jraph_MPEU
-source /u/dansp/parallel_gpu_py11/venv/bin/activate
-srun python3.11 /u/dansp/parallel_gpu_py11/jraph_MPEU/scripts/main.py --workdir=<folder_name> --config=<config_name>
+# Right now only painn compliant data.
+/u/dansp/multi_gpu_no_block/jraph_MPEU/
+source /u/dansp/multi_gpu_no_block/no_block_env/bin/activate
+srun python3.11 /u/dansp/multi_gpu_no_block/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
