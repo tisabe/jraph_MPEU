@@ -689,8 +689,8 @@ def train_and_evaluate(
         # logging.info(f'next(train_reader): {next(train_reader)}')
         # logging.info(f'graphs: {graphs}')
         # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
-        logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
-        logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
+        # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
+        # logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
 
         graphs = jraph.GraphsTuple(
             n_node = np.array([i.n_node for i in graphs]),
