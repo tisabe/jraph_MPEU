@@ -70,7 +70,7 @@ class Updater:
 
         # opt_state = self._opt.init(params)
         state = dict(
-            step=jnp.array(0),
+            step=np.array(0),
             rng=out_rng,
             params=params,
             hk_state=hk_state,
