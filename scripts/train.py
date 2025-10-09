@@ -11,7 +11,6 @@ from absl import flags
 from absl import logging
 import jax
 from ml_collections import config_flags
-import tensorflow as tf
 
 from jraph_MPEU import train, utils
 
@@ -34,7 +33,9 @@ def main(argv):
 
     # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
     # it unavailable to JAX.
-    tf.config.experimental.set_visible_devices([], 'GPU')
+    # Oct 9 2025, comment this out since maybe tensorflow getting GPU devices
+    # is an issue.
+    # tf.config.experimental.set_visible_devices([], 'GPU')
 
     if not os.path.exists(f'./{FLAGS.workdir}'):
         os.makedirs(f'./{FLAGS.workdir}')
