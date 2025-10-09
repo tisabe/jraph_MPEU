@@ -41,8 +41,8 @@ BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
 # Used for MPEU/SchNet
 # COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_combined_19_01_2025.csv'
 # Used for PaiNN
-# COMBINED_CSV = 'parsed_profiling_painn_batching_2_000_000_steps_15_05_2025.csv'
-COMBINED_CSV = 'parsed_profiling_painn_cpu_qm9_aflow_schnet_mpeu_100k_steps_12_55__21_06_2025.csv'
+COMBINED_CSV = 'parsed_profiling_painn_batching_2_000_000_steps_15_05_2025.csv'
+# COMBINED_CSV = 'parsed_profiling_painn_cpu_qm9_aflow_schnet_mpeu_100k_steps_12_55__21_06_2025.csv'
 
 # COMBINED_CSV = 'parsed_profiling_static_batching_seb_fix_qm9_aflow_schnet_mpeu_100k_steps_11_31__23_12_2024.csv'
 
@@ -474,11 +474,11 @@ def main(argv):
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
     # Ok now let's plot the batching times. Let's plot 4 graphs.
     # AFLOW / SchNet (GPU / CPU)
-    # plot_batching_update_subplot(df, model='painn',
-    #                              compute_type='cpu',
-    #                              mean_or_median='mean')
+    plot_batching_update_subplot(df, model='painn',
+                                 compute_type='gpu',
+                                 mean_or_median='mean')
 
-    plot_recompilation_bar_plot(df)
+    # plot_recompilation_bar_plot(df)
     # hard_code_recompilation_plot()
 
 if __name__ == '__main__':
