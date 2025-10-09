@@ -60,38 +60,43 @@ class Updater:
         out_rng, init_rng = jax.random.split(rng)
         params, hk_state = self._net_init(init_rng, data)
         # Initialize the optimizer.
-        params = jax.device_put_replicated(params, list(jax.devices()))
+        # params = jax.device_put_replicated(params, list(jax.devices()))
         opt_init, opt_update = optax.adam(1e-4)
         logging.info(f'opt_init: {opt_init}, opt_update {opt_update}')
         logging.info(f'self._opt: {self._opt}, self._opt[0] {self._opt[0]}')
-        opt_state = jax.pmap(opt_init)(params)
+        # Dont think we need a pmap here we can just copy since it only
+        # gets called once.
+        opt_state = self._opt.init(params)
+
         # opt_state = self._opt.init(params)
         state = dict(
-            step=np.array(0),
+            step=jnp.array(0),
             rng=out_rng,
-            opt_state=opt_state,
             params=params,
-            hk_state=hk_state
+            hk_state=hk_state,
+            opt_state=opt_state
         )
+        state = jax.device_put_replicated(state)
+
         self._loss_fn = functools.partial(self._loss_fn, net=self._net, state=state)
 
-        return state
+        return state, opt_state
 
     # Jit the functions
     # @functools.partial(jax.jit, static_argnums=0)
     @functools.partial(jax.pmap, axis_name='device')
-    def update(self, params, data: jraph.GraphsTuple, opt_state):
+    def update(self, state, data: jraph.GraphsTuple):
         """Updates the state using some data and returns metrics."""
         # Note this LOG message should only be called by the program
         # when it's get recalled and can't be run with same JAX compilation.
         logging.info('LOG Message: Recompiling!')
         (loss, _), grad = jax.value_and_grad(
-            self._loss_fn, has_aux=True)(params, data)
+            self._loss_fn, has_aux=True)(state['params'], data)
         grad = jax.lax.pmean(grad, axis_name='device')
-        updates, opt_state = self._opt.update(grad, opt_state, params)
-        params = optax.apply_updates(params, updates)
-
-        return params, opt_state, loss
+        updates, state['opt_state'] = self._opt.update(
+            grad, state['opt_state'], state['params'])
+        state['params'] = optax.apply_updates(state['params'], updates)
+        return state, loss
 
 
 class CheckpointingUpdater:
@@ -129,20 +134,22 @@ class CheckpointingUpdater:
             state = pickle.load(state_file)
             return state
 
+    @functools.partial(jax.pmap, axis_name='device')
     def update(self, state, data):
         """Update experiment state."""
         # NOTE: This blocks until `state` is computed. If you want to use JAX
         # async dispatch, maintain state['step'] as a NumPy scalar instead of a
         # JAX array.
         # Context: https://jax.readthedocs.io/en/latest/async_dispatch.html
-        params, opt_state, loss = self._inner.update(state['params'], data, state['opt_state'])
-        state = {
-            'step': state['step'] + 1,
-            'rng': state['rng'],
-            'opt_state': opt_state,
-            'params': params,
-            'hk_state': state['hk_state']
-        }
+        state, loss = self._inner.update(state, data)
+        # state = {
+        #     'step': state['step'] + 1,
+        #     'rng': state['rng'],
+        #     'opt_state': opt_state,
+        #     'params': params,
+        #     'hk_state': state['hk_state']
+        # }
+        state['step'] = state['step'] + 1
         metrics = {
             'step': state['step'],
             'loss': loss,
@@ -614,17 +621,24 @@ def save_loss_curve(loss_dict, ckpt_dir, splits, std):
             np.array(loss_split), delimiter=',')
 
 def device_batch(
-    graph_generator):
-  """Batches a set of graphs the size of the number of devices."""
-  num_devices = jax.local_device_count()
-  batch = []
-  for idx, graph in enumerate(graph_generator):
-    if idx % num_devices == num_devices - 1:
-      batch.append(graph)
-      yield jax.tree_map(lambda *x: jnp.stack(x, axis=0), *batch)
-      batch = []
-    else:
-      batch.append(graph)
+        graph_generator):
+    """Batches a set of graphs the size of the number of devices."""
+    num_devices = jax.local_device_count()
+    batch = []
+    logging.info(f'num_devices: {num_devices}')
+    for idx, graph in enumerate(graph_generator):
+        
+        logging.info(f'idx: {idx}')
+        logging.info(f'graph from generator {graph}')
+
+        if idx % num_devices == num_devices - 1:
+            batch.append(graph)
+            logging.info(f'graphs before tree map: {batch}')
+
+            yield jax.tree_map(lambda *x: jnp.stack(x, axis=0), *batch)
+            batch = []
+        else:
+            batch.append(graph)
 
 
 def train_and_evaluate(
@@ -701,7 +715,9 @@ def train_and_evaluate(
 
     for step in range(initial_step, config.num_train_steps_max + 1):
         start_loop_time = time.time()
-        graphs = device_batch(train_reader)
+        # The next calls the 
+        graphs = next(device_batch(train_reader))
+        logging.info(f'graphs after device batch: {graphs}')
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
@@ -710,7 +726,7 @@ def train_and_evaluate(
 
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
-        params, opt_state, loss_metrics = updater.update(state, graphs)
+        state, loss_metrics = updater.update(state, graphs)
 
         # state['step'].block_until_ready()
         # jax.block_until_ready(state['step'])
