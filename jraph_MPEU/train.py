@@ -678,64 +678,123 @@ def train_and_evaluate(
 
     # Begin training loop.
     logging.info('Starting training.')
-
     n_dev = len(jax.local_devices())
     start_loop_time = time.time()
 
-    for step in range(initial_step, config.num_train_steps_max + 1):
-        graphs = [next(train_reader) for _ in range(n_dev)]
-        # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
-        # to pmap update over available devices
-        # logging.info(f'next(train_reader): {next(train_reader)}')
-        # logging.info(f'graphs: {graphs}')
-        # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
-        # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
-        # logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
+    if config.dynamic_batch is True:
+        for step in range(initial_step, config.num_train_steps_max + 1):
+            graphs = [next(train_reader) for _ in range(n_dev)]
+            # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
+            # to pmap update over available devices
+            # logging.info(f'next(train_reader): {next(train_reader)}')
+            # logging.info(f'graphs: {graphs}')
+            # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
+            # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
+            # logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
 
-        graphs = jraph.GraphsTuple(
-            n_node = np.array([i.n_node for i in graphs]),
-            n_edge = np.array([i.n_edge for i in graphs]),
-            nodes = np.array([i.nodes for i in graphs]),
-            edges = np.array([i.edges for i in graphs]),
-            globals = np.array([i.globals for i in graphs]),
-            senders = np.array([i.senders for i in graphs]),
-            receivers = np.array([i.receivers for i in graphs]),
-        )
+            graphs = jraph.GraphsTuple(
+                n_node = np.array([i.n_node for i in graphs]),
+                n_edge = np.array([i.n_edge for i in graphs]),
+                nodes = np.array([i.nodes for i in graphs]),
+                edges = np.array([i.edges for i in graphs]),
+                globals = np.array([i.globals for i in graphs]),
+                senders = np.array([i.senders for i in graphs]),
+                receivers = np.array([i.receivers for i in graphs]),
+            )
 
 
-        # Update the weights after a gradient step and report the
-        # state/losses/optimizer gradient. The loss returned here is the loss
-        # on a batch not on the full training dataset.
-        # state['step'].block_until_ready()
+            # Update the weights after a gradient step and report the
+            # state/losses/optimizer gradient. The loss returned here is the loss
+            # on a batch not on the full training dataset.
+            # state['step'].block_until_ready()
 
-        # after_getting_graphs = time.time()
-        # This needs to get passed to pmap, where it is jitted.
-        state, loss_metrics = updater.update(state, graphs)
+            # after_getting_graphs = time.time()
+            # This needs to get passed to pmap, where it is jitted.
+            state, loss_metrics = updater.update(state, graphs)
 
-        # state['step'].block_until_ready()
-        # after_running_update = time.time()
-        # train_reader._timing_measurements_batching.append(
-        #     after_getting_graphs-start_loop_time)
-        # train_reader._update_measurements.append(
-        #     after_running_update-start_loop_time)
+            # state['step'].block_until_ready()
+            # after_running_update = time.time()
+            # train_reader._timing_measurements_batching.append(
+            #     after_getting_graphs-start_loop_time)
+            # train_reader._update_measurements.append(
+            #     after_running_update-start_loop_time)
 
-        # Log periodically the losses/step count.
-        # Need to change this for static batching that might skip the
-        # maximum number by one or two steps.
-        # is_last_step = (step >= config.num_train_steps_max)
-        if step % config.log_every_steps == 0:
-            logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
+            # Log periodically the losses/step count.
+            # Need to change this for static batching that might skip the
+            # maximum number by one or two steps.
+            # is_last_step = (step >= config.num_train_steps_max)
+            if step % config.log_every_steps == 0:
+                logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
 
-        # catch a NaN or too high loss, stop training if it happens
-        if (np.isnan(loss_metrics["loss"]) or
-                (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
-            logging.info('Invalid loss, stopping early.')
-            # create a file that signals that training stopped early
-            if not os.path.exists(workdir + '/ABORTED_EARLY'):
-                with open(workdir + '/ABORTED_EARLY', 'w'):
-                    pass
-            break
-        state['step'].block_until_ready()
+            # catch a NaN or too high loss, stop training if it happens
+            if (np.isnan(loss_metrics["loss"]) or
+                    (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+                logging.info('Invalid loss, stopping early.')
+                # create a file that signals that training stopped early
+                if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                    with open(workdir + '/ABORTED_EARLY', 'w'):
+                        pass
+                break
+            # state['step'].block_until_ready()  # No blocking calls at all.
+
+    else:
+        for step in range(initial_step, config.num_train_steps_max + 1):
+
+            graphs = [next(train_reader) for _ in range(n_dev)]
+                # 'explicitly' batch mini-batches with leading dim of size 'n_dev'
+                # to pmap update over available devices
+                # logging.info(f'next(train_reader): {next(train_reader)}')
+                # logging.info(f'graphs: {graphs}')
+                # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
+                # logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
+                # logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
+            try:
+                graphs = jraph.GraphsTuple(
+                    n_node = np.array([i.n_node for i in graphs]),
+                    n_edge = np.array([i.n_edge for i in graphs]),
+                    nodes = np.array([i.nodes for i in graphs]),
+                    edges = np.array([i.edges for i in graphs]),
+                    globals = np.array([i.globals for i in graphs]),
+                    senders = np.array([i.senders for i in graphs]),
+                    receivers = np.array([i.receivers for i in graphs]),
+                )
+
+
+                # Update the weights after a gradient step and report the
+                # state/losses/optimizer gradient. The loss returned here is the loss
+                # on a batch not on the full training dataset.
+                # state['step'].block_until_ready()
+
+                # after_getting_graphs = time.time()
+                # This needs to get passed to pmap, where it is jitted.
+                state, loss_metrics = updater.update(state, graphs)
+
+                # state['step'].block_until_ready()
+                # after_running_update = time.time()
+                # train_reader._timing_measurements_batching.append(
+                #     after_getting_graphs-start_loop_time)
+                # train_reader._update_measurements.append(
+                #     after_running_update-start_loop_time)
+
+                # Log periodically the losses/step count.
+                # Need to change this for static batching that might skip the
+                # maximum number by one or two steps.
+                # is_last_step = (step >= config.num_train_steps_max)
+                if step % config.log_every_steps == 0:
+                    logging.info(f'Step {step} train loss: {loss_metrics["loss"]}')
+
+                # catch a NaN or too high loss, stop training if it happens
+                if (np.isnan(loss_metrics["loss"]) or
+                        (loss_metrics["loss"] > _MAX_TRAIN_LOSS)):
+                    logging.info('Invalid loss, stopping early.')
+                    # create a file that signals that training stopped early
+                    if not os.path.exists(workdir + '/ABORTED_EARLY'):
+                        with open(workdir + '/ABORTED_EARLY', 'w'):
+                            pass
+                    break
+                # state['step'].block_until_ready()
+            except:
+                logging.info(f'Failed to get batch for step: {step}')
 
     after_running_loop = time.time()
 
