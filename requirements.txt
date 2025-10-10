@@ -1,6 +1,5 @@
 # You need to install the correct version of jax for your CPU/GPU
-# see https://github.com/google/jax#installation
-tensorflow  
+# see https://github.com/google/jax#installation 
 numpy  
 jraph  
 dm-haiku  
