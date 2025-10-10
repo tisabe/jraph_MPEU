@@ -748,17 +748,16 @@ def train_and_evaluate(
                 # logging.info(f'graphs[0].n_node: {graphs[0].n_node}')
             logging.info(f'[i.n_node for i in graphs]: {[i.n_node for i in graphs]}')
             logging.info(f'[i.n_edge for i in graphs]: {[i.n_edge for i in graphs]}')
-
-            graphs = jraph.GraphsTuple(
-                n_node = np.array([i.n_node for i in graphs]),
-                n_edge = np.array([i.n_edge for i in graphs]),
-                nodes = np.array([i.nodes for i in graphs]),
-                edges = np.array([i.edges for i in graphs]),
-                globals = np.array([i.globals for i in graphs]),
-                senders = np.array([i.senders for i in graphs]),
-                receivers = np.array([i.receivers for i in graphs]),
-            )
             try:
+                graphs = jraph.GraphsTuple(
+                    n_node = np.array([i.n_node for i in graphs]),
+                    n_edge = np.array([i.n_edge for i in graphs]),
+                    nodes = np.array([i.nodes for i in graphs]),
+                    edges = np.array([i.edges for i in graphs]),
+                    globals = np.array([i.globals for i in graphs]),
+                    senders = np.array([i.senders for i in graphs]),
+                    receivers = np.array([i.receivers for i in graphs]),
+                )
 
                 # Update the weights after a gradient step and report the
                 # state/losses/optimizer gradient. The loss returned here is the loss
@@ -793,8 +792,17 @@ def train_and_evaluate(
                             pass
                     break
                 # state['step'].block_until_ready()
-            except:
-                logging.info(f'Failed to get batch for step: {step}')
+            except ValueError as e:
+                # Check if the error message matches the specific one you're looking for
+                if "setting an array element with a sequence. The requested array has an inhomogeneous shape" in str(e):
+                    logging.info(f"Caught the specific ValueError: {e}")
+                    logging.info(f'Failed to get batch for step: {step}')
+                    # Handle the error, e.g., log it, try to clean the data, etc.
+                else:
+                    # If it's a different ValueError, re-raise it or handle it differently
+                    logging.info(f'Unexpected erorr: {e}, at step {step}')
+                    raise
+                
 
     after_running_loop = time.time()
 
