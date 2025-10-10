@@ -635,7 +635,7 @@ def device_batch(
             batch.append(graph)
             logging.info(f'graphs before tree map: {batch}')
 
-            yield jax.tree_map(lambda *x: jnp.stack(x, axis=0), *batch)
+            yield jax.tree.map(lambda *x: jnp.stack(x, axis=0), *batch)
             batch = []
         else:
             batch.append(graph)
