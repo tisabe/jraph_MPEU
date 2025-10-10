@@ -708,7 +708,7 @@ def train_and_evaluate(
 
     # Start at step 1 (or state.step + 1 if state was restored).
     # state['step'] is initialized to 0 if no checkpoint was loaded.
-    initial_step = int(state['step']) + 1
+    initial_step = int(state['step'][0]) + 1
 
     # Begin training loop.
     logging.info('Starting training.')
