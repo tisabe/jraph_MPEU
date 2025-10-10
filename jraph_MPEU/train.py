@@ -734,8 +734,9 @@ def train_and_evaluate(
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
         # logging.info(f'state shape: {state.shape}')
-        logging.info(f'state shape: {state['params'].shape}')
-        logging.info(f'state shape: {state['opt_state'].shape}')
+        logging.info('Shapes of parameters in state:')
+        logging.info(jax.tree_util.tree_map(lambda x: logging.info(f'  - {x.shape}'), state['params']))
+        # logging.info(f'state shape: {state['opt_state'].shape}')
         logging.info(f'state shape: {state['step'].shape}')
 
         state, loss_metrics = updater.update(state, graphs)
