@@ -733,7 +733,7 @@ def train_and_evaluate(
             logging.error(f'graphs is not a GraphsTuple: {graphs}')
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
-        logging.info(f'state shape: {state.shape}')
+        # logging.info(f'state shape: {state.shape}')
         logging.info(f'state shape: {state['params'].shape}')
         logging.info(f'state shape: {state['opt_state'].shape}')
         logging.info(f'state shape: {state['step'].shape}')
