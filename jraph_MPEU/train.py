@@ -723,7 +723,13 @@ def train_and_evaluate(
         # on a batch not on the full training dataset.
         # state['step'].block_until_ready()
         # jax.block_until_ready(state['step'])
-
+        if isinstance(graphs, jraph.GraphsTuple):
+            logging.info(f'graphs.n_node.shape: {graphs.n_node.shape}')
+            logging.info(f'graphs.n_edge.shape: {graphs.n_edge.shape}')
+            logging.info(f'graphs.globals.shape: {graphs.globals.shape}')
+            # Check other fields if they exist, e.g., graphs.nodes.shape
+        else:
+            logging.error(f'graphs is not a GraphsTuple: {graphs}')
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
         state, loss_metrics = updater.update(state, graphs)
