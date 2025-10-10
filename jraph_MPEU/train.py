@@ -80,7 +80,7 @@ class Updater:
 
         self._loss_fn = functools.partial(self._loss_fn, net=self._net, state=state)
 
-        return state, opt_state
+        return state
 
     # Jit the functions
     # @functools.partial(jax.jit, static_argnums=0)
