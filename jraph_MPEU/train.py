@@ -718,6 +718,7 @@ def train_and_evaluate(
         # The next calls the 
         graphs = next(device_batch(train_reader))
         logging.info(f'graphs after device batch: {graphs}')
+
         # Update the weights after a gradient step and report the
         # state/losses/optimizer gradient. The loss returned here is the loss
         # on a batch not on the full training dataset.
@@ -732,6 +733,11 @@ def train_and_evaluate(
             logging.error(f'graphs is not a GraphsTuple: {graphs}')
         after_getting_graphs = time.time()
         # This needs to get passed to pmap, where it is jitted.
+        logging.info(f'state shape: {state.shape}')
+        logging.info(f'state shape: {state['params'].shape}')
+        logging.info(f'state shape: {state['opt_state'].shape}')
+        logging.info(f'state shape: {state['step'].shape}')
+
         state, loss_metrics = updater.update(state, graphs)
 
         # state['step'].block_until_ready()
