@@ -403,7 +403,8 @@ class DataReader:
 
         elif self.static_constant_batch is True:
             # Get the padding limits:
-            self.pad_nodes_to, self.pad_edges_to = get_static_budget_for_constant_size(self.data, batch_size)
+            self.pad_nodes_to, self.pad_edges_to = get_static_budget_for_constant_size(
+                self.data, batch_size)
             self.batch_generator = self.static_batch_constant(
                 self._generator,
                 self.batch_size,

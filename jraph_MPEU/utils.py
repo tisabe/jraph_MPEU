@@ -331,13 +331,6 @@ def pad_graph_to_constant_size(
     Returns:
         A graphs_tuple batched to the nearest power of two.
     """
-    # Add 1 since we need at least one padding node for pad_with_graphs.
-    # Note, the plus one should be insid ethe operator since we want a power of
-    # two returned.
-    pad_nodes_to = pad_nodes_to + 1
-    # edge_budget
-    # Add 1 since we need at least one padding graph for pad_with_graphs.
-    # We do not pad to nearest power of two because the batch size is fixed.
     pad_graphs_to = graphs_tuple.n_node.shape[0] + 1
     return jraph.pad_with_graphs(graphs_tuple, pad_nodes_to, pad_edges_to,
                                  pad_graphs_to)
@@ -476,7 +469,7 @@ def get_static_budget_for_constant_size(
         max_edges = max((max_edges, graph_size.n_edge))
 
 
-    pad_nodes_to = next_multiple_of_64(max_nodes * batch_size)
+    pad_nodes_to = next_multiple_of_64(max_nodes * batch_size + 1)
     pad_edges_to = next_multiple_of_64(max_edges * batch_size)
 
     return pad_nodes_to, pad_edges_to
