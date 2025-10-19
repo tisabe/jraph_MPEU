@@ -246,16 +246,28 @@ def create_config_file_path(
     )
     config = config.replace(
         '<number_of_training_steps>', str(number_of_training_steps))
-    if setting['dataset'] == 'aflow':
-        data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
-        label_str = "\'enthalpy_formation_atom\'"
-        config = config.replace('<data_file>', data_file)
-        config = config.replace('<label_str>', label_str)
-    elif setting['dataset'] == 'qm9':
-        data_file = "\'qm9/qm9_graphs_fc.db\'"
-        label_str = "\'U0\'"
-        config = config.replace('<data_file>', data_file)
-        config = config.replace('<label_str>', label_str)
+    if setting['network_type'] == 'painn':
+        if setting['dataset'] == 'aflow':
+            data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
+            label_str = "\'enthalpy_formation_atom\'"
+            config = config.replace('<data_file>', data_file)
+            config = config.replace('<label_str>', label_str)
+        elif setting['dataset'] == 'qm9':
+            data_file = "\'qm9/qm9_graphs_fc.db\'"
+            label_str = "\'U0\'"
+            config = config.replace('<data_file>', data_file)
+            config = config.replace('<label_str>', label_str)
+    else:
+        if setting['dataset'] == 'aflow':
+            data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
+            label_str = "\'enthalpy_formation_atom\'"
+            config = config.replace('<data_file>', data_file)
+            config = config.replace('<label_str>', label_str)
+        elif setting['dataset'] == 'qm9':
+            data_file = "\'qm9/qm9_graphs_fc.db\'"
+            label_str = "\'U0\'"
+            config = config.replace('<data_file>', data_file)
+            config = config.replace('<label_str>', label_str)
     folder_name = Path(folder_name)
     config_sub_string = (
         'config_' + setting['dataset'] + '_' + \
