@@ -69,8 +69,8 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 # Right now only painn compliant data.
 cd /u/dansp/multi_gpu_no_block/jraph_MPEU/
-source /u/dansp/multi_gpu_no_block/no_block_env/bin/activate
-srun python3.11 /u/dansp/multi_gpu_no_block/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
+source /u/dansp/multi_gpu_no_conda/py13_venv/bin/activate
+srun python3.13 /u/dansp/multi_gpu_no_conda/jraph_MPEU/scripts/train.py --workdir=<folder_name> --config=<config_name>
 """
 
 TEMPLATE_SCHNET_CONFIG = """
@@ -167,7 +167,7 @@ def get_config() -> ml_collections.ConfigDict():
 
     # Training hyperparameters
     config.num_train_steps_max = <number_of_training_steps>
-    config.eval_every_steps = 50_000
+    config.eval_every_steps = 100_000
     config.early_stopping_steps = 1_000_000
     config.num_checkpoints = 1  # number of checkpoints to keep
     config.log_every_steps = 100_000
