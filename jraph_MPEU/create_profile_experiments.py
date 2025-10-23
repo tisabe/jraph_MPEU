@@ -113,7 +113,8 @@ def get_config() -> ml_collections.ConfigDict():
     config.max_atomic_number = 90
     config.use_layer_norm = False
     config.dropout_rate = 0.0
-
+    # Logging options
+    config.log_to_file = False # if logging should go to file if true or console if false
     return config
 """
 
@@ -139,7 +140,8 @@ def get_config() -> ml_collections.ConfigDict():
     config.static_round_to_multiple = <static_round_to_multiple>
     config.static_constant_batch = <static_constant_batch>
     # MPNN hyperparameters we use the defaults.
-
+    # Logging options
+    config.log_to_file = False # if logging should go to file if true or console if false
     return config
 """
 
@@ -259,12 +261,12 @@ def create_config_file_path(
             config = config.replace('<label_str>', label_str)
     else:
         if setting['dataset'] == 'aflow':
-            data_file = "\'aflow/graphs_knn_for_histogram_2.db\'"
+            data_file = "\'/u/dansp/jraph_MPEU/aflow/graphs_knn.db\'"
             label_str = "\'enthalpy_formation_atom\'"
             config = config.replace('<data_file>', data_file)
             config = config.replace('<label_str>', label_str)
         elif setting['dataset'] == 'qm9':
-            data_file = "\'qm9/qm9_graphs_fc.db\'"
+            data_file = "\'/u/dansp/jraph_MPEU/qm9/qm9_graphs_fc.db\'"
             label_str = "\'U0\'"
             config = config.replace('<data_file>', data_file)
             config = config.replace('<label_str>', label_str)

@@ -276,7 +276,10 @@ def asedb_to_graphslist(
 
     for _, row in enumerate(ase_db.select(selection=selection, limit=limit)):
         graph = ase_row_to_jraph(row)
-        n_edge = graph.n_edge[0]
+        if 'histogram' in str(file):
+            n_edge = graph.n_edge[0]
+        else:
+            n_edge = int(graph.n_edge)
         if num_edges_max is not None:
             if n_edge > num_edges_max:  # do not include graphs with too many edges
                 # TODO: test this
