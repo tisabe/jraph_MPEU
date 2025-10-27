@@ -331,10 +331,6 @@ def pad_graph_to_constant_size(
     Returns:
         A graphs_tuple batched to the nearest power of two.
     """
-    # Add 1 since we need at least one padding node for pad_with_graphs.
-    # Note, the plus one should be insid ethe operator since we want a power of
-    # two returned.
-    pad_nodes_to = pad_nodes_to + 1
     # edge_budget
     # Add 1 since we need at least one padding graph for pad_with_graphs.
     # We do not pad to nearest power of two because the batch size is fixed.
