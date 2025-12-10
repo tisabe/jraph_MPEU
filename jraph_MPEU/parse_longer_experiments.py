@@ -236,7 +236,7 @@ class LongerParser():
                 if "LOG Message: Recompiling!" in line:
                     recompilation_counter = recompilation_counter + 1
                 if "Step " in line:
-                    split_line = line.split(' ')
+                    split_line = line.split()
                     step_num = split_line[-4]
                     # Add underscore for every set of three zeros.
                     step_num = re.sub(pattern, r"_\g<0>", step_num)

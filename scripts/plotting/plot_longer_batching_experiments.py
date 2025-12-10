@@ -20,16 +20,16 @@ flags.DEFINE_string(
 BASE_DIR = '/home/dts/Documents/hu/jraph_MPEU/batch_data'
 # COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_aflow_qm9_20_12_2024.csv'
 # Used for the MPEU/SchNet
-# COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_combined_19_01_2025.csv'
+COMBINED_CSV = 'parsed_profiling_batching_2_000_000_steps_combined_19_01_2025.csv'
 # Used for PaiNN
-COMBINED_CSV = 'parsed_profiling_painn_batching_2_000_000_steps_15_05_2025.csv'
+# COMBINED_CSV = 'parsed_profiling_painn_batching_2_000_000_steps_15_05_2025.csv'
 
 # BATCH_SIZE_LIST = [16, 32, 64, 128]
 BATCH_SIZE_LIST = [16, 32, 64, 128]
 
 # MODEL_TYPE_LIST = ['schnet', 'mpeu']
 # MODEL_TYPE_LIST = ['schnet', 'MPEU', 'PaiNN']
-MODEL_TYPE_LIST = ['schnet', 'painn']
+MODEL_TYPE_LIST = ['schnet', 'MPEU']
 
 
 # BATCH_METHOD_LIST = ['dynamic', 'static']
@@ -116,8 +116,10 @@ def plot_curves(
     for model in model_types:
         if model == 'schnet':
             y_shift = 1
+            data_split='val'
         else:
             y_shift = 0
+            data_split='test'
 
 
         print(f'y_shift is {y_shift}')
@@ -238,11 +240,11 @@ def plot_curves(
 def main(args):
 
     df = pd.read_csv(os.path.join(BASE_DIR, COMBINED_CSV))
-
+    print(df)
     # COMPUTING_TYPE_LIST
     plot_curves(
         df, MODEL_TYPE_LIST, BATCH_SIZE_LIST, BATCH_METHOD_LIST,
-        COMPUTING_TYPE_LIST[0], DATASET_LIST[1], data_split='test')
+        COMPUTING_TYPE_LIST[0], DATASET_LIST[0], data_split='test')
 
 
 if __name__ == '__main__':
